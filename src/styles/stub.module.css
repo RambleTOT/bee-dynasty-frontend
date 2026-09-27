@@ -1,0 +1,69 @@
+/* Общие стили заглушек каркаса (вход, заглушки экранов, 404, ошибка). Уйдут вместе с заглушками. */
+
+.screen {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: var(--space-6);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 560px;
+  padding: var(--space-6);
+  border-radius: var(--radius-card);
+  background: var(--bg-surface);
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.muted {
+  color: var(--text-secondary);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.input {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--bg-control);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+}
+
+.button {
+  align-self: flex-start;
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--bg-control);
+  color: var(--text-primary);
+}
+
+.button:disabled {
+  color: var(--text-tertiary);
+  cursor: default;
+}
+
+.error {
+  color: var(--st-danger);
+}
+
+.params {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-nested);
+  font-family: ui-monospace, monospace;
+}
