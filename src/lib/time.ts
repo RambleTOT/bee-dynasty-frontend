@@ -72,3 +72,76 @@ export function parseWindow(value: string): TimeWindow | null {
   if (Number.isNaN(start) || Number.isNaN(end)) return null;
   return { start: fromMin(start), end: fromMin(end) };
 }
+
+// --- ось таймлайна (FRONTEND_SPEC §10.3): часы из смен, 10:00 / 22:00 не зашиваем ---
+
+export interface TimeAxis {
+  /** Минуты от полуночи, кратно часу. */
+  start: number;
+  end: number;
+}
+
+/** Ось по сменам бригад дня: min `shift_start` вниз до часа, max `shift_end` вверх до часа. */
+export function timelineAxis(shifts: readonly { start: string; end: string }[]): TimeAxis | null {
+  const starts = shifts.map((s) => toMin(s.start)).filter(Number.isFinite);
+  const ends = shifts.map((s) => toMin(s.end)).filter(Number.isFinite);
+  if (starts.length === 0 || ends.length === 0) return null;
+  const start = Math.floor(Math.min(...starts) / 60) * 60;
+  const end = Math.ceil(Math.max(...ends) / 60) * 60;
+  return end > start ? { start, end } : null;
+}
+
+/** Отметки целых часов оси, в минутах. */
+export function axisHours(axis: TimeAxis): number[] {
+  const hours: number[] = [];
+  for (let m = axis.start; m <= axis.end; m += 60) hours.push(m);
+  return hours;
+}
+
+/** Доля 0…1 положения момента на оси (за краями — обрезаем). */
+export function axisFraction(minutes: number, axis: TimeAxis): number {
+  if (!Number.isFinite(minutes)) return 0;
+  const fraction = (minutes - axis.start) / (axis.end - axis.start);
+  return Math.min(1, Math.max(0, fraction));
+}
+
+// --- календарные даты 'YYYY-MM-DD' (считаем в UTC, чтобы не мешал переход на летнее время) ---
+
+const utc = (ymd: string) => new Date(`${ymd}T00:00:00Z`);
+const ymdOf = (date: Date) => date.toISOString().slice(0, 10);
+
+export function addDays(ymd: string, days: number): string {
+  const date = utc(ymd);
+  date.setUTCDate(date.getUTCDate() + days);
+  return ymdOf(date);
+}
+
+/** День недели ISO: 1 — понедельник, 7 — воскресенье. */
+export function isoWeekday(ymd: string): number {
+  return utc(ymd).getUTCDay() || 7;
+}
+
+/** 'YYYY-MM' даты. */
+export const monthOf = (ymd: string) => ymd.slice(0, 7);
+
+export function addMonths(month: string, count: number): string {
+  const [year, m] = month.split('-').map(Number);
+  const date = new Date(Date.UTC(year, m - 1 + count, 1));
+  return date.toISOString().slice(0, 7);
+}
+
+/** Первый и последний день месяца. */
+export function monthRange(month: string): { from: string; to: string } {
+  const from = `${month}-01`;
+  return { from, to: addDays(`${addMonths(month, 1)}-01`, -1) };
+}
+
+/** Сетка месяца для календаря: целые недели с понедельника, включая дни соседних месяцев. */
+export function monthGrid(month: string): string[] {
+  const { from, to } = monthRange(month);
+  const start = addDays(from, 1 - isoWeekday(from));
+  const end = addDays(to, 7 - isoWeekday(to));
+  const days: string[] = [];
+  for (let day = start; day <= end; day = addDays(day, 1)) days.push(day);
+  return days;
+}

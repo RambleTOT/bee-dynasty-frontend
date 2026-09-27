@@ -1,7 +1,27 @@
 /**
- * Справочники подписей — дословно по FRONTEND_SPEC §10.1 и ТЗ. Тона и цвета — отдельно (этап 02).
- * Статусы и флаги в интерфейсе берём только отсюда (правила проекта).
+ * Статусы заявки и флаги: подписи, тоны и иконки — дословно по FRONTEND_SPEC §10.1 и DESIGN_SPEC §2.4, §5.
+ * Статусы и флаги в интерфейсе берём только отсюда (правила проекта); TASK_STATUS дизайн-системы не используем.
  */
+import {
+  AlarmClockOff,
+  CalendarCheck,
+  CalendarClock,
+  CircleAlert,
+  CircleCheck,
+  CircleDashed,
+  CircleX,
+  ClockAlert,
+  Navigation,
+  RefreshCw,
+  Timer,
+  TimerReset,
+  Wrench,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react';
+
+/** Тон чипа: цвет текста `--st-{tone}` на подложке `--st-{tone}-bg`. */
+export type StatusTone = 'success' | 'info' | 'warning' | 'danger' | 'changed' | 'neutral';
 
 export const REQUEST_STATUSES = [
   'unassigned',
@@ -28,6 +48,47 @@ export const REQUEST_STATUS_LABEL: Record<RequestStatus, string> = {
   rescheduled: 'Перенесена',
 };
 
+export const REQUEST_STATUS_TONE: Record<RequestStatus, StatusTone> = {
+  unassigned: 'danger',
+  planned: 'neutral',
+  en_route: 'info',
+  in_progress: 'info',
+  done: 'success',
+  cancel_pending: 'warning',
+  cancelled: 'neutral',
+  reschedule_pending: 'warning',
+  rescheduled: 'neutral',
+};
+
+export const REQUEST_STATUS_ICON: Record<RequestStatus, LucideIcon> = {
+  unassigned: CircleAlert,
+  planned: CircleDashed,
+  en_route: Navigation,
+  in_progress: Wrench,
+  done: CircleCheck,
+  cancel_pending: ClockAlert,
+  cancelled: CircleX,
+  reschedule_pending: CalendarClock,
+  rescheduled: CalendarCheck,
+};
+
+/** Порядок сегментов полосы в ячейке календаря (FRONTEND_SPEC §8.2 DS-01): без отменённых и перенесённых. */
+export const CALENDAR_BAR_STATUSES: readonly RequestStatus[] = [
+  'done',
+  'in_progress',
+  'en_route',
+  'planned',
+  'cancel_pending',
+  'reschedule_pending',
+  'unassigned',
+];
+
+/** Заявка ждёт решения диспетчера (D-29). */
+export const PENDING_STATUSES: readonly RequestStatus[] = ['cancel_pending', 'reschedule_pending'];
+
+/** Заявка закрыта: у инженера — блок «Завершённые». */
+export const CLOSED_STATUSES: readonly RequestStatus[] = ['done', 'cancelled', 'rescheduled'];
+
 export const FLAGS = [
   'urgent',
   'at_risk',
@@ -45,6 +106,24 @@ export const FLAG_LABEL: Record<Flag, string> = {
   changed: 'Изменено',
   started_early: 'Начата раньше окна',
   reaction_late: 'Реакция > 2 ч',
+};
+
+export const FLAG_TONE: Record<Flag, StatusTone> = {
+  urgent: 'danger',
+  at_risk: 'warning',
+  late: 'danger',
+  changed: 'changed',
+  started_early: 'neutral',
+  reaction_late: 'danger',
+};
+
+export const FLAG_ICON: Record<Flag, LucideIcon> = {
+  urgent: Zap,
+  at_risk: ClockAlert,
+  late: AlarmClockOff,
+  changed: RefreshCw,
+  started_early: TimerReset,
+  reaction_late: Timer,
 };
 
 export const SKILLS = ['local', 'installation', 'emergency'] as const;
@@ -74,6 +153,21 @@ export const REGION_LABEL: Record<RegionId, string> = {
   south_east: 'Юго-восток',
   south_center: 'Югоцентр',
 };
+
+const has = (list: readonly string[], value: unknown): boolean =>
+  typeof value === 'string' && list.includes(value);
+
+export const isRequestStatus = (value: unknown): value is RequestStatus =>
+  has(REQUEST_STATUSES, value);
+export const isFlag = (value: unknown): value is Flag => has(FLAGS, value);
+export const isSkill = (value: unknown): value is Skill => has(SKILLS, value);
+export const isTransport = (value: unknown): value is Transport => has(TRANSPORTS, value);
+export const isRegionId = (value: unknown): value is RegionId => has(REGIONS, value);
+
+/** Только известные флаги, без повторов: бэк может прислать незнакомый — его не показываем. */
+export function knownFlags(flags: readonly unknown[] | null | undefined): Flag[] {
+  return [...new Set((flags ?? []).filter(isFlag))];
+}
 
 /** Подпись по справочнику. Незнакомое значение с бэка показываем как есть, пустое — ''. */
 export function labelOf<K extends string>(

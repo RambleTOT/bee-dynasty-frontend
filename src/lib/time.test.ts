@@ -1,5 +1,20 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fromMin, nowFor, nowMsk, parseWindow, todayMsk, toMin } from './time';
+import {
+  addDays,
+  addMonths,
+  axisFraction,
+  axisHours,
+  fromMin,
+  isoWeekday,
+  monthGrid,
+  monthRange,
+  nowFor,
+  nowMsk,
+  parseWindow,
+  timelineAxis,
+  todayMsk,
+  toMin,
+} from './time';
 
 afterEach(() => {
   vi.useRealTimers();
@@ -84,5 +99,51 @@ describe('parseWindow', () => {
 
   it.each(['', '10:00', 'утро', '10:00-25:99'])('%j — null', (value) => {
     expect(parseWindow(value)).toBeNull();
+  });
+});
+
+describe('ось таймлайна по сменам (§10.3)', () => {
+  it('CSV-день 10–22, синтетика 09–19', () => {
+    expect(timelineAxis([{ start: '10:00', end: '22:00' }])).toEqual({ start: 600, end: 1320 });
+    expect(timelineAxis([{ start: '09:00', end: '19:00' }])).toEqual({ start: 540, end: 1140 });
+  });
+
+  it('округление вниз и вверх до часа, min/max по бригадам', () => {
+    const axis = timelineAxis([
+      { start: '09:30', end: '18:10' },
+      { start: '10:00', end: '21:45' },
+    ]);
+    expect(axis).toEqual({ start: 540, end: 1320 });
+    expect(axisHours(axis!)).toHaveLength(14);
+    expect(axisFraction(toMin('15:30'), axis!)).toBeCloseTo((930 - 540) / 780);
+    expect(axisFraction(0, axis!)).toBe(0);
+  });
+
+  it('нет смен — нет оси', () => {
+    expect(timelineAxis([])).toBeNull();
+    expect(timelineAxis([{ start: 'x', end: 'y' }])).toBeNull();
+  });
+});
+
+describe('даты месяца', () => {
+  it('addDays через границу месяца и года', () => {
+    expect(addDays('2026-09-30', 1)).toBe('2026-10-01');
+    expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
+    expect(addDays('2026-03-01', -1)).toBe('2026-02-28');
+  });
+
+  it('addMonths, monthRange', () => {
+    expect(addMonths('2026-12', 1)).toBe('2027-01');
+    expect(addMonths('2026-01', -1)).toBe('2025-12');
+    expect(monthRange('2026-09')).toEqual({ from: '2026-09-01', to: '2026-09-30' });
+    expect(monthRange('2028-02')).toEqual({ from: '2028-02-01', to: '2028-02-29' });
+  });
+
+  it('monthGrid — целые недели с понедельника (как в DS-01: 31.08…04.10)', () => {
+    const grid = monthGrid('2026-09');
+    expect(grid[0]).toBe('2026-08-31');
+    expect(grid.at(-1)).toBe('2026-10-04');
+    expect(grid).toHaveLength(35);
+    expect(isoWeekday('2026-09-28')).toBe(1);
   });
 });
