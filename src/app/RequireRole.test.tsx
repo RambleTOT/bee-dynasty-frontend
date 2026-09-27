@@ -77,7 +77,7 @@ describe('RequireRole', () => {
 
   it('пока профиль грузится — лоадер, без редиректа', () => {
     renderAt('/dispatcher', authAs(null, 'loading'));
-    expect(screen.getByRole('status')).toHaveTextContent('Загрузка');
+    expect(screen.getByRole('status', { name: /Загрузка/ })).toBeInTheDocument();
     expect(screen.getByTestId('url')).toHaveTextContent('/dispatcher');
   });
 });

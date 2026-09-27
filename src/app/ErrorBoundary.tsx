@@ -1,16 +1,23 @@
+import { TriangleAlert } from 'lucide-react';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import stub from '@/styles/stub.module.css';
+import { Button, EmptyState } from '@/ui';
+import styles from '@/pages/pages.module.css';
 
 /** Экран ошибки: и для корневого ErrorBoundary, и как `errorElement` маршрутов. */
 export function ErrorFallback() {
   return (
-    <main className={stub.screen}>
-      <section className={stub.card} role="alert">
-        <h1 className={stub.title}>Что-то пошло не так</h1>
-        <button type="button" className={stub.button} onClick={() => window.location.reload()}>
-          Перезагрузить
-        </button>
-      </section>
+    <main className={styles.screen}>
+      <div className={styles.card} role="alert">
+        <EmptyState
+          icon={TriangleAlert}
+          title="Что-то пошло не так"
+          action={
+            <Button variant="tertiary" onClick={() => window.location.reload()}>
+              Перезагрузить
+            </Button>
+          }
+        />
+      </div>
     </main>
   );
 }

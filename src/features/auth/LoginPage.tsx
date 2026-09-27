@@ -1,17 +1,20 @@
+import { Eye, EyeOff } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { errorMessage, isApiError } from '@/api/errors';
 import { homeAfterLogin } from '@/auth/roles';
 import { useAuth } from '@/auth/useAuth';
 import { PageLoader } from '@/pages/PageLoader';
-import stub from '@/styles/stub.module.css';
+import { Button, Callout, IconButton, Input, Logo } from '@/ui';
+import styles from './LoginPage.module.css';
 
-/** S-01 Вход. Пока функциональная форма без дизайна (вёрстка по макету — этап 02). */
+/** S-01 Вход (FRONTEND_SPEC §8.1, макет S-01). Без регистрации и демо-кнопок (D-17). */
 export function LoginPage() {
   const { status, role, login } = useAuth();
   const [searchParams] = useSearchParams();
   const [loginValue, setLoginValue] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -37,41 +40,58 @@ export function LoginPage() {
   }
 
   return (
-    <main className={stub.screen}>
-      <form className={stub.card} onSubmit={(event) => void handleSubmit(event)}>
-        <h1 className={stub.title}>Вход</h1>
-        <label className={stub.field}>
-          Логин
-          <input
-            className={stub.input}
+    <main className={styles.screen}>
+      <form className={styles.card} onSubmit={(event) => void handleSubmit(event)} noValidate>
+        <div className={styles.head}>
+          <Logo size={44} product={null} />
+          <div>
+            <h1 className={styles.title}>Маршруты инженеров</h1>
+            <p className={styles.subtitle}>Вход для сотрудников</p>
+          </div>
+        </div>
+        <div className={styles.fields}>
+          <Input
+            label="Логин"
             name="login"
             autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
             required
             value={loginValue}
             onChange={(event) => setLoginValue(event.target.value)}
           />
-        </label>
-        <label className={stub.field}>
-          Пароль
-          <input
-            className={stub.input}
+          <Input
+            label="Пароль"
             name="password"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             autoComplete="current-password"
             required
             value={password}
             onChange={(event) => setPassword(event.target.value)}
+            trailing={
+              <IconButton
+                icon={showPassword ? EyeOff : Eye}
+                label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowPassword((value) => !value)}
+              />
+            }
           />
-        </label>
-        {error && (
-          <p className={stub.error} role="alert">
-            {error}
-          </p>
-        )}
-        <button type="submit" className={stub.button} disabled={pending}>
-          {pending ? 'Входим…' : 'Войти'}
-        </button>
+        </div>
+        {error && <Callout tone="danger">{error}</Callout>}
+        <Button
+          type="submit"
+          variant="primary"
+          size="lg"
+          fullWidth
+          loading={pending}
+          disabled={!loginValue.trim() || !password}
+        >
+          Войти
+        </Button>
       </form>
+      <footer className={styles.footer}>Кейс от Билайн Бизнес · ЛЦТ 2026 · прототип</footer>
     </main>
   );
 }

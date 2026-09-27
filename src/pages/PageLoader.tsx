@@ -1,9 +1,10 @@
-import stub from '@/styles/stub.module.css';
+import { Spinner } from '@/ui';
+import styles from './pages.module.css';
 
 export function PageLoader() {
   return (
-    <div className={stub.screen} role="status" aria-live="polite">
-      <span className={stub.muted}>Загрузка…</span>
+    <div className={styles.center}>
+      <Spinner size={24} label="Загрузка…" />
     </div>
   );
 }
