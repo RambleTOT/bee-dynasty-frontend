@@ -6,7 +6,13 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig([
-  globalIgnores(['dist', 'coverage', 'public/mockServiceWorker.js', 'src/api/schema.d.ts']),
+  globalIgnores([
+    'dist',
+    'coverage',
+    'design/_unpacked',
+    'public/mockServiceWorker.js',
+    'src/api/schema.d.ts',
+  ]),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [js.configs.recommended, tseslint.configs.recommended, reactRefresh.configs.vite()],

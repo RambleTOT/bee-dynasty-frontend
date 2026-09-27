@@ -14,7 +14,8 @@
     "test": "vitest run",
     "format": "prettier --write .",
     "gen:types": "openapi-typescript https://api.bee-dynasty.ru/openapi.json -o src/api/schema.d.ts",
-    "snapshot": "node scripts/snapshot-api.mjs"
+    "snapshot": "node scripts/snapshot-api.mjs",
+    "design:unpack": "node scripts/unpack-design.mjs design/Dispatcher_Flow.html && node scripts/unpack-design.mjs design/Engineer.html && node scripts/unpack-design.mjs design/Operator.html"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.0",

@@ -14,3 +14,6 @@ samples/
 # системное и логи
 .DS_Store
 *.log
+
+# распаковка макетов (npm run design:unpack)
+design/_unpacked/
