@@ -61,3 +61,8 @@ a {
 .num {
   font-variant-numeric: tabular-nums;
 }
+
+/* иконки lucide — контур 1,75 px (DESIGN_SPEC §2.7); где нужно, компонент задаёт свой */
+.lucide {
+  flex: none;
+}

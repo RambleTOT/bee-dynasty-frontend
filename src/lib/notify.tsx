@@ -1,9 +1,19 @@
+import { CircleCheck, CircleX, Info, X } from 'lucide-react';
 import { useSyncExternalStore, type ReactNode } from 'react';
 import styles from './notify.module.css';
 
 export type NotifyKind = 'info' | 'error' | 'success';
 
-interface Notice {
+export interface NotifyOptions {
+  /** Вторая строка тоста. */
+  description?: string;
+  /** Кнопка в тосте: «Новая запись». */
+  action?: { label: string; onClick: () => void };
+  /** Не скрывать через 4 с — висит, пока не закроют. */
+  persistent?: boolean;
+}
+
+interface Notice extends NotifyOptions {
   id: number;
   text: string;
   kind: NotifyKind;
@@ -22,30 +32,44 @@ function emit() {
 }
 
 function hide(id: number) {
+  clearTimeout(timers.get(id));
   timers.delete(id);
   notices = notices.filter((notice) => notice.id !== id);
   emit();
 }
 
-function scheduleHide(id: number) {
+function scheduleHide(id: number, persistent?: boolean) {
   clearTimeout(timers.get(id));
+  if (persistent) return;
   timers.set(
     id,
     setTimeout(() => hide(id), HIDE_AFTER_MS),
   );
 }
 
-/** Уведомление внизу экрана на 4 с. Такое же уже на экране — не дублируем, а продлеваем. */
+/**
+ * Тост внизу экрана на 4 с (тёмная плашка дизайн-системы). Такой же уже на экране — не дублируем,
+ * а продлеваем.
+ */
 // eslint-disable-next-line react-refresh/only-export-components -- API стека, а не компонент
-export function notify(text: string, kind: NotifyKind = 'info'): void {
+export function notify(text: string, kind: NotifyKind = 'info', options: NotifyOptions = {}): void {
   const same = notices.find((notice) => notice.text === text && notice.kind === kind);
   if (same) {
-    scheduleHide(same.id);
+    scheduleHide(same.id, options.persistent);
     return;
   }
   const id = nextId++;
-  notices = [...notices, { id, text, kind }];
-  scheduleHide(id);
+  notices = [...notices, { id, text, kind, ...options }];
+  scheduleHide(id, options.persistent);
+  emit();
+}
+
+/** Закрыть все тосты (например, при уходе со страницы записи). */
+// eslint-disable-next-line react-refresh/only-export-components -- API стека, а не компонент
+export function dismissAll(): void {
+  for (const id of timers.keys()) clearTimeout(timers.get(id));
+  timers.clear();
+  notices = [];
   emit();
 }
 
@@ -58,22 +82,55 @@ function subscribe(listener: () => void) {
 
 const getSnapshot = () => notices;
 
-/** Рендерит приложение и стек уведомлений поверх него. Вид — временный, до Toast из ui/ (этап 02). */
+const ICON = { info: Info, success: CircleCheck, error: CircleX } as const;
+
+/** Рендерит приложение и стек тостов поверх него. */
 export function NotifyProvider({ children }: { children: ReactNode }) {
   const items = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   return (
     <>
       {children}
       <div className={styles.stack} aria-live="polite">
-        {items.map((notice) => (
-          <div
-            key={notice.id}
-            role={notice.kind === 'error' ? 'alert' : undefined}
-            className={`${styles.item} ${styles[notice.kind]}`}
-          >
-            {notice.text}
-          </div>
-        ))}
+        {items.map((notice) => {
+          const Icon = ICON[notice.kind];
+          return (
+            <div
+              key={notice.id}
+              role={notice.kind === 'error' ? 'alert' : 'status'}
+              className={styles.item}
+            >
+              <Icon size={20} className={styles[notice.kind]} aria-hidden />
+              <div className={styles.text}>
+                <div className={styles.title}>{notice.text}</div>
+                {notice.description && (
+                  <div className={styles.description}>{notice.description}</div>
+                )}
+              </div>
+              {notice.action && (
+                <button
+                  type="button"
+                  className={styles.action}
+                  onClick={() => {
+                    hide(notice.id);
+                    notice.action?.onClick();
+                  }}
+                >
+                  {notice.action.label}
+                </button>
+              )}
+              {(notice.persistent || notice.action) && (
+                <button
+                  type="button"
+                  aria-label="Закрыть"
+                  className={styles.close}
+                  onClick={() => hide(notice.id)}
+                >
+                  <X size={18} aria-hidden />
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
     </>
   );
