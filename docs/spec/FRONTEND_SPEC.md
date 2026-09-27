@@ -1,7 +1,33 @@
 # ТЗ фронтенда — сервис планирования маршрутов инженеров
 
-ЛЦТ 2026 · кейс №3 «Билайн Бизнес» · **версия 2.2 от 27.09.2026** — раздел диспетчера согласован по макету `design/Dispatcher_Flow.html`.
+ЛЦТ 2026 · кейс №3 «Билайн Бизнес» · **версия 2.6 от 28.09.2026** — финальные макеты всех ролей: диспетчер — `design/Dispatcher_Flow.html`, инженер — `design/Engineer.html`, оператор — `design/Operator.html` (§2.1).
 Исполнитель: Артём. Код пишем с нуля по готовым макетам. Бэк уже работает на `https://api.bee-dynasty.ru`.
+
+**Что изменилось в v2.6 (28.09, ночь) — финальные макеты:**
+- новый §2.1 — файлы финальных макетов, распаковка бандлов (`scripts/unpack-design.mjs`, `npm run design:unpack`), соответствие токенов, дизайн-система, что из макетов не переносить;
+- §8.2 — таблица «Финальный макет диспетчера против ТЗ» (24 пункта: где прав ТЗ, что берём из макета, что дописано), D-36;
+- флаги правок бэка — в `FEATURES` из `src/config.ts` этапа 01 вместо отдельного файла (§5.4); новый флаг `addEngineerAfterPublish` (бэк §12);
+- §17 — этапы работ после каркаса (A…H) для всех ролей;
+- имена файлов макетов: `Engineer.html`, `Operator.html` (без `.dc`).
+
+**Что изменилось в v2.5 (28.09, ночь):**
+- §8.3 «Оператор» — полное ТЗ внутри этого документа (было в отдельном `OPERATOR_SPEC.md` v1.0; по смыслу без изменений, D-33…D-35);
+- новый §5.4 — флаги правок бэка и запасные пути для всех ролей, статус живой схемы на 28.09 01:20. **Ручек часов дня в схеме нет** — готовим запасной путь §7;
+- новый §17 — план работ по инженеру и оператору поверх диспетчера;
+- правки бэка — один файл `BACKEND_FIXES_FINAL_28-09.md`, номера ⏳ в тексте — оттуда;
+- диспетчер (§6, §7, §8.2) и инженер (§9) по смыслу не менялись.
+
+**Что изменилось в v2.4 (28.09, ночь):**
+- оператор вынесен в отдельный документ `OPERATOR_SPEC.md` v1.0 (согласован по макету, D-33…D-35); §8.3 — ссылка на него;
+- правки бэка по оператору — `BACKEND_FIXES_OPERATOR_28-09.md` (9.1–9.9), в том числе бывшие пункты бэклога §5 и §8;
+- §1, §3, §4, §5.1–§5.3, §13, §14, §16 — под новый документ.
+
+**Что изменилось в v2.3 (28.09):**
+- §9 «Инженер» переписан по согласованному макету (D-30…D-32): подписи кнопок статуса, начать можно только текущую заявку, заявка после «Прервать» не остаётся текущей, экран E-03.1, меню ⋯, «Завершить смену», баннер только после решения диспетчера;
+- «Инцидент» показываем, только если бэк добавит действие `incident`: в живой схеме 28.09 его нет;
+- `EngineerVisit` выверен по живой схеме: без `lat` / `lon`; ⏳ `actual_start`, `actual_end`, `equipment`;
+- правки бэка по инженеру — `BACKEND_FIXES_27-09.md` §8;
+- §3, §4, §13, §14, §16 — под новый §9.
 
 **Что изменилось в v2.2 (27.09, ночь):**
 - новый §6.8: синтетические наборы `*.instance.json` — каких полей нет, что показываем вместо них, признак синтетики, условные координаты;
@@ -24,16 +50,19 @@
 
 **Смежные документы:**
 - `design/Dispatcher_Flow.html` — **согласованный макет диспетчера** (источник правды по его виду).
-- `DESIGN_SPEC.md` + папка `design/` — вёрстка остальных ролей. Экраны S-01, DS-01…DS-10, O-01…O-03, E-01…E-10. **Дизайн заморожен.**
+- `design/Engineer.html` — **согласованный макет инженера** (E-01, E-02, E-03, E-03.1, E-03.2, E-03.3, E-04, E-06…E-10).
+- `design/Operator.html` — **согласованный макет оператора** (O-02, O-01 обычная заявка и авария, O-01.2); поведение — §8.3.
+- `DESIGN_SPEC.md` + папка `design/` — вёрстка входа (S-01) и общие компоненты. **Дизайн заморожен.**
 - `UI_KIT_tokens.md` — стиль.
 - `FRONTEND_AGENT_GUIDE.md` (от бэка) и Swagger `https://api.bee-dynasty.ru/docs` — API.
-- `BACKEND_FIXES_27-09.md` — что бэк доделывает сейчас.
-- `DECISIONS.md` (D-01…D-29).
+- `BACKEND_FIXES_FINAL_28-09.md` — итоговый список правок бэка (§1–§12); номера ⏳ в этом ТЗ — оттуда.
+- `DECISIONS.md` (D-01…D-36).
+- `ENGINEER_SPEC_REVIEW_28-09.md`, `OPERATOR_SPEC_REVIEW_28-09.md` — сверки макетов инженера и оператора с ТЗ.
 - `*.instance.json`, `demo_30.json` — синтетические наборы алгоритма (§6.8).
 
 **Метки:**
 - [Д] — допущение;
-- ⏳ — зависит от правки бэка из `BACKEND_FIXES_27-09.md`; для каждого такого места описан запасной путь;
+- ⏳ — зависит от правки бэка из `BACKEND_FIXES_FINAL_28-09.md`; флаг и запасной путь — §5.4;
 - **P0** — видео и сдача 29.09; **P1** — если успеваем до 28.09 18:00.
 
 **Критерии жюри:**
@@ -49,8 +78,8 @@
 | Роль | Устройство | Главное |
 |---|---|---|
 | Диспетчер (`dispatcher`) | десктоп ≥ 1280 | календарь заявок → день «Карта / Таймлайн» → объяснение, события, предложение с diff, сравнение наш / FIFO / реальный |
-| Оператор (`operator`) | десктоп | запись клиента в свободное окно, авария, поиск, отмена, перенос |
-| Инженер (`engineer`) | телефон, 360–430 px | свой маршрут, статусы, «Прервать выполнение», карта, ссылка в Яндекс Карты |
+| Оператор (`operator`) | десктоп | поиск заявки → отмена или перенос; запись в 2 шага (поля → дата и окно); авария → диспетчеру (§8.3) |
+| Инженер (`engineer`) | телефон, 360–430 px | свой маршрут, статусы, «Прервать», карта, ссылка в Яндекс Карты |
 
 **Правила, которые влияют на код:**
 1. **Изменения назначений принимает диспетчер.**
@@ -85,13 +114,74 @@
 
 Не берём: Redux, UI-киты (MUI и т. п.), готовые календари и Gantt. Календарь месяца и таймлайн — свои, на CSS Grid.
 
+### 2.1. Макеты: файлы, распаковка, токены, компоненты
+**Финальные макеты (28.09).** Вёрстку берём только отсюда:
+
+| Роль | Файл в репозитории | Экраны |
+|---|---|---|
+| Диспетчер | `design/Dispatcher_Flow.html` + вложенные страницы `DispatcherCalendar.dc.html`, `DispatcherDay.dc.html` | S-01, DS-01…DS-10, вкладки правой панели «Сравнение», «Неназначенные», «Лента», «Версии» |
+| Инженер | `design/Engineer.html` | E-01, E-02, E-03, E-03.1…E-03.3, E-04, E-06…E-10 |
+| Оператор | `design/Operator.html` | O-02, O-01 (обычная заявка и авария), O-01.2 (выбор окна, успех, «окно заняли») |
+
+**Как читать.** Файлы — HTML-бандлы макетов: разметка и ресурсы лежат внутри в base64 + gzip, поэтому напрямую их не прочитать.
+- Распаковка: `npm run design:unpack` → `node scripts/unpack-design.mjs design/<файл>.html` для каждого из трёх файлов.
+- Результат — в `design/_unpacked/<имя>/` (папка в `.gitignore`):
+  - `index.html` — разметка;
+  - `pages/*.html` — вложенные страницы;
+  - `assets/` — логотип, шрифты, скрипты;
+  - `MANIFEST.md` — список файлов.
+- **Разметка — формат x-dc:**
+  - HTML-шаблон с `{{ … }}`, `<sc-for>`, `<sc-if>`;
+  - компоненты дизайн-системы — `<x-import component-from-global-scope="DS_4fbbd1.Button" …>`;
+  - вложенная страница — `<dc-import name="DispatcherDay" state="csv|published|live" view="map|timeline" tab="…">`: это `pages/DispatcherDay.dc.html` в нужном состоянии; ссылки внутри страниц на `_ds/…/_ds_bundle.js` и `support.js` — тот же бандл дизайн-системы из `assets/`;
+  - данные и тексты экранов — в `renderVals()` внутри `<script type="text/x-dc">` в конце файла;
+  - стили — inline и CSS-переменные.
+- **Дизайн-система** — файл `assets/<uuid>.js`, который начинается с `/* @ds-bundle … "namespace":"DS_4fbbd1"`. Это исходник компонентов: Button, IconButton, Icon (lucide), StatusChip, UrgentFlag, SegmentedControl, Select, Switch, Radio, Checkbox, Input / Field, Table, Drawer / Dialog, Popover / Tooltip, Toast, Card, Metric, EngineerAvatar, RouteMarker, TimeSlotPicker, Timeline, MapView.
+  - По нему повторяем варианты, размеры и состояния `ui/*`, но пишем свой код на CSS Modules и токенах `tokens.css`, React-код как есть не копируем.
+
+**Из макетов берём:** раскладку, размеры, отступы, иконки (имена lucide), тексты-шаблоны, состояния экранов.
+
+**Не берём:**
+- **Демо-данные:** имена, номера заявок, км, время, даты, «Ирина Ковалёва», «Алексей Гончаров», «Все бригады · 12», «1 314 заявок за месяц».
+- **Зашитые значения:** ось 10–22, «смена 10–22», «ОКНО 18–20» в шаблоне.
+- **Подписи-заглушки** «пример» и «цифры — пример».
+- **Служебное из макетов:** навигацию между макетами и остатки в `renderVals`, которые не выведены на экран: `fileMsgs`, `evOptsP1` («Транспорт», «Задержка»), `trPick`, `dayBoards`, `secs`, `hintNow`, `retry`.
+- **`TASK_STATUS` из дизайн-системы:** там другая модель статусов. Статусы и флаги — только из `lib/statuses.ts`.
+- **Компоненты `DispatcherApp`, `EngineerApp`, `OperatorApp` из бандла** — это черновые примеры дизайн-системы, по ним не верстаем.
+
+**Токены.** Макеты используют имена дизайн-системы, в коде — `styles/tokens.css` из этапа 01. Значения совпадают, имена разные. При переносе стилей меняем имена по таблице:
+
+| В макете | В `tokens.css` |
+|---|---|
+| `--bg-nested` · `--bg-control-track` | `--bg-surface-nested` · `--bg-control` |
+| `--text-on-inverse` · `--text-on-accent` | `--on-inverse` · `--on-accent` |
+| `--status-{success,info,warning,danger,changed,neutral}` и `…-bg` | `--st-{…}` и `--st-{…}-bg` |
+| `--radius-field` · `--radius-overlay` · `--radius-inner` | `--radius-md` · `--radius-lg` · `--radius-sm` |
+| `--shadow-popover` | `--shadow-float` |
+| `--font-sans` | `--font` |
+| `--focus-ring` (outline 3 px) | наш `--focus-ring` (кольцо через `box-shadow`, `DESIGN_SPEC` §2.3) [Д] |
+
+**Добавить в `tokens.css`** со значениями из макета (в `:root` любого из трёх файлов):
+- `--accent-hover`, `--accent-press`;
+- `--line-subtle`, `--line-strong`;
+- `--flag-urgent-bg`, `--flag-urgent-text`;
+- `--route-1` … `--route-12`;
+- `--font-metric`, `--font-h1`, `--font-h2`, `--font-h3`, `--font-body`, `--font-body-medium`, `--font-caption`, `--font-caption-medium`, `--font-axis`;
+- `--control-h-sm / md / lg`, `--hit-min`, `--shadow-drawer`, `--icon-sm / md / lg`;
+- `--ease-standard`, `--dur-fast / base / slow`;
+- `--map-route-width`, `--map-marker-size`, `--map-marker-stroke`.
+
+HEX вне `tokens.css` по-прежнему запрещены.
+
 ---
 
 ## 3. Структура
 ```
-scripts/          snapshot-api.mjs (§12), gen-types.sh
+scripts/          snapshot-api.mjs (§12), unpack-design.mjs (§2.1), gen-types.sh
+design/           Dispatcher_Flow.html, Engineer.html, Operator.html; _unpacked/ — распаковка, в .gitignore (§2.1)
 docs/api-examples/  снимки живых ответов (*.json) — источник для адаптеров и моков
 src/
+  config.ts       API_URL, USE_MOCKS, POLL, TZ, FEATURES (§5.4) — из этапа 01
   app/            router.tsx, providers.tsx, RequireRole.tsx, AppBar.tsx
   api/            client.ts, errors.ts, schema.d.ts (генерируется), types.ts (ручные типы для «obj»-ответов),
                   queryKeys.ts, auth.ts, calendar.ts, days.ts, data.ts, planning.ts, events.ts,
@@ -102,7 +192,8 @@ src/
   ui/             Button, SegmentedControl, FilterBar, StatusChip, FlagChip, Chip, Popover, Drawer, Modal,
                   BottomSheet, Toast, Banner, Field (Input, Select, DatePicker, TimePicker, Textarea,
                   Toggle, RadioPills, Dropzone), EmptyState, Skeleton, ErrorState, Tabs
-  lib/            time.ts, format.ts, statuses.ts, dictionaries.ts, colors.ts, yandexMaps.ts, explainTexts.ts
+  lib/            time.ts, format.ts, statuses.ts, dictionaries.ts, colors.ts, yandexMaps.ts, explainTexts.ts,
+                  engineerLabels.ts, booking.ts
   features/
     auth/         LoginPage
     dispatcher/
@@ -117,9 +208,10 @@ src/
       reassign/   ReassignModal
       roster/     RosterDrawer
       summary/    CompareModal, DaySummaryModal
-    operator/     BookingPage, SlotGrid, SearchPage, EmergencyModal
-    engineer/     EngineerApp, PreviewScreen, TransportSheet, VisitList, ActiveVisitCard,
-                  VisitCardPage, EngineerMap, InterruptSheet, IncidentSheet, UnavailableSheet,
+    operator/     OperatorLayout, search/*, booking/*, reschedule/* — состав в §8.3.2
+    engineer/     EngineerApp, EngineerMenu, PreviewScreen, TransportSheet, VisitList, ActiveVisitCard,
+                  StatusPanel, WaitingRow, CompletedBlock, DoneToast, VisitCardPage, EngineerMap,
+                  InterruptSheet, IncidentSheet, UnavailableSheet, ShiftEndConfirm,
                   PlanChangedBanner, ShiftSummary
 design/           экспорт макетов — эталон вёрстки
 ```
@@ -127,7 +219,7 @@ design/           экспорт макетов — эталон вёрстки
 ---
 
 ## 4. Роуты и состояние в URL
-Фильтры и открытые панели держим в query-параметрах.
+Фильтры и открытые панели держим в query-параметрах. В каркасе этапа 01 у оператора были заглушки `/operator` = O-01 и `/operator/search` = O-02 — заменить на роуты ниже.
 
 | Путь | Экран | Параметры |
 |---|---|---|
@@ -135,10 +227,11 @@ design/           экспорт макетов — эталон вёрстки
 | `/` | редирект по роли из `GET /auth/me` | — |
 | `/dispatcher` | DS-01 Календарь | `month=2026-09`, `region=all\|east\|south_east\|south_center` (по умолчанию `all`), `status`, `type` — по одному значению; `modal=import` (DS-02) |
 | `/dispatcher/day/:date` | DS-03 День | `region` (один регион), `status`, `type`, `view=map\|timeline`, `tab=compare\|unassigned\|feed\|versions`, `engineer=<id>`, `request=<id>` (DS-04), `proposal=<plan_id>` (DS-07), `modal=event\|reassign\|roster\|compare\|summary` (+ `event_type`, `order`) |
-| `/operator` | O-01 | `region`, `date` |
-| `/operator/search` | O-02 | `q` |
-| `/engineer` | E-01 / E-03 / E-04 | `view=list\|map` |
-| `/engineer/request/:id` | E-05 | — |
+| `/operator` | O-02 Найти заявку | `q`, `request=<id>`, `cancel=1` |
+| `/operator/new` | O-01 → O-01.2 | `tab=regular\|emergency` |
+| `/operator/reschedule/:id` | O-02.1 Перенос | — (§8.3.3) |
+| `/engineer` | E-01 / E-03 / E-04 / E-10 — по состоянию дня (§9) | `view=list\|map`, `sheet=transport\|interrupt\|incident\|unavailable` (E-02, E-06, E-07, E-08) |
+| `/engineer/request/:id` | E-03.1 / E-05 Карточка заявки | `sheet=interrupt\|incident` (для текущей) |
 
 - `RequireRole` пускает только свою роль.
 - 401 → сброс токена и переход на `/login`.
@@ -172,7 +265,7 @@ export function toApiError(status: number, body: any): ApiError {
 | День диспетчера (`/days`, план, лента) | 10 с |
 | Экран инженера | 15 с |
 | Календарь | 30 с |
-| Слоты оператора | при изменении формы, debounce 300 мс |
+| Окна оператора | фоном на шаге 1 (debounce 300 мс); на шаге «Дата и окно» — при смене даты и каждые 30 с (§8.3.4) |
 
   Опрос выключаем, когда вкладка скрыта: `refetchIntervalInBackground: false`.
 
@@ -243,13 +336,14 @@ export function toApiError(status: number, body: any): ApiError {
 { region_id, date, window, type_bk, type_hd?, address, district?, gigabit?, technology?, required_transport?, client_contact? }
 // BookingRequestOut
 { request_id, scenario_id, status, tentative_engineer_id?, plan_id?, window }
-// EngineerActionIn
+// EngineerActionIn — в схеме 28.09 action: shift_start|en_route|start|complete|fail|delay|unavailable|shift_end
 { action: 'shift_start'|'en_route'|'start'|'complete'|'fail'|'delay'|'unavailable'|'shift_end' (+ ⏳ 'incident'), request_id?, at?, payload? }
 // EngineerActionOut
 { engineer_id, action, status, event_id?, request_id?, day? }
-// EngineerVisit
+// EngineerVisit — по живой схеме 28.09: координат, окончания и фактов нет
 { request_id, sequence, status, flags[], type_bk?, type_hd?, address?, district?, window /*"10:00-12:00"*/, arrival?, start?,
-  duration_minutes, leg_km, gigabit, technology?, why_you, lat?, lon? }
+  duration_minutes, leg_km, gigabit, technology?, why_you,
+  actual_start? /* ⏳ */, actual_end? /* ⏳ */, equipment? /* ⏳ P2: {вид: количество} */ }
 // UserOut
 { id, login, name, role, region_ids[], engineer_id? }
 // RegionOut
@@ -268,17 +362,19 @@ export interface DayRegion { region_id: RegionId; name: string; scenario_id: str
 export interface DayResponse { date: string; regions: DayRegion[] }
 export interface EngineerMeDay { date: string; plan_published: boolean; clock?: string | null /* ⏳ */;
   engineer: { id: string; name: string; transport: Transport; actual_transport?: Transport | null; shift_start: string;
-              shift_end: string; shift_status: ShiftStatus; start?: { kind: string; address?: string; lat?: number; lon?: number } };
+              shift_end: string; shift_status: ShiftStatus; available_until?: string | null;
+              start?: { kind: string; address?: string; lat?: number; lon?: number };
+              color_index?: number /* ⏳ P2 */ };
   summary: { total: number; done: number; km_planned?: number; first_start?: string | null };
   active_request_id?: string | null; visits: EngineerVisit[];
   banners: { type: string; text: string; at?: string; request_id?: string }[];
   shift_totals?: { done: number; total: number; started_in_window: number; km: number;
-                   minutes_travel: number; minutes_work: number; minutes_wait: number; interrupted: number } }
+                   minutes_travel: number; minutes_work: number; minutes_wait: number; interrupted: number;
+                   started_at?: string; ended_at?: string /* ⏳ */ } }
 export interface EngineerRoute { transport: Transport; start: { lat: number; lon: number; label: string };
   points: { request_id: string; sequence: number; lat: number; lon: number; address?: string }[];
   geometry: { type: 'LineString'; coordinates: [number, number][] } }   // [lon, lat]
-export interface BookingSearchItem { request_id: string; region_id: RegionId; date: string; window: string;
-  address: string; type_bk: string; type_hd?: string; status: RequestStatus }
+// BookingSearchItem, BookingCancelBody, BookingMutationResult — §8.3.4 (с полями ⏳ 9.2–9.4)
 ```
 
 ### 5.3. Экран → ручка
@@ -301,14 +397,64 @@ export interface BookingSearchItem { request_id: string; region_id: RegionId; da
 | DS-08 Переназначение | `POST /planning/{id}/reassign/check` (кандидаты параллельно) → `/reassign` → `/apply` | §6.7 |
 | DS-09 Состав | `GET /data/scenarios/{id}/engineers`; до публикации — `PATCH …/{engineer_id}`, `POST …/engineers`; после — `POST /events/apply` (`transport_changed`, `engineer_unavailable`, `engineer_available`); `POST /planning/{id}/extend-resource` | §8.2 |
 | DS-10 Итоги | активный план + `compare` + `baseline` + `events` | §8.2 |
-| O-01 Слоты и запись | `GET /booking/slots` → `POST /booking/requests` | `type_bk` — русская строка (§8.3) |
-| O-02 Поиск, отмена, перенос | `GET /booking/requests?q&region_id&date`, `POST /booking/requests/{id}/cancel {reason}`, `…/reschedule {new_date, new_window}` | — |
-| O-03 Авария | `POST /events/apply {type: 'urgent_order_added', source: 'operator', apply: false, plan_id, request}` | где взять `plan_id` — §8.3 ⏳ |
+| O-02 Поиск, отмена | `GET /booking/requests?q`, `POST /booking/requests/{id}/cancel {reason, comment?}` | §8.3.6 |
+| O-01, O-01.2 Запись | `GET /booking/slots` → `POST /booking/requests` | §8.3.7–§8.3.8 |
+| O-02.1 Перенос | `GET /booking/slots` → `POST /booking/requests/{id}/reschedule {new_date, new_window}` | §8.3.10 |
+| O-01 «Авария» | `POST /events/apply {type: 'urgent_order_added', source: 'operator', apply: false, params: {region_id, comment}, request}` | §8.3.9, ⏳ 9.1 |
 | E-01…E-10 | `GET /engineers/me/day`, `GET /engineers/me/route?remaining=true`, `POST /engineers/me/actions` | §9 |
 
 После каждой мутации инвалидируем `['days', date]`, `['plan', id]`, `['scenario', id]`, `['events', scenarioId]`, `['calendar', month]`, `['engineerDay']`.
 
+### 5.4. Правки бэка: флаги и запасные пути (`FEATURES` в `src/config.ts`) · P0
+Номера — из `BACKEND_FIXES_FINAL_28-09.md`. Там же у Вани столбец «Готово».
+
+**Правило:**
+- **Флаг** — только там, где без правки кнопка или запрос упадут. Ставим руками после ответа Вани или проверки Swagger (`/docs`). По умолчанию `false`.
+- **Поле** — если правка только добавляет поле, флаг не нужен: читаем, если пришло (`?.`), иначе запасной путь.
+
+```ts
+// src/config.ts — объект FEATURES из этапа 01; calendarMultiFilter убрать (D-27). Меняем руками, один флаг на правку
+export const FEATURES = {
+  dayClock: false,               // §1  ручки /data/scenarios/{id}/clock, clock в /days и /me/day
+  failOther: false,              // 8.3 fail.reason 'other' + comment
+  engineerIncident: false,       // 8.4 action 'incident' (есть в enum EngineerActionIn.action в /openapi.json)
+  unavailableBeforeShift: false, // 8.5 unavailable при shift_status = not_started
+  emergencyByRegion: false,      // 9.1 авария оператора по params.region_id
+  cancelComment: false,          // 9.3 comment в отмене оператора
+  addEngineerAfterPublish: false, // §12 добавить инженера в начатый день → engineer_available → предложение
+} as const;
+```
+
+| # | Роль | Флаг или поле | В схеме 28.09, 01:20 | Если нет |
+|---|---|---|---|---|
+| §1 | день | `dayClock`; поле `clock` | ❌ ручек `/clock` нет | «сейчас» — реальное время; для видео — `?clock=HH:MM` в адресе дня диспетчера (§7). **P0, срок Вани — 12:00** |
+| §2 | диспетчер | поля ленты `headline`, `source`, `event_time` | ✅ `needs_decision`, остальное — по снимку | шаблоны `DESIGN_SPEC` §7.3 (§6.5) |
+| §3 | диспетчер | контракт `params`, геокодинг аварии | — | адрес аварии — подсказки из заявок дня (§6.4) |
+| §4 | диспетчер | `version`, `headline` в `GET /planning` | ❌ | номер по порядку, заголовок из ленты («Версии», §8.2) |
+| §5 | диспетчер | новые поля `CompareColumn`, сравнение до плана | ❌ | считаем сами (§6.3); до плана при ошибке — «—» |
+| §6 | диспетчер | `cancel_reason`, `rescheduled_to` | — | подписи в DS-10 не показываем |
+| §7 | диспетчер | `cost.engineers_needed` и др. | — | плашку в DS-09 не показываем |
+| 8.1 | инженер | `banners[]` | по снимку | баннера E-09 нет, видно только флаг «Изменено» |
+| 8.2 | инженер | сброс `active_request_id` после `fail` (поведение) | проверить на стенде | в видео после «Прервать» не нажимаем «Отправиться в путь» |
+| 8.3 | инженер | `failOther` | не проверить: `payload` свободный | строку «Другое» в E-06 скрываем |
+| 8.4 | инженер | `engineerIncident` | ❌ нет в enum | кнопку «Инцидент» скрываем, «Прервать» на всю ширину |
+| 8.5 | инженер | `unavailableBeforeShift` | не проверить | «Не выйду сегодня» в E-01 скрываем |
+| 8.6 | инженер | `actual_start`, `actual_end` в визите | ❌ | тост после выполнения без времени |
+| 8.7 | инженер | поля `/me/day`, `shift_totals.started_at / ended_at` | по снимку | E-10: «Выполнено» и «Прервано» по визитам, остальное «—» |
+| 8.8 | инженер | `equipment` в визите | ❌ | строки «Оборудование» нет |
+| 8.9 | инженер | `engineer.color_index` | — | цвет `--route-1` у всех |
+| 9.1 | оператор | `emergencyByRegion` | не проверить | вкладку «Авария» скрываем, аварию вводит диспетчер |
+| 9.2 | оператор | `district`, `gigabit`, `technology`, `required_transport`, `engineer_name` в поиске | по снимку | строки «Район», «Гигабит», «Инженер» не выводим |
+| 9.3 | оператор | `cancelComment` | ❌ | «Другое» в отмене не показываем |
+| 9.4 | оператор | `message` в ответах записи, отмены, переноса | ❌ схемы нет | тексты §8.3.11 по дате заявки |
+| 9.5 | оператор | `error.details.slots` при `SLOT_TAKEN` | — | `refetch()` окон |
+| 9.7 | оператор | `district` в `/booking/slots` | — | район не подставляем и не шлём |
+| 9.9 | оператор | `message` в 409 `ILLEGAL_TRANSITION` | — | тост «Не удалось выполнить запрос. Повторите» |
+| §10 | все | CORS | — | прод-сборка не ходит в API; в dev — прокси Vite |
+| §12 | диспетчер | `addEngineerAfterPublish` | не проверить | после публикации строки «+ Добавить инженера» в DS-09 нет (§8.2, таблица финального макета, п. 4) |
+
 ---
+
 
 ## 6. Адаптеры: где API расходится с макетами
 Все обходы живут в `src/adapters/*` и покрываются юнит-тестами на фикстурах из `docs/api-examples`. Компоненты работают только с моделями адаптеров, а не с сырым API.
@@ -602,18 +748,21 @@ metadata: synthetic, seed, pattern, coordinates_km [[x, y]] (плоские км
   - в шапке дня — «Версия N · сейчас HH:MM»;
   - время события в DS-06 по умолчанию;
   - линия «сейчас» на таймлайне;
+  - у инженера — «Сейчас · HH:MM» в шторке «Не могу работать» (E-08);
   - `at` у действий инженера **не шлём**: бэк берёт часы дня.
 - **Кто переводит часы:**
   - бэк при старте сидит демо-день Востока с часами 12:30;
   - для видео — `POST /data/scenarios/{id}/clock {time, autoplay: true}` через Swagger. Инструкция — в README, раздел «Демо-время».
-- **Запасной путь**, если бэк не вернёт часы до 28.09 12:00: параметр `?clock=HH:MM` в адресе дня диспетчера. `event_time` тогда шлём явно; автопрогона нет, видео снимаем от начала смены.
+- **Запасной путь** (флаг `dayClock = false`, §5.4; на 28.09 01:20 ручек часов в схеме нет), если бэк не вернёт часы до 28.09 12:00: параметр `?clock=HH:MM` в адресе дня диспетчера. `event_time` тогда шлём явно; автопрогона нет, видео снимаем от начала смены.
 
 ---
 
 ## 8. Экраны: логика
 Вёрстка:
 - **диспетчер** — макет `design/Dispatcher_Flow.html` (согласован 27.09). При расхождении с `DESIGN_SPEC` §6 прав макет и этот раздел;
-- остальные роли — `design/` и `DESIGN_SPEC` §6.
+- **инженер** — макет `design/Engineer.html` (согласован 28.09) и §9;
+- **оператор** — макет `design/Operator.html` (согласован 28.09) и §8.3;
+- вход — `design/` и `DESIGN_SPEC` §6.
 
 Здесь только поведение и данные.
 
@@ -781,7 +930,7 @@ metadata: synthetic, seed, pattern, coordinates_km [[x, y]] (плоские км
 | «В ДЕНЬ» | переключатель (`available`) | да |
 
   Выключенная бригада приглушена.
-- **«+ Добавить инженера»** — строка-форма: имя, навыки, транспорт, смена (по умолчанию — самая частая смена в ростере региона, иначе 10:00–22:00) → `POST /data/scenarios/{id}/engineers`. Только до публикации.
+- **«+ Добавить инженера»** — строка-форма: имя, навыки, транспорт, смена (по умолчанию — самая частая смена в ростере региона, иначе 10:00–22:00) → `POST /data/scenarios/{id}/engineers`. До публикации — всегда; после — только при `addEngineerAfterPublish` (таблица финального макета ниже, п. 4).
 - **Primary «Пересчитать план»:**
   - **до публикации:** `PATCH /data/scenarios/{id}/engineers/{engineer_id}` для изменённых → `POST /planning/run` (для CSV-дня — и сразу `apply`, D-25);
   - **после публикации** (подпись «Изменения станут событием и придут предложением»):
@@ -811,60 +960,505 @@ metadata: synthetic, seed, pattern, coordinates_km [[x, y]] (плоские км
   - ошибки — через `toApiError`.
 - **Пустые состояния, скелетоны загрузки, ошибка сети** с кнопкой «Повторить».
 
-### 8.3. Оператор
-**O-01 Новая запись · P1**
-- Форма → `GET /booking/slots?region_id&date&type_bk&type_hd&address&gigabit&required_transport`.
-- **`type_bk` — русская строка:** «Подключение» / «Локальная заявка» / «Глобальная проблема» / «Дозаказ».
-- **Список HD** зависит от BK, строки — из выданных CSV (`lib/dictionaries.ts`):
-  - **Подключение:** Конвергенция абонента · Заявка на подключение · Заказ подключения/Дозаказ оборудования
-  - **Локальная заявка:** Нет линка · Работа с кабелем · Переключение на Гбит/с · IP-адрес 169... · Разрывы · Рост ошибок на порту · Низкая скорость · Роутер. Замена техническим специалистом · TVE/ENT. Замена приставки техником · ТВ. Замена приставки техником · TVE/ENT. Другие ошибки · Мониторинг
-  - **Дозаказ:** Дозаказ оборудования · Заказ подключения/Дозаказ оборудования · Конвергенция абонента
-  - **Глобальная проблема:** Авария · Информация
-- **Окна:** `available: true` — яркие, `false` — тусклые. `reason` не показываем (D-22).
-- «Записать» → `POST /booking/requests` → `BookingRequestOut` (бригада — поле `tentative_engineer_id`).
-- **`SLOT_TAKEN`** → тост + повторный запрос окон.
+**Финальный макет диспетчера (28.09) против этого раздела.** Сверено по `design/Dispatcher_Flow.html`: все экраны DS-01…DS-10 в макете есть, почти все тексты совпадают. Где расходятся — делаем по таблице.
 
-**O-02 Поиск · P1**
-- `GET /booking/requests?q=` (debounce 300 мс), до 20 результатов.
-- «Перенести» → `reschedule {new_date, new_window}`; «Отменить» → `cancel {reason}`. Текст результата — `message` из ответа, если есть, иначе тексты из `DESIGN_SPEC` O-02.
+| # | Где | В макете | Делаем |
+|---|---|---|---|
+| 1 | DS-01, DS-03 | фильтр «Флаги» | **как в ТЗ:** фильтра «Флаги» нет (D-27) |
+| 2 | DS-01 | легенда и полоса по 5 группам, в полосе отменённые и просрочка | **как в ТЗ:** 7 статусов `by_status`, без `cancelled` / `rescheduled` и флагов (D-29) |
+| 3 | DS-03 `applied` | только «Итоги дня» и «Добавить событие» | **как в ТЗ:** + меню «⋯» → «Состав и ресурсы» |
+| 4 | DS-09, «Неназначенные» | «+ Добавить инженера» есть и после публикации | флаг `addEngineerAfterPublish` (§5.4, ⏳ бэк §12). **Включён:** `POST /data/scenarios/{id}/engineers` → `POST /events/apply {type: 'engineer_available', engineer_id, apply: false}` → DS-07. **Выключен:** после публикации строки добавления нет, «Добавить инженера» в карточке неназначенной открывает DS-09 без формы [Д] |
+| 5 | DS-06 | тип HD: Авария / Нет линка / Разрывы / Работа с кабелем | **как в ТЗ:** «Авария» · «Информация» (`DATA_PROFILE` §5) |
+| 6 | Лента | событие и предложение — две строки, у предложения чип «Ждёт решения» | **как в ТЗ:** одна строка на событие (§6.5); чип «Ждёт решения» у строк с `needs_decision` берём из макета |
+| 7 | DS-08 | кандидат с меткой «Нет авто» выбран и проверен | **дописано:** отсеянных по навыку и транспорту можно выбрать — тогда делаем `check` и показываем нарушения; место в списке и метка не меняются |
+| 8 | DS-06 | «Требуемый транспорт»: «Не требуется» + 4 вида | **как в макете;** «Не требуется» → `null`, по умолчанию «Автомобиль» |
+| 9 | DS-02 шаг 2 | «Готово» при наличии предупреждения | **как в ТЗ:** любое замечание → «Есть замечания» |
+| 10 | DS-02 шаг 1 | «Контрольное распределение · 66 строк» без КБ | **как в макете** |
+| 11 | DS-01 подсказка | два статуса в одной строке | **как в ТЗ:** строка на каждый ненулевой статус |
+| 12 | баннер DS-03 | «изменилось 3 назначения» при счётчиках 2+1+1 | **как в ТЗ:** N = передано + новый порядок + добавлено + снято + без исполнителя |
+| 13 | DS-07 | группа «Бригада Матвеев → Бригада Попов» | **дописано:** передачу кладём в группу бригады «откуда», заголовок группы — только «Бригада X» |
+| 14 | DS-04 | формулировки трёх ограничений | **как в макете:** «у бригады есть», «(окно 18–20)», «Нужен автомобиль, бригада на автомобиле». Причину в скобках («работа с кабелем») — только если она есть в данных. `reasons[]` под «Подробнее» оставляем |
+| 15 | DS-04 | «Отменить заявку» — `danger` с заливкой | **как в макете** |
+| 16 | «Сравнение» | сноска после плана «Δ — к базовому FIFO. Пробег реального диспетчера — оценка.» | **как в макете** + подпись «оценка» в ячейке при `km_is_estimate` |
+| 17 | Δ везде | три разных формата | один форматтер `formatDelta` в `lib/format.ts`: «−38,2 км (−12%)», «−2 инженера», «−4» |
+| 18 | таймлайн до плана | в строке «смена 10–22», у чипов нет цифр, нет линии «сейчас» | **как в макете,** смену — из данных бригады. Блок визита: заливка по тону статуса (`lib/statuses.ts`), левая кромка 3 px цветом бригады (`DESIGN_SPEC` §6 DS-03) |
+| 19 | таймлайн «Неназначенные» | блоки ≈ 1,4 ч от начала окна | подпись как в ТЗ, блок — на всё окно |
+| 20 | чипы бригад | обрезаны затуханием | прокрутка по горизонтали (ТЗ) + затухание по краю (макет) |
+| 21 | Лента | иконки «прибыл» — `zap`, «освободился» — `timer`, счётчик 3 при 2 ждущих | **как в ТЗ:** иконки по §6.5, счётчик = число `needs_decision` |
+| 22 | DS-09 | чипы навыков «Подкл. / Авария / Локальные» | один словарь сокращений: «Подкл.», «Лок.», «Авария» |
+| 23 | DS-08 | подписи «занят до 16:10», «пешком · начало 16:40» | **как в макете,** значения — из `check` и транспорта |
+| 24 | после «Построить план» | кадр показывает «Версия 3», баннер и ленту с аварией U-0001 | **артефакт макета:** после построения — «Версия 1 · сейчас …», тост «План построен и опубликован», баннера нет |
 
-**O-03 Авария · P1**
-- Тело: `POST /events/apply {type: 'urgent_order_added', source: 'operator', apply: false, plan_id, event_time, request}`. `request` — как в §6.4.
-- **`plan_id`** ⏳: `GET /days/{today}?region_id=<регион формы>` → `active_plan_id`.
-- Если оператору `/days` закрыт (403) и бэк не принимает `params.region_id` — кнопку «Авария» у оператора скрываем, аварию вводит диспетчер. В видео так и показываем.
+Нет в макете, но есть в ТЗ — делаем по ТЗ из `ui/*`:
+- состояние `draft` («Начать рабочий день») и лоадер «Строим план…»;
+- вкладки DS-06 «Отмена» и «Инженер недоступен»;
+- режим просмотра DS-07 и ответ `STALE_PROPOSAL`;
+- карточка ошибки импорта;
+- тосты;
+- вид синтетического дня (§6.8);
+- развёрнутая легенда карты;
+- ошибка сети, ошибка входа.
+
+### 8.3. Оператор — итоговое ТЗ (по макету `design/Operator.html`, 28.09)
+Вёрстка — по макету: десктоп 1440×900, минимальная ширина 1280. При расхождении макета с этим разделом прав раздел. Решения — D-33…D-35 (сверка — `OPERATOR_SPEC_REVIEW_28-09.md`; О-5 отклонено). Правки бэка — `BACKEND_FIXES_FINAL_28-09.md` §9, флаги — §5.4. Порядок работ — §17.3.
+**Критерии:** Подход 25% (сценарий B «Живой день», D-01, D-18) · Эффективность и удобство 15%. Весь раздел — **P1**.
+
+#### 8.3.1. Что строим
+Клиент звонит оператору, и у оператора три задачи:
+- найти заявку клиента, чтобы отменить или перенести её;
+- записать новую заявку в свободное временное окно;
+- передать аварию диспетчеру.
+
+Запись бэк встраивает в план дня сам (D-18). Аварию получает диспетчер как предложение.
+
+| Экран | Роут | Что | Порядок |
+|---|---|---|---|
+| O-02 Найти заявку | `/operator` | поиск, карточка, отмена | 1 |
+| O-01 Новая запись · обычная заявка | `/operator/new` | поля заявки, шаг 1 из 2 | 2 |
+| O-01.2 Дата и окно | `/operator/new`, шаг 2 | даты, окна, запись | 2 |
+| O-02.1 Перенос | `/operator/reschedule/:id` | раскладка O-01.2 для существующей заявки | 3 |
+| O-01 Авария | `/operator/new?tab=emergency` | авария → диспетчеру | 4, только при ⏳ 9.1 |
+
+**Не делаем:** подсказки адреса и геокодинг на фронте; «Позвонить клиенту»; причины занятых окон (D-22); выбор бригады оператором; фильтры в поиске.
+
+#### 8.3.2. Файлы
+```
+src/api/booking.ts            searchRequests, getSlots, createBooking, cancelBooking, rescheduleBooking
+src/api/events.ts             + applyOperatorEmergency (файл уже есть у диспетчера)
+src/api/types.ts              + BookingSearchItem, BookingCancelBody, BookingMutationResult (§8.3.4)
+src/adapters/booking.ts       normalizeSearchItem — безопасный доступ к полям ⏳ 9.2
+src/lib/booking.ts            форматы и правила (§8.3.5)
+src/lib/dictionaries.ts       + BK_REGULAR, HD_BY_BK (§8.3.7)
+src/config.ts                 FEATURES: emergencyByRegion, cancelComment (§5.4)
+src/features/operator/
+  OperatorLayout.tsx          AppBar оператора: кнопка справа зависит от роута
+  operatorTexts.ts            все строки §8.3.11
+  useOperatorRegion.ts        регион по умолчанию, sessionStorage.operator_region
+  search/    SearchPage, SearchResults, ResultRow, RequestCard, CancelBlock
+  booking/   NewRequestPage, RequestTabs, RegularForm, EmergencyForm, useBookingForm (useReducer),
+             SlotStep, DateStrip, SlotGrid, BookingSummary, SkillLine
+  reschedule/ ReschedulePage   (переиспользует SlotStep, DateStrip, SlotGrid)
+src/mocks/handlers.ts         + /booking/* и авария, фикстуры из снимка (§12, шаг 16)
+```
+
+#### 8.3.3. Роуты и состояние в URL
+| Путь | Экран | Параметры |
+|---|---|---|
+| `/operator` | O-02 | `q` — строка поиска, `request=<id>` — выбранная заявка, `cancel=1` — раскрыт блок отмены |
+| `/operator/new` | O-01 → O-01.2 | `tab=regular\|emergency` (по умолчанию `regular`) |
+| `/operator/reschedule/:id` | O-02.1 | — |
+
+- **Поля формы и шаг 1 / 2 — в состоянии страницы (`useBookingForm`), не в URL.** При уходе со страницы форма сбрасывается.
+- `RequireRole('operator')`. Прямой заход на `/operator/reschedule/:id` без данных заявки: берём её из `GET /booking/requests?q=<id>` (первое точное совпадение по `request_id`). Нет совпадения — редирект на `/operator?q=<id>`.
+
+#### 8.3.4. API
+
+**Ручки**
+| Функция | Запрос | Экран |
+|---|---|---|
+| `searchRequests(q)` | `GET /booking/requests?q` — `region_id` и `date` не передаём | O-02, O-02.1 |
+| `getSlots(p)` | `GET /booking/slots?region_id&date&type_bk&type_hd&address&gigabit&required_transport` | O-01, O-01.2, O-02.1 |
+| `createBooking(body)` | `POST /booking/requests` | O-01.2 |
+| `rescheduleBooking(id, body)` | `POST /booking/requests/{id}/reschedule {new_date, new_window}` | O-02.1 |
+| `cancelBooking(id, body)` | `POST /booking/requests/{id}/cancel {reason, comment?}` | O-02 |
+| `applyOperatorEmergency(body)` | `POST /events/apply` (§8.3.9) | O-01 «Авария» |
+
+- Оператору открыты только `/regions`, `/booking/*` и `/events/apply` для `urgent_order_added`.
+- `/days`, `/planning`, `/data`, `/calendar` не вызываем.
+
+**Типы**
+`BookingSlotsResponse`, `BookingRequestIn`, `BookingRequestOut`, `BookingRescheduleIn` — из `schema.d.ts` (`components['schemas'][…]`). Для ответов без схемы — ручные типы:
+```ts
+// GET /booking/requests — в схеме нетипизированный массив
+export interface BookingSearchItem {
+  request_id: string; region_id: RegionId; date: string /* YYYY-MM-DD */; window: string /* "18:00-20:00" */;
+  address: string; type_bk: string; type_hd?: string | null; status: RequestStatus;
+  district?: string | null; gigabit?: boolean; technology?: 'FMC' | 'FTTB' | null;      // ⏳ 9.2
+  required_transport?: Transport | null; engineer_name?: string | null;                 // ⏳ 9.2
+}
+export type CancelReason = 'client_refused' | 'booking_error' | 'other';
+export interface BookingCancelBody { reason: CancelReason; comment?: string }            // comment ⏳ 9.3
+// ответы /cancel, /reschedule, POST /booking/requests — поля сверх схемы
+export interface BookingMutationResult {
+  status?: string; message?: string;                                                     // ⏳ 9.4
+  request_id?: string; date?: string; window?: string;                                   // у /reschedule ⏳ 9.4
+}
+```
+`normalizeSearchItem` приводит `technology`, `gigabit`, `engineer_name` к `undefined`, если полей нет. Компоненты читают только нормализованную модель.
+
+**Кэш, опрос, инвалидация**
+| Ключ | Когда | Настройки |
+|---|---|---|
+| `['booking', 'search', q]` | `q.length ≥ 3`, debounce 300 мс | `staleTime: 10 000` |
+| `['booking', 'slots', region, date, type_bk, type_hd, address, gigabit, transport]` | фон на шаге 1, шаг 2, перенос | на шаге 2 и в переносе `refetchInterval: 30 000`, `refetchOnWindowFocus: true`; на шаге 1 без опроса |
+
+- После любой мутации инвалидируем `['booking', 'search']` и `['booking', 'slots']`.
+- `refetchIntervalInBackground: false`, как везде (§5.1).
+
+**Ошибки — только через `toApiError`**
+| Код | Где | Реакция |
+|---|---|---|
+| 409 `SLOT_TAKEN` | запись, перенос | danger-плашка над кнопками (§8.3.11), выбор окна снят. Окна берём из `error.details.slots` ⏳ 9.5, иначе `refetch()` |
+| 422 `COMMENT_REQUIRED` | отмена «Другое» | подсветка поля «Опишите причину» |
+| 409 `ILLEGAL_TRANSITION` | отмена, перенос | тост с `message` ⏳ 9.9. Карточку обновляем: статус мог измениться |
+| 409 / 422 в аварии | «Передать диспетчеру» | danger-плашка над кнопкой с `message` |
+| 422 `VALIDATION_ERROR` | формы | тост «Проверьте заполнение полей» |
+| сеть, 5xx | всё | `ErrorState` «Не удалось связаться с сервером» + «Повторить» или тост |
+
+- Во время запроса кнопки в состоянии `loading`: двойное нажатие исключено.
+
+#### 8.3.5. Общие правила
+
+**AppBar (`OperatorLayout`)**
+- Слева — логотип и «Маршруты инженеров».
+- Справа:
+  - на `/operator` — primary «Добавить заявку» (иконка `plus`) → `/operator/new`;
+  - на `/operator/new` и `/operator/reschedule/:id` на её месте — secondary «Найти заявку» (иконка `search`) → `/operator`;
+  - имя пользователя, под ним «Оператор поддержки», «Выйти» (§8.1).
+
+**Регион**
+- SegmentedControl «Восток · Юго-восток · Югоцентр». Названия — из `GET /regions`, только регионы из `user.region_ids`. У оператора все 3 (D-22).
+- По умолчанию — последний выбранный (`sessionStorage.operator_region`), иначе первый из `region_ids`.
+- Один регион → вместо SegmentedControl текст с названием.
+
+**`lib/booking.ts`**
+| Функция | Пример |
+|---|---|
+| `windowShort('14:00-16:00')` | «14–16» |
+| `windowFull('14:00-16:00')` | «14:00–16:00» |
+| `dateShort('2026-09-30')` | «30.09» |
+| `dateWithWeekday('2026-09-29')` | «Вт, 29.09» (date-fns, `ru`) |
+| `typeShort(type_bk)` | Подключение «Подключение» · Локальная заявка «Локальная» · Глобальная проблема «Авария» · Дозаказ «Дозаказ» |
+| `typeFull(bk, hd)` | «Подключение · Конвергенция абонента»; нет HD — только BK |
+| `phoneInput(raw)` | маска «+7 (916) 123-42-18» при вводе |
+| `phoneToApi(raw)` | «+79161234218»; пусто → `undefined` |
+| `phoneMasked('+79161234218')` | «+7 916 ••• 42 18» |
+| `requiredTransportByRule(hd, gigabit)` | `'car'`, если HD «Работа с кабелем» или `gigabit`, иначе `null` (`ML_SPEC` §2) |
+| `defaultHd(bk)` | первая строка `HD_BY_BK[bk]` |
+| `next14Days(today)` | 14 дат с сегодняшней |
+| `todayMsk()` | реальная дата Europe/Moscow |
+
+- Часы дня (`clock`) оператору недоступны, «сегодня» — реальная дата [Д].
+
+#### 8.3.6. O-02 Найти заявку — `/operator`
+**Левая карточка «Найти заявку» (520 px)**
+- Поле с иконкой `search`, плейсхолдер «№ заявки или адрес», ✕ очищает поле. От 3 символов, debounce 300 мс → `searchRequests(q)`.
+- Под полем — «По № заявки или адресу · найдено N». При 20 результатах: «Показаны первые 20 — уточните запрос».
+- **Строка результата:**
+  - «№{request_id}» и `StatusChip` (sm);
+  - адрес;
+  - «{dateShort} · окно {windowShort} · {typeShort}»;
+  - порядок — по дате, новые сверху [Д];
+  - выбранная строка — белая с рамкой 2 px `--text-primary`, остальные — на `--bg-nested`. Клик → `request=<id>`.
+- **Состояния:**
+
+| Условие | Слева | Справа |
+|---|---|---|
+| `q` короче 3 символов | «Введите № заявки или адрес» | «Выберите заявку слева» |
+| загрузка | 3 скелетона строк | — |
+| пусто | «Ничего не нашли. Проверьте номер или адрес» | «Выберите заявку слева» |
+| ошибка | `ErrorState` + «Повторить» | — |
+
+**Правая карточка заявки**
+- **Шапка:** «№{request_id}» (H2) и `StatusChip`.
+- **Серый блок, 2 колонки:**
+
+| Подпись | Значение |
+|---|---|
+| Дата и окно | «{dateWithWeekday} · {windowFull}» |
+| Тип | `typeFull(bk, hd)` |
+| Адрес | полностью, с квартирой |
+| Район | `district` ⏳ 9.2 |
+| Гигабит | «да» / «нет» ⏳ 9.2 |
+| Инженер | `engineer_name` ⏳ 9.2; `null` → «не назначен» |
+
+  Поля, которых нет в ответе, не выводим.
+- **Кнопки** — у любой найденной заявки, как в макете: tertiary «Перенести» (иконка `calendar-clock`) → `/operator/reschedule/:id`; danger «Отменить».
+  - Статусы на фронте не фильтруем (О-5 отклонено).
+  - Можно ли отменить или перенести, решает бэк. Отказ → тост с `message` (⏳ 9.9).
+
+**Блок «Отменить заявку?»** — в карточке, под кнопками (`cancel=1`)
+| Радио | Тело |
+|---|---|
+| Клиент отказался — выбрано по умолчанию | `{reason: 'client_refused'}` |
+| Ошибка записи | `{reason: 'booking_error'}` |
+| Другое → поле «Опишите причину», обязательно | `{reason: 'other', comment}` ⏳ 9.3. Флаг `cancelComment = false` → строку не показываем |
+
+- Выбранное радио — белое с рамкой 2 px, как в макете.
+- Кнопки: ghost «Назад» (закрывает блок) · danger «Отменить заявку» (иконка `x-circle`). Для «Другое» с пустым полем кнопка неактивна.
+- **Успех:**
+  - тост — `message` из ответа ⏳ 9.4;
+  - без него: дата заявки позже сегодня → «Заявка отменена. План на {dateShort} пересчитан»; дата — сегодня → «Заявка отменена. Чем занять освободившееся окно, решит диспетчер»;
+  - блок закрываем, поиск и карточку обновляем.
+
+#### 8.3.7. O-01 Новая запись · обычная заявка — `/operator/new`
+**Карточка по центру, 760 px**
+- Шапка: «Новая запись», справа «Шаг 1 из 2».
+- Вкладки «Обычная заявка» (иконка `file-plus`) · «Авария» (`zap`) → `tab`. «Авария» скрыта, если `emergencyByRegion = false` (§5.4).
+- **Поля, сетка 2 колонки:**
+
+| Поле | Контрол | Обязательно | В запрос |
+|---|---|---|---|
+| Регион | SegmentedControl (§8.3.5), на 2 колонки | да | `region_id` |
+| Адрес | input на 2 колонки, иконка `map-pin`. Справа район, если бэк вернул `district` в окнах ⏳ 9.7 | да, от 5 символов | `address`, `district?` |
+| Тип заявки BK | select, иконка `list`: Подключение · Локальная заявка · Дозаказ | да | `type_bk` |
+| Тип заявки HD | select, иконка `list-tree`, список по BK; при смене BK → `defaultHd(bk)` | да | `type_hd` |
+| Контакт клиента · необязательно | input, иконка `phone`, маска `phoneInput` | нет; если заполнено — 11 цифр | `client_contact` |
+| Требуемый транспорт | select, иконка `circle-slash` / `car`: Не требуется · Автомобиль · Общественный транспорт · Пешком · Велосипед | — | `required_transport` (`null` — «Не требуется») |
+| Гигабит | Switch | — | `gigabit` |
+| Технология | FMC / FTTB, только регион Восток, по умолчанию FMC | — | `technology`; другие регионы — `null` |
+
+- **Списки HD** (`HD_BY_BK`, строки из выданных CSV, первая — самая частая):
+  - **Подключение:** Конвергенция абонента · Заявка на подключение · Заказ подключения/Дозаказ оборудования;
+  - **Локальная заявка:** Нет линка · Работа с кабелем · Переключение на Гбит/с · IP-адрес 169... · Разрывы · Рост ошибок на порту · Низкая скорость · Роутер. Замена техническим специалистом · TVE/ENT. Замена приставки техником · ТВ. Замена приставки техником · TVE/ENT. Другие ошибки · Мониторинг;
+  - **Дозаказ:** Дозаказ оборудования · Заказ подключения/Дозаказ оборудования · Конвергенция абонента;
+  - **Глобальная проблема** — только во вкладке «Авария»: Авария · Информация.
+- **Требуемый транспорт по правилу:**
+  - пока оператор не менял поле сам, значение = `requiredTransportByRule(hd, gigabit)`;
+  - при `'car'` справа подпись «по правилу»;
+  - после ручного выбора правило поле больше не трогает (`transportTouched = true`).
+- **Строка навыка** под полями (иконка `wrench`): «Навык: {required_skill_display} · {duration_minutes} мин на адресе».
+  - Данные — из фонового `getSlots` на дату по умолчанию для шага 2. Запрос уходит, когда выбраны регион, BK и HD; debounce 300 мс.
+  - Подпись навыка — по словарю §10.1.
+  - До ответа и при ошибке строки нет.
+- **Primary «Выбрать дату и окно»** (иконка `arrow-right`) → шаг 2. Неактивна, пока обязательные поля не заполнены.
+
+#### 8.3.8. O-01.2 Дата и окно — шаг 2
+**Слева — карточка «Новая запись» (420 px)**
+- Справа в шапке — ghost «Изменить» (`pencil`) → шаг 1, поля сохранены.
+- **Сводка на `--bg-nested`:**
+  - Регион;
+  - Адрес · район;
+  - Тип — `typeFull`;
+  - Технология — «FMC · без гигабита» / «FMC · с гигабитом»; нет технологии — «Гигабит: да / нет»;
+  - Контакт клиента — `phoneMasked`; пусто — строки нет;
+  - Требуемый транспорт.
+- Под сводкой — строка навыка.
+
+**Справа — «Дата и окно»,** подпись «Шаг 2 из 2 · свободные окна обновляются»
+- **Лента дат** — `next14Days(todayMsk())`, пилюли 56 px: день недели и число.
+  - По умолчанию — завтра [Д]; выбранная — `--bg-inverse`, белый текст.
+- **Сетка окон** — 3 в ряд, карточки 104 px, строим из `slots[]` ответа (6 окон не зашиваем):
+
+| `available` / выбор | Вид | Подпись |
+|---|---|---|
+| `true` | белая, рамка `--bg-control-track`, hover — тёмная рамка | «свободно» |
+| `true`, выбрано | `--bg-inverse`, белый текст | «выбрано» |
+| `false` | `--bg-nested`, текст `--text-tertiary`, не кликается | «занято» |
+
+  - В карточке — `windowShort` крупно (700 24/32). `reason` и `reason_code` не показываем (D-22).
+- **Обновление окон:** при смене даты — сразу; дальше каждые 30 с и при возврате на вкладку браузера. Выбранное окно стало `available: false` → выбор снимаем.
+- **Состояния сетки:** загрузка — 6 скелетонов; все заняты — «На {dateShort} свободных окон нет. Выберите другую дату»; ошибка — «Не удалось загрузить окна» + «Повторить».
+- **Кнопки внизу справа:** ghost «Назад» (`arrow-left`, как «Изменить») · primary «Записать на {windowFull}» (`calendar-check`). Без выбранного окна primary неактивна с текстом «Выберите окно».
+- **«Записать»** → `createBooking`:
+```ts
+{ region_id, date, window /* '14:00-16:00' как в slots */, type_bk, type_hd, address, district,
+  gigabit, technology, required_transport, client_contact: phoneToApi(contact) }
+```
+- **Ответ:**
+
+| Ответ | Тост (тёмный, иконка `circle-check`) |
+|---|---|
+| `status: 'planned'` | `message` ⏳ 9.4 ?? «Заявка №{request_id} записана на {dateShort}, {windowShort}. План дня пересчитан» |
+| `status: 'unassigned'` | `message` ?? «Заявка №{request_id} записана на {dateShort}, {windowShort}. Инженера назначит диспетчер» |
+| HTTP 202 `{status: 'recalculating'}` | «Заявка записана на {dateShort}, {windowShort}. План дня пересчитывается» |
+| 409 `SLOT_TAKEN` | тоста нет. Danger-плашка «Это окно только что заняли. Выберите другое» (иконка `circle-alert`), окна обновлены, выбор снят. Плашка исчезает при выборе окна |
+
+- **После успеха:**
+  - тост с secondary «Новая запись» висит, пока его не закроют;
+  - primary — неактивная «Записано», «Назад» и «Изменить» скрыты;
+  - «Новая запись» → пустой шаг 1, регион сохраняется.
+
+#### 8.3.9. O-01 Авария — вкладка «Авария» · только при ⏳ 9.1
+- Шапка карточки без «Шаг 1 из 2».
+- **Поля, сетка 2 колонки:**
+  - Регион (иконка `map`);
+  - Тип заявки HD (`zap`): «Авария» (по умолчанию) · «Информация»;
+  - Адрес на 2 колонки (`map-pin`) — свободный текст, обязательно;
+  - Требуемый транспорт на 2 колонки (`car`) — по умолчанию «Автомобиль»;
+  - Комментарий — textarea 96 px, необязательно.
+- Плашка (иконка `info`): «Аварию распределит диспетчер — дата и окно не нужны».
+- **Primary «Передать диспетчеру»** (`send`) → `applyOperatorEmergency`:
+```ts
+{ type: 'urgent_order_added', source: 'operator', apply: false,
+  params: { region_id, comment: comment || undefined },          // ⏳ 9.1; plan_id и event_time не шлём
+  request: { id: `U-${Date.now().toString(36).toUpperCase()}`, address, duration_minutes: 80,
+             window_start: nowMsk(), window_end: '22:00',        // обязательны по схеме; для оператора окно ставит бэк ⏳ 9.1
+             priority: 'urgent', required_skill: 'emergency', required_transport: transport ?? 'car',
+             type_bk: 'Глобальная проблема', type_hd, source: 'operator' } }
+```
+- **Успех** → тост «Авария передана диспетчеру. Он получит предложение, кто поедет». Форма очищается, регион остаётся.
+- **409 / 422** → danger-плашка над кнопкой с `message`, например: «Рабочий день в регионе Восток ещё не начат — аварию примет диспетчер».
+
+#### 8.3.10. O-02.1 Перенос — `/operator/reschedule/:id` (макета нет, раскладка O-01.2)
+- **Слева — карточка «Перенос заявки №{id}»:** сводка из `BookingSearchItem` — Дата и окно сейчас · Тип · Адрес · Район ⏳. Кнопки «Изменить» нет.
+- **Справа — тот же `SlotStep`,** над сеткой строка «Сейчас: {dateShort}, {windowShort}». Дата по умолчанию — дата заявки, если она не раньше сегодня, иначе завтра.
+- **Окна** — `getSlots` по полям заявки: `type_bk`, `type_hd`, `address`, `gigabit ?? false`, `required_transport` (если есть).
+- **Кнопки:** ghost «Назад» → `/operator?request=<id>` · primary «Перенести на {windowFull}».
+- **«Перенести»** → `rescheduleBooking(id, {new_date, new_window})`.
+- **Успех** → `/operator?request=<result.request_id ?? id>` + тост: `message` ⏳ 9.4 ?? «Заявка №{id} перенесена на {dateShort}, {windowShort}».
+- **`SLOT_TAKEN`** — как в O-01.2; `ILLEGAL_TRANSITION` — тост с `message`, возврат в поиск.
+
+#### 8.3.11. Тексты (`operatorTexts.ts`)
+| Ключ | Текст |
+|---|---|
+| `search.title` | Найти заявку |
+| `search.placeholder` | № заявки или адрес |
+| `search.hint` | По № заявки или адресу · найдено {N} |
+| `search.limit` | Показаны первые 20 — уточните запрос |
+| `search.empty` | Введите № заявки или адрес |
+| `search.notFound` | Ничего не нашли. Проверьте номер или адрес |
+| `card.none` | Выберите заявку слева |
+| `card.engineerNone` | не назначен |
+| `cancel.title` | Отменить заявку? |
+| `cancel.reasons` | Клиент отказался · Ошибка записи · Другое |
+| `cancel.comment` | Опишите причину |
+| `cancel.doneFuture` | Заявка отменена. План на {DD.MM} пересчитан |
+| `cancel.doneToday` | Заявка отменена. Чем занять освободившееся окно, решит диспетчер |
+| `new.title` / `new.step1` / `new.step2` | Новая запись / Шаг 1 из 2 / Шаг 2 из 2 · свободные окна обновляются |
+| `new.tabs` | Обычная заявка · Авария |
+| `new.skill` | Навык: {навык} · {N} мин на адресе |
+| `new.byRule` | по правилу |
+| `new.next` | Выбрать дату и окно |
+| `slots.title` | Дата и окно |
+| `slots.free` / `slots.busy` / `slots.selected` | свободно / занято / выбрано |
+| `slots.none` | На {DD.MM} свободных окон нет. Выберите другую дату |
+| `slots.error` | Не удалось загрузить окна |
+| `slots.taken` | Это окно только что заняли. Выберите другое |
+| `slots.pick` | Выберите окно |
+| `book.cta` / `book.done` | Записать на {HH:MM–HH:MM} / Записано |
+| `book.okPlanned` | Заявка №{id} записана на {DD.MM}, {окно}. План дня пересчитан |
+| `book.okUnassigned` | Заявка №{id} записана на {DD.MM}, {окно}. Инженера назначит диспетчер |
+| `book.okRecalc` | Заявка записана на {DD.MM}, {окно}. План дня пересчитывается |
+| `book.again` | Новая запись |
+| `resch.title` / `resch.now` / `resch.cta` | Перенос заявки №{id} / Сейчас: {DD.MM}, {окно} / Перенести на {HH:MM–HH:MM} |
+| `resch.ok` | Заявка №{id} перенесена на {DD.MM}, {окно} |
+| `crash.note` | Аварию распределит диспетчер — дата и окно не нужны |
+| `crash.cta` | Передать диспетчеру |
+| `crash.ok` | Авария передана диспетчеру. Он получит предложение, кто поедет |
+| `net.error` | Не удалось связаться с сервером |
+
+#### 8.3.12. Проверка
+
+**Юнит-тесты (vitest)**
+- `lib/booking.ts`: `windowShort`, `dateWithWeekday` (29.09.2026 → «Вт, 29.09»), `phoneMasked`, `phoneToApi`, `requiredTransportByRule` (кабель → car, гигабит → car, прочее → null), `defaultHd`, `next14Days`.
+- `adapters/booking.ts`: строка без полей 9.2 → `district`, `gigabit`, `engineer_name` не определены, компонент их не выводит.
+- `useBookingForm`: смена BK сбрасывает HD на `defaultHd`; ручной выбор транспорта не перезаписывается правилом; окно стало занятым → выбор снят.
+- Тело отмены: «Другое» без комментария не отправляется.
+
+**Моки (msw)**
+- Фикстуры `booking-slots.json`, `booking-search.json` — из снимка (§12, шаг 16).
+- Ручные обработчики: `POST /booking/requests` → `planned` / 409 `SLOT_TAKEN` (переключатель в моке); `/cancel`, `/reschedule` → `{status, message}`; `/events/apply` → `ReplanResult` со `status: 'proposed'`.
+
+**Приёмка на стенде**
+**Записи на стенде меняют план дня.** Проверяем на Востоке на дату **сегодня + 13 дней**, после проверки отменяем. Демо-день Востока (сегодня) не трогаем.
+
+1. Вход `operator` → `/operator`, «Введите № заявки или адрес»; в AppBar — «Добавить заявку», имя, «Оператор поддержки», «Выйти».
+2. «Добавить заявку» → Восток, адрес, Подключение → HD «Конвергенция абонента». Появилась строка «Навык: Подключение и дозаказ · N мин на адресе». Включаем «Гигабит» → транспорт «Автомобиль · по правилу».
+3. «Выбрать дату и окно» → дата +13 → свободное окно → «Записать на …». Тост с № и «План дня пересчитан», primary — «Записано».
+4. «Найти заявку» → ищем по № → карточка, статус «Запланирована».
+5. «Перенести» → другое окно → «Перенести на …» → тост, в карточке новое окно.
+6. «Отменить» → «Ошибка записи» → «Отменить заявку» → тост, статус «Отменена».
+7. «Отменить» у отменённой заявки → тост с текстом бэка, без падения.
+8. На моках: `SLOT_TAKEN`, 202, авария (если `emergencyByRegion`).
+9. В консоли нет ошибок, `npm run check` и `npm test` зелёные.
 
 ---
 
-## 9. Инженер · E-01…E-10
-- **Одна страница `/engineer`.** Состояние — из `GET /engineers/me/day` (опрос 15 с):
+## 9. Инженер — итоговое ТЗ (по макету `design/Engineer.html`, 28.09)
+Вёрстка — по макету. При расхождении макета с этим разделом прав раздел: решения Р-1…Р-16 — в `ENGINEER_SPEC_REVIEW_28-09.md`, D-30…D-32. Правки бэка — `BACKEND_FIXES_FINAL_28-09.md` §8, флаги — §5.4. Порядок работ — §17.2.
 
-| Состояние | Экран |
+### 9.1. Общее
+- **Роуты:**
+  - `/engineer?view=list|map` — E-01…E-04 и E-10 по состоянию дня;
+  - `/engineer/request/:id` — E-03.1 / E-05;
+  - шторки E-02, E-06, E-07, E-08 — query `sheet=transport|interrupt|incident|unavailable`, не роуты.
+- Ширина 360–430 px, область касания ≥ 44 px, действия внизу экрана.
+- **Шапка 56 px:** логотип, `engineer.name`, меню ⋯. На E-03.1 слева «←».
+- **Меню ⋯** (D-31):
+  - «Не могу работать» — при `on_shift`;
+  - «Завершить смену» — при `on_shift`, если нет заявок `en_route` / `in_progress`;
+  - «Выйти».
+- **Данные:** `GET /engineers/me/day`, опрос 15 с. Ответ любого действия (`EngineerActionOut.day`) сразу кладём в кэш `engineerDay`.
+- Поля `/me/day`, которых нет в схеме (`date`, `plan_published`, `clock`, `shift_totals`, `engineer.start`), сверяем со снимком. Где поля нет — запасные пути ниже.
+
+**Состояния страницы**
+
+| Условие | Экран |
 |---|---|
-| `plan_published = false` | пусто: «План на сегодня ещё не опубликован…» |
-| `shift_status = not_started` | E-01 → «Начать смену» → E-02 → `shift_start {payload: {transport}}` |
+| загрузка | скелетоны карточки и 4 строк |
+| ошибка сети | «Не удалось связаться с сервером» + «Повторить» |
+| `plan_published = false` | «План на сегодня ещё не опубликован. Он появится, когда диспетчер начнёт рабочий день» |
+| `visits` пуст | «На сегодня заявок нет» |
+| `shift_status = not_started` | E-01 |
 | `on_shift` | E-03 «Список» / E-04 «Карта» |
-| `finished` | E-10 по `shift_totals` |
-| `unavailable` | баннер «С HH:MM ваши заявки переданы другим» + список без кнопок |
+| `unavailable` | E-03 без кнопок; заявку «В работе» можно выполнить. Сверху баннер из `banners[]`, иначе «С {available_until} ваши заявки передадут другим после решения диспетчера» |
+| `finished` | E-10 |
 
-- **Действия** — `POST /engineers/me/actions {action, request_id, payload}`, `at` не шлём (§7):
+**Текущая заявка** (`currentVisit`, D-30): `active_request_id`, иначе первая по `sequence` в статусе `planned`. Заявки `cancel_pending` / `reschedule_pending` текущими не бывают. Начать можно только текущую.
 
-| Кнопка | `action` | `payload` |
+**Подписи** (`lib/engineerLabels.ts`, D-32)
+- **Заголовок** — `type_hd ?? type_bk ?? подпись по навыку` (§6.8).
+- **Номер** — в строках `shortId` («…1402»), в карточках полный («№305871402»).
+- **Адрес** — в строках без «Город Москва, » и квартиры, в карточке полностью.
+- **Окно** — в строках «14–16», в карточке «14:00–16:00» (`parseWindow`).
+- **Оборудование** — только из поля `equipment` визита ⏳. Нет поля — блок не выводим, модели не придумываем.
+
+### 9.2. Экраны
+**E-01 Превью до начала смены · P1**
+- «Список / Карта». Карта — только просмотр маршрута на день.
+- **Карточка:** «Сегодня, {d MMMM}» · «{summary.total} заявок, первая в {first_start}» · «Старт: {офис | дом}, {start.address}».
+- **Лента по времени:** слева время прибытия; в карточке — заголовок, «Срочная», «Прибытие ≈ {arrival} · {duration} мин · окно {окно}», адрес, оборудование.
+- **Внизу:** primary «Начать смену» → E-02; danger «Не выйду сегодня» → шторка E-08 без поля времени.
+
+**E-02 «На чём сегодня?» · P1**
+- 4 варианта: Автомобиль · Общественный транспорт · Пешком · Велосипед. По умолчанию выбран `engineer.transport`, у него подпись «по справочнику».
+- Выбран не справочный → плашка «Заявки, где нужен автомобиль, передадут другим инженерам после решения диспетчера».
+- «Поехали» → `shift_start {payload: {transport}}`. Бэк сам создаёт `transport_changed` для диспетчера.
+
+**E-03 Мои заявки · P0** (макеты E-03, E-03.2, E-03.3)
+- «Список / Карта».
+- **Карточка текущей:**
+  - «ТЕКУЩАЯ · {sequence} ИЗ {summary.total}»;
+  - заголовок, StatusChip, флаги;
+  - адрес;
+  - «№… · окно … · {время}»: `planned` — «приезд ≈ {arrival}», `en_route` / `in_progress` — «начало {start}»;
+  - оборудование.
+- **Панель статуса:**
+
+| Статус текущей | Primary | Под ней |
 |---|---|---|
-| «В пути» / «В работе» / «Выполнена» | `en_route` / `start` / `complete` | — |
-| «Прервать выполнение» | `fail` | `{reason: client_refused \| no_access \| technical \| client_reschedule \| other, desired_date?, comment?}`; для `other` поле `comment` обязательно (иначе `COMMENT_REQUIRED`) |
-| «Не могу работать с HH:MM» / «Не выйду сегодня» | `unavailable` | `{from: 'now' \| 'HH:MM', reason?}` |
-| «Завершить смену» | `shift_end` | — |
-| «Инцидент» · P1 ⏳ | `incident` | `{reason: transport_broken \| cannot_continue \| other, new_transport?, comment?}` |
+| `planned` | «Отправиться в путь» → `en_route` | «Инцидент» ⏳ · «Прервать» |
+| `en_route` | «Взять в работу» → `start` | то же |
+| `in_progress` | «Выполнить задачу» → `complete` | то же |
 
-- **«Инцидент»:**
-  - если в `/openapi.json` нет `incident` — кнопку скрываем;
-  - «Не могу продолжить» доступно через меню → «Не могу работать» (`unavailable`, `from: 'now'`);
-  - `delay` не используем (D-14).
-- **Ответ** `EngineerActionOut.day` — сразу кладём в кэш `engineerDay`.
-- `409 ILLEGAL_TRANSITION` → откат оптимистичного статуса + тост с `message`.
-- Кнопки в состоянии `loading` до ответа: двойное нажатие исключено.
-- **Окно** в `EngineerVisit.window` — строка `"10:00-12:00"`, парсим в `lib/time.ts`.
-- **E-04 Карта:** `GET /engineers/me/route?remaining=true` → полилиния `geometry.coordinates` (`[lon, lat]`) + маркеры `points`. После `complete` запрос обновляется.
+  - Нет `incident` в API → «Прервать» на всю ширину.
+  - «Взять в работу» раньше окна не блокируем: бэк ставит флаг «Начата раньше окна» (D-09).
+- **После «Выполнить задачу»:**
+  - тост успеха (белая карточка, зелёная иконка, 4 с): «Заявка №… выполнена» и «{actual_start}–{actual_end} ⏳ · следующая — {адрес}, {leg_km} км». Нет фактического времени — вторая строка без него;
+  - текущей становится следующая.
+- **«Далее по маршруту»:**
+  - сначала ждущие решения: чип «Отменяется» / «Переносится», подпись «Ждёт решения диспетчера» (Р-1: инженер не застревает на такой заявке);
+  - затем `planned` по `sequence`;
+  - строка: кружок с `sequence` цветом маршрута, время `arrival`, адрес, «{заголовок} · окно {окно}», чипы «Изменено» / «Срочная», иконки прочих флагов, «›» → `/engineer/request/:id`.
+- **«Завершённые · N»** — свёрнуто: `done`, `cancelled`, `rescheduled`. Строка — ✓ или чип статуса, адрес, время.
+- **Все заявки закрыты** → вместо карточки текущей «Все заявки на сегодня закрыты» и primary «Завершить смену».
+
+**E-03.1 / E-05 Карточка заявки · P1** — `/engineer/request/:id`
+- «СЛЕДУЮЩАЯ · {sequence} ИЗ {total}» (для текущей — «ТЕКУЩАЯ»), заголовок, StatusChip, флаги, адрес.
+- **Серый блок:** Номер · Тип (`type_bk`) · Район · Окно · Приезд · начало · Длительность · Гигабит · Технология. Пустые поля не выводим.
+- Оборудование; «**Почему это вам:** {why_you}».
+- **Низ по статусу:**
+  - текущая — панель статуса E-03;
+  - запланированная — плашка «Начать можно после завершения текущей заявки №…» и tertiary «Маршрут в Яндекс Картах»: от старта `/me/route` через точки до этой заявки;
+  - закрытая — без кнопок.
+- Открытие карточки снимает флаг «Изменено» локально (`seen_changed_<id>`).
+
+**E-04 Карта · P1**
+- `GET /engineers/me/route?remaining=true` → полилиния `geometry.coordinates` (`[lon, lat]`) + маркеры `points`. После `complete` запрос обновляется.
+- Цвет маршрута — §10.2.
+- **Шторка:** текущая в пути / в работе → «ТЕКУЩАЯ · В ПУТИ» / «ТЕКУЩАЯ · В РАБОТЕ»; иначе «СЛЕДУЮЩАЯ · К {arrival}».
+- Кнопки «До следующей» и «Маршрут на день», подпись «Откроется в Яндекс Картах».
 - **Яндекс Карты** — `lib/yandexMaps.ts`:
 ```ts
 const RTT: Record<Transport, string> = { car: 'auto', public_transport: 'mt', walk: 'pd', bike: 'bc' };
@@ -873,15 +1467,79 @@ export function yandexRouteUrl(start: LatLon, points: LatLon[], transport: Trans
   return `https://yandex.ru/maps/?rtext=${pts}&rtt=${RTT[transport]}`;
 }
 ```
-  - «До следующей» — `points.slice(0, 1)`; «Маршрут на день» — все `points`.
+  - «До следующей» — `points.slice(0, 1)`; «Маршрут на день» — все `points`; из E-03.1 — `points` до выбранной заявки включительно.
+  - Транспорт — `actual_transport ?? transport`.
   - Открываем через `<a target="_blank" rel="noopener">`.
   - [Г] Проверить на iPhone и Android, открывается ли приложение Карт. Запасной вариант — `yandexmaps://maps.yandex.ru/?rtext=…&rtt=…`.
+
+**E-06 «Прервать выполнение» · P0**
+- Шапка «Прервать выполнение», «№… · {адрес без квартиры}».
+- **Радио → `fail`:**
+
+| Строка | `payload` |
+|---|---|
+| Клиент отказался | `{reason: 'client_refused'}` |
+| Нет доступа или техническая причина | `{reason: 'no_access'}` [Д] |
+| Клиент просит перенести | `{reason: 'client_reschedule', desired_date}` — поле «Желаемая дата»: с завтра до +14 дней, обязательно |
+| Другое | `{reason: 'other', comment}` — поле «Опишите причину», обязательно ⏳ |
+
+- «Отправить диспетчеру» → тост «Отправлено диспетчеру. Можно ехать к следующей заявке». Заявка уходит первой строкой в «Далее» с чипом «Отменяется» / «Переносится», текущей становится следующая (D-30).
+- `COMMENT_REQUIRED` → подсветка поля «Опишите причину».
+
+**E-07 «Инцидент» · P1 ⏳** — показываем, только если в `/openapi.json` появилось действие `incident`. Доступен в любом активном статусе текущей заявки (D-31).
+- «Сломался транспорт» + «Выберите новый транспорт: …» → `{reason: 'transport_broken', new_transport}`.
+- «Не могу продолжить работу» → `{reason: 'cannot_continue'}`.
+- «Другое» + текст → `{reason: 'other', comment}`.
+- «Сообщить диспетчеру» → тост «Сообщили диспетчеру».
+- Без `incident` «Не могу продолжить» доступно через меню ⋯ → «Не могу работать».
+
+**E-08 «Не могу работать» / «Не выйду сегодня» · P1**
+- «С какого времени»: «Сейчас · {nowFor(clock)}» или время шагом 15 мин до `shift_end`. В «Не выйду сегодня» поля нет.
+- **Причина:** «Плохое самочувствие» → `sick` · «Семейные обстоятельства» → `family` · «Без причины» → без `reason`.
+- Плашка «Текущую заявку доделайте. Остальные передадут другим инженерам после решения диспетчера».
+- «Сообщить» → `unavailable {from: 'now' | 'HH:MM', reason?}`.
+
+**E-09 Баннер «План изменён» · P0**
+- Источник — `banners[]`. Показываем самый свежий непросмотренный. Баннер появляется только после решения диспетчера (D-30); сразу после действия инженера — тост.
+- Тёмная плашка под шапкой: «План изменён», `text`, «Посмотреть».
+- «Посмотреть» → карточка `request_id` (нет `request_id` — прокрутка к списку) и отметка `seen_banner_<at>_<type>` в localStorage. Следующий баннер — после этого.
+- Тексты (`DESIGN_SPEC` §7.4) присылает бэк ⏳, фронт их не собирает.
+
+**E-10 Итоги смены · P1**
+- По `shift_totals`: выполнено X из N, начато в окне, пробег, прервано, в дороге, в работе, в ожидании (в «ч мин»).
+- Подзаголовок «{started_at}–{ended_at}» ⏳, иначе «{дата} · смена {shift_start}–{shift_end}».
+- Кнопка «Выйти» — secondary.
+- Нет `shift_totals` → «Выполнено» и «Прервано» считаем по визитам, остальные — «—».
+
+**«Завершить смену» · P1** — из меню или кнопкой на E-03 (D-31).
+- Нет заявок `planned` → сразу `shift_end`.
+- Есть → подтверждение «Осталось N заявок. Они вернутся диспетчеру» → `shift_end`.
+- При `en_route` / `in_progress` пункт неактивен (бэк вернёт 409).
+
+### 9.3. Действия → API
+`POST /engineers/me/actions {action, request_id?, payload?}`, `at` не шлём (§7).
+
+| Кнопка | `action` | `request_id` | `payload` |
+|---|---|---|---|
+| «Поехали» (E-02) | `shift_start` | — | `{transport}` |
+| «Отправиться в путь» | `en_route` | текущая | — |
+| «Взять в работу» | `start` | текущая | — |
+| «Выполнить задачу» | `complete` | текущая | — |
+| «Прервать» | `fail` | текущая | см. E-06 |
+| «Инцидент» ⏳ | `incident` | текущая | см. E-07 |
+| «Не могу работать» / «Не выйду сегодня» | `unavailable` | — | `{from, reason?}` |
+| «Завершить смену» | `shift_end` | — | — |
+
+- Кнопки в состоянии `loading` до ответа — двойное нажатие исключено.
+- `409 ILLEGAL_TRANSITION` → откат оптимистичного статуса и тост с `message`.
+- `delay` не используем (D-14), геолокации нет.
+- **Окно** в `EngineerVisit.window` — строка `"10:00-12:00"`, парсим в `lib/time.ts`.
 - **Флаг «Изменено»** снимаем локально после открытия карточки: ключ `seen_changed_<request_id>` в localStorage.
 
 ---
 
 ## 10. Общие модули
-### 10.1. `lib/statuses.ts`, `lib/dictionaries.ts`
+### 10.1. `lib/statuses.ts`, `lib/dictionaries.ts`, `lib/engineerLabels.ts`
 Подписи и тона — строго `DESIGN_SPEC` §5 и §2.4:
 - **Статусы:** `unassigned` Не назначена · `planned` Запланирована · `en_route` В пути · `in_progress` В работе · `done` Выполнена · `cancel_pending` Отменяется · `cancelled` Отменена · `reschedule_pending` Переносится · `rescheduled` Перенесена.
 - **Флаги:** `urgent` Срочная · `at_risk` Под угрозой · `late` Просрочена · `changed` Изменено · `started_early` Начата раньше окна · `reaction_late` Реакция > 2 ч.
@@ -890,10 +1548,15 @@ export function yandexRouteUrl(start: LatLon, points: LatLon[], transport: Trans
   - транспорт: `car` Автомобиль · `public_transport` Общественный транспорт · `walk` Пешком · `bike` Велосипед.
 - **Тип заявки без `type_bk`** (синтетика, §6.8) — по навыку: `emergency` «Авария» · `installation` «Подключение и дозаказ» / «Подкл.» · `local` «Локальные работы» / «Лок.».
 - **Помощники подписей:** `shortId(id)`, `engineerLabel(name, id)` («Бригада X»), `engineerShort(name, id)` (без «Бригада») — в `lib/dictionaries.ts`.
+- **Подписи инженера** — `lib/engineerLabels.ts` (§9.1):
+  - `visitTitle(v)` — `type_hd ?? type_bk ?? подпись по навыку`;
+  - `shortAddress(a)` — без «Город Москва, » и квартиры;
+  - `windowShort('14:00-16:00')` → «14–16», `windowFull` → «14:00–16:00».
 - **Регионы:** `east` Восток · `south_east` Юго-восток · `south_center` Югоцентр.
 
 ### 10.2. `lib/colors.ts`
-12 цветов маршрутов из `DESIGN_SPEC` §2.5. Цвет инженера = индекс в ростере региона, отсортированном по `id`, по модулю 12. Если бригад больше 12, у повторного цвета линия маршрута пунктиром.
+- 12 цветов маршрутов из `DESIGN_SPEC` §2.5. Цвет инженера = индекс в ростере региона, отсортированном по `id`, по модулю 12. Если бригад больше 12, у повторного цвета линия маршрута пунктиром.
+- **У инженера** ростера нет: цвет `--route-1` для всех [Д], пока бэк не отдаст `engineer.color_index` ⏳. С ним — `ROUTE_COLORS[color_index % 12]`, как у диспетчера (D-32).
 
 ### 10.3. `lib/time.ts`
 - `nowMsk()` — через `Intl.DateTimeFormat('ru-RU', {timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit'})`.
@@ -950,20 +1613,22 @@ DEMO_PASSWORD=<пароль из гайда бэка>
    16. под оператором: `GET /booking/slots` (та же дата, Восток), `GET /booking/requests?q=Москва`;
    17. синтетический сценарий ⏳ (ручку загрузки уточняем у бэка): `GET /data/scenarios/{id}` → `synthetic-scenario.json`, `POST /planning/run` → `synthetic-plan.json`. По снимку проверить, что пришло в `source`, `latitude/longitude`, `name`, `type_bk`, `address` (§6.8).
 3. `npm run gen:types` — `src/api/schema.d.ts`.
-4. По снимкам уточнить `api/types.ts` и форматы в §6.2, §6.3, §6.4, §6.5, §6.6, §6.7. Расхождения с этим ТЗ — в `docs/API_NOTES.md`.
+4. По снимкам уточнить `api/types.ts` и форматы в §6.2, §6.3, §6.4, §6.5, §6.6, §6.7, §9. Расхождения с этим ТЗ — в `docs/API_NOTES.md`.
 
 ---
 
 ## 13. Порядок работ
+Этапы после каркаса (этап 01) — §17.1.
+
 | # | Когда | Что | P | Готово, когда |
 |---|---|---|---|---|
 | 0 | 27.09 вечер | Шаг 0 (§12), каркас Vite, `tokens.css`, `ui/*`, клиент API и ошибки, авторизация, роутинг, моки из снимков | P0 | вход под тремя ролями ведёт на свой экран |
 | 1 | 27.09 вечер | DS-01 календарь (статусы, подсказка, фильтры); DS-02 импорт (2 шага, ошибки) | P0 | шаг 1 демо |
 | 2 | 28.09 утро | DS-03: `DayModel`, шапка и кнопки по состоянию, «Построить план» = run + apply, состояние до плана, карта, таймлайн, «Сравнение» (+ baseline), «Неназначенные», «сейчас» из часов дня | P0 | шаги 2, 3, 7 демо |
 | 3 | 28.09 день | DS-04 (объяснение §6.2), DS-06 (3 вкладки), DS-07 + баннер предложения, «Лента» | P0 | шаги 4–6 демо |
-| 4 | 28.09 день | Инженер: E-03, кнопки статуса, E-06, E-09 | P0 | 30–40 с инженера в видео |
+| 4 | 28.09 день | Инженер: E-03 во всех статусах (панель статуса, «Прервать», ждущая заявка в списке — Р-1), E-06, E-09 — §17.1, §17.2 ENG-1…ENG-5 | P0 | 30–40 с инженера в видео |
 | 5 | 28.09 до 16:00 | Прогон 7 шагов на стенде без моков; багфикс | P0 | без ошибок в консоли |
-| 6 | 28.09 до 18:00 | DS-05, DS-08, DS-09 (меню ⋯), DS-10, «Версии»; E-01, E-02, E-04 + Яндекс, E-05, E-08, E-10; O-01…O-03 | P1 | — |
+| 6 | 28.09 до 18:00 | DS-05, DS-08, DS-09 (меню ⋯), DS-10, «Версии»; E-01, E-02, E-03.1 / E-05, E-04 + Яндекс, E-07 (если есть `incident`), E-08, E-10, меню ⋯ и «Завершить смену»; ENG-6…ENG-10; оператор — §17.3 | P1 | — |
 | 7 | 28.09 вечер | Фриз, запись видео: часы дня ставим через Swagger (§7) | P0 | — |
 
 ---
@@ -976,14 +1641,17 @@ DEMO_PASSWORD=<пароль из гайда бэка>
 5. Часы дня 12:30 с автопрогоном (сид или Swagger) → «Добавить событие» → «Срочная заявка» → «Рассчитать изменения».
 6. Предложение: заголовок, счётчики, бригада и прибытие, diff → «Принять» → версия +1, флаги «Изменено».
 7. «Сравнение»: наш / FIFO / реальный, по инженерам и суммарно, у диспетчера — «оценка».
-8. **Дополнительно:** вход `eng-east-XX` бригады из аварии → баннер «Новая срочная заявка — после текущей» → «В пути» → «Прервать выполнение» (клиент отказался) → у диспетчера «требует решения» → «Подтвердить отмену».
+8. **Дополнительно:** вход `eng-east-XX` бригады из аварии → баннер «Новая срочная заявка — после текущей» → «Отправиться в путь» → «Прервать» (клиент отказался) → у инженера тост, заявка «Отменяется» в списке, следующая доступна → у диспетчера «требует решения» → «Подтвердить отмену» → у инженера баннер «Отмена №… подтверждена».
+9. **По желанию** (15–20 с, Подход 25%): оператор записывает клиента на сегодня в Востоке → у диспетчера в ленте «Заявка №… встроена к …», версия +1 (D-18).
 
 ## 15. Чего не делать
 - Регистрацию, восстановление пароля, демо-кнопки входа (D-17).
 - Мобильное приложение: инженер — адаптивная веб-страница.
 - Вебсокеты, SSR.
 - Геолокацию, «Задержусь» (`delay`), «Позвонить клиенту», причины занятых окон.
-- Живой геокодинг с фронта.
+- Модели оборудования у инженера — только из поля бэка, не выдумываем.
+- Живой геокодинг с фронта; у оператора — подсказки адреса и карта.
+- Оператор: фильтры поиска; проверку статуса заявки перед «Перенести» / «Отменить» — решает бэк (D-34).
 - Новые элементы дизайна (дизайн заморожен). Исключение — поповер часов из существующих `ui/*`.
 - Жёлтые вторичные кнопки, чистый чёрный текст, белый текст на жёлтом, перерисованный логотип.
 - Устаревшее в схеме: `time`, `request_id` в событиях, `urgent_request`, `request_cancelled`, `/events/replan`, DELETE-ручки.
@@ -996,15 +1664,16 @@ DEMO_PASSWORD=<пароль из гайда бэка>
 # Правила проекта — фронтенд планировщика маршрутов (ЛЦТ 2026, Билайн Бизнес)
 
 ## Источники правды
-- docs/spec/FRONTEND_SPEC.md (v2.2) — поведение, ручки, адаптеры, часы дня, порядок работ.
+- docs/spec/FRONTEND_SPEC.md (v2.5) — поведение, ручки, адаптеры, часы дня, все три роли, порядок работ (§13, §17).
 - src/api/schema.d.ts (генерируется из https://api.bee-dynasty.ru/openapi.json) + docs/api-examples/*.json — форма ответов API.
-- design/ (Dispatcher_Flow.html, dispatcher-shots/) + docs/spec/DESIGN_SPEC.md — вёрстка (заморожена); docs/spec/UI_KIT_tokens.md — стиль, приоритет над макетом.
+- design/ (Dispatcher_Flow.html, Engineer.html, Operator.html — бандлы, читать после npm run design:unpack в design/_unpacked/; dispatcher-shots/) + docs/spec/DESIGN_SPEC.md — вёрстка (заморожена); docs/spec/UI_KIT_tokens.md — стиль, приоритет над макетом.
 
 ## Стек и команды
 Vite + React 18 + TS strict · react-router 6 · @tanstack/react-query 5 · react-leaflet 4 · date-fns (ru) · lucide-react · CSS Modules · msw 2 · vitest.
 - npm run dev — dev-сервер, /api проксируется на https://api.bee-dynasty.ru (VITE_USE_MOCKS=true — на моках)
 - npm run gen:types — типы из OpenAPI
-- npm run snapshot — снимок живых ответов в docs/api-examples (нужен .env.local)
+- npm run design:unpack — распаковать макеты в design/_unpacked/ (FRONTEND_SPEC §2.1)
+- npm run snapshot — снимок живых ответов в docs/api-examples (нужен .env.local; меняет данные стенда — запускать только по явной команде)
 - npm run check — tsc --noEmit + eslint; npm test — тесты адаптеров
 - npm run build — прод-сборка
 
@@ -1012,6 +1681,10 @@ Vite + React 18 + TS strict · react-router 6 · @tanstack/react-query 5 · reac
 - Компоненты работают только с моделями из src/adapters, не с сырым API.
 - В событиях и переназначении id заявки — order_id. Все события — apply: false.
 - «Сейчас» = nowFor(clock дня), часы во фронте не переводим; at у действий инженера не отправлять.
+- Инженер: начать можно только текущую заявку (active_request_id, иначе первая planned). Кнопку «Инцидент» (action incident) показываем, только если он есть в схеме.
+- Оператор: /days, /planning, /data не вызывать; статус заявки перед «Перенести» / «Отменить» не проверять — решает бэк.
+- Всё, что зависит от правок бэка, — через FEATURES в src/config.ts (FRONTEND_SPEC §5.4); новые флаги по умолчанию false. Список правок — docs/spec/BACKEND_FIXES_FINAL_28-09.md.
+- Из макетов не переносить демо-данные, зашитые оси и TASK_STATUS дизайн-системы (FRONTEND_SPEC §2.1).
 - Ошибки — только через toApiError (три формата бэка).
 - UI-тексты по-русски, термины ТЗ дословно; код — по-английски.
 - Цвета, отступы, скругления — только CSS-переменные из tokens.css. Одна жёлтая кнопка на экран, белый на жёлтом запрещён.
@@ -1021,3 +1694,45 @@ Vite + React 18 + TS strict · react-router 6 · @tanstack/react-query 5 · reac
 - Фильтры и открытые панели — в URL. В localStorage — только токен и UI-мелочи. Пароли — только в .env.local.
 - Перед коммитом: npm run check и npm test без ошибок.
 ```
+
+---
+
+## 17. Этапы работ после каркаса
+Этап 01 (каркас) сделан. Дальше — этапы A…H по порядку, P0 сначала.
+- Один шаг — один коммит; перед коммитом `npm run check` и `npm test`.
+- После этапа — короткий отчёт: что сделано, что проверить руками.
+
+### 17.1. Этапы
+| Этап | P | Что | Разделы | Готово, когда |
+|---|---|---|---|---|
+| A | P0 | Фундамент. Файлы спек и макетов на месте, `npm run design:unpack`, правила проекта по §16. `FEATURES` по §5.4, роуты по §4 (оператор — новые пути). Токены из §2.1, `ui/*` по дизайн-системе, AppBar (§8.1). Модули `api/*`, ключи, типы (§5.2, §8.3.4). Моки: фикстуры по типам схемы до снимка + ошибки `ILLEGAL_TRANSITION`, `SLOT_TAKEN`, `COMMENT_REQUIRED`, `STALE_PROPOSAL` | §2.1, §3–§5, §8.1, §10 | вход тремя ролями на моках ведёт на свои экраны; `npm run check`, `npm test` зелёные |
+| B | P0 | Диспетчер. DS-01, DS-02 → DS-03 (`DayModel`, шапка по состоянию, карта, таймлайн, «Сравнение», «Неназначенные», часы дня) → DS-04, DS-06, DS-07, баннер предложения, «Лента». Таблица финального макета — §8.2 | §6, §7, §8.2, §13 шаги 1–3 | шаги 1–7 §14 на моках |
+| C | P0 | Инженер ENG-1…ENG-5 (§17.2) | §9 | шаг 8 §14 на моках |
+| D | P0 | Прогон на стенде без моков — вместе с пользователем. Снимок API (§12) — только по его команде. Сверка адаптеров со снимком, расхождения — в `docs/API_NOTES.md` | §12, §14 | 7 шагов + шаг 8 без ошибок в консоли |
+| E | P1 | Диспетчер P1: DS-05, DS-08, DS-09, DS-10, «Версии» | §6.3, §6.7, §8.2 | — |
+| F | P1 | Инженер ENG-6…ENG-10 | §9 | — |
+| G | P1 | Оператор OP-1…OP-5 (§17.3) | §8.3 | приёмка §8.3.12 |
+| H | P0 | Фриз: README (запуск, демо-учётки — «см. гайд бэка», часы дня через Swagger), `npm run build` | §7, §11 | запуск по README с нуля |
+
+### 17.2. Инженер (§9) — этапы C и F
+| # | P | Что | Готово, когда |
+|---|---|---|---|
+| ENG-1 | P0 | `api/engineer.ts`: `/me/day` (опрос 15 с), `/me/route`, `/me/actions` (ответ `day` → кэш `engineerDay`); `lib/engineerLabels.ts`; селектор `currentVisit` | тесты подписей и `currentVisit` зелёные |
+| ENG-2 | P0 | `EngineerApp`: шапка 56 px, `EngineerMenu`, таблица состояний страницы (§9.1) | все состояния видны на моках |
+| ENG-3 | P0 | E-03: `ActiveVisitCard` + `StatusPanel` (`en_route` → `start` → `complete`), `DoneToast`, «Далее по маршруту» с `WaitingRow`, `CompletedBlock` | цепочка статусов на моке; 409 откатывает статус |
+| ENG-4 | P0 | E-06 `InterruptSheet` → `fail`; строка «Другое» — по `failOther` | заявка уходит в «Далее» с «Отменяется», текущей стала следующая |
+| ENG-5 | P0 | E-09 `PlanChangedBanner` из `banners[]`, ключ `seen_banner_<at>_<type>` | приёмка §14 п. 8 |
+| ENG-6 | P1 | E-01 `PreviewScreen`, E-02 `TransportSheet` → `shift_start` | — |
+| ENG-7 | P1 | E-03.1 / E-05 `VisitCardPage`, снятие «Изменено» | — |
+| ENG-8 | P1 | E-04 `EngineerMap` + `lib/yandexMaps.ts` | ссылки открывают Яндекс Карты на телефоне |
+| ENG-9 | P1 | E-08 `UnavailableSheet` («Не выйду сегодня» — по `unavailableBeforeShift`); E-07 `IncidentSheet` — по `engineerIncident` | — |
+| ENG-10 | P1 | «Завершить смену» + `ShiftEndConfirm`, E-10 `ShiftSummary` | — |
+
+### 17.3. Оператор (§8.3) — этап G · P1
+| # | Что | Готово, когда |
+|---|---|---|
+| OP-1 | `lib/booking.ts`, `api/booking.ts`, `adapters/booking.ts`, `OperatorLayout`, `operatorTexts.ts` | юнит-тесты §8.3.12 зелёные |
+| OP-2 | O-02: поиск, карточка, отмена | приёмка §8.3.12, п. 1, 4, 6, 7 |
+| OP-3 | O-01 + O-01.2: форма, строка навыка, окна, запись, `SLOT_TAKEN` | п. 2, 3, 8 |
+| OP-4 | O-02.1 перенос | п. 5 |
+| OP-5 | Вкладка «Авария» — только при `emergencyByRegion` | авария приходит диспетчеру предложением |
