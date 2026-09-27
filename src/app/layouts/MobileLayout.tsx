@@ -1,5 +1,7 @@
+import { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 import { useAuth } from '@/auth/useAuth';
+import { PageLoader } from '@/pages/PageLoader';
 import stub from '@/styles/stub.module.css';
 import styles from './MobileLayout.module.css';
 
@@ -15,7 +17,9 @@ export function MobileLayout() {
         </button>
       </header>
       <main className={styles.main}>
-        <Outlet />
+        <Suspense fallback={<PageLoader />}>
+          <Outlet />
+        </Suspense>
       </main>
     </div>
   );

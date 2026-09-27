@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { Suspense, useEffect, type ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import type { Role } from '@/api/types';
 import { ROLE_HOME } from '@/auth/roles';
@@ -25,7 +25,8 @@ export function RequireRole({ role, children }: RequireRoleProps) {
 
   if (userRole !== role) return <NoAccess to={userRole ? ROLE_HOME[userRole] : '/'} />;
 
-  return <>{children}</>;
+  // Экраны ролей грузятся лениво (router.tsx) — пока чанк едет, показываем лоадер.
+  return <Suspense fallback={<PageLoader />}>{children}</Suspense>;
 }
 
 function NoAccess({ to }: { to: string }) {

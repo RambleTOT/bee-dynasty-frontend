@@ -1,6 +1,8 @@
+import { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 import { ROLE_LABEL } from '@/auth/roles';
 import { useAuth } from '@/auth/useAuth';
+import { PageLoader } from '@/pages/PageLoader';
 import stub from '@/styles/stub.module.css';
 import styles from './DesktopLayout.module.css';
 
@@ -20,7 +22,9 @@ export function DesktopLayout() {
         </button>
       </header>
       <main className={styles.main}>
-        <Outlet />
+        <Suspense fallback={<PageLoader />}>
+          <Outlet />
+        </Suspense>
       </main>
     </div>
   );
