@@ -1,14 +1,33 @@
 /// <reference types="vitest/config" />
+import { rmSync } from 'node:fs';
 import { fileURLToPath, URL } from 'node:url';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 
 // Бэкенд стенда. В dev (и в `vite preview`) запросы /api/* идут через прокси — CORS не нужен.
 // DEV_API_TARGET=http://127.0.0.1:8001 — локальная копия бэка (README, «Локальный бэк»).
 const API_TARGET = process.env.DEV_API_TARGET || 'https://api.bee-dynasty.ru';
 
-export default defineConfig({
-  plugins: [react()],
+/**
+ * Воркер моков MSW нужен только сборке на моках (VITE_USE_MOCKS=true): в боевой сборке файл из
+ * public/ не оставляем — на сервере он не нужен и открыт всем.
+ */
+function dropMockWorker(useMocks: boolean): Plugin {
+  let outDir = 'dist';
+  return {
+    name: 'drop-mock-worker',
+    apply: 'build',
+    configResolved(config) {
+      outDir = config.build.outDir;
+    },
+    closeBundle() {
+      if (!useMocks) rmSync(`${outDir}/mockServiceWorker.js`, { force: true });
+    },
+  };
+}
+
+export default defineConfig(({ mode }) => ({
+  plugins: [react(), dropMockWorker(loadEnv(mode, process.cwd(), 'VITE_').VITE_USE_MOCKS === 'true')],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
@@ -25,4 +44,4 @@ export default defineConfig({
     // тесты не зависят от .env.local разработчика: без ключа Яндекс Карт и флагов правок бэка
     env: { VITE_YANDEX_MAPS_KEY: '', VITE_FEATURES: '' },
   },
-});
+}));
