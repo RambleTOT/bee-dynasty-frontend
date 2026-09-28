@@ -20,7 +20,9 @@ export interface VisitTitleSource {
 
 /** Заголовок заявки: `type_hd ?? type_bk ?? подпись по навыку` (§6.8); совсем ничего — «Заявка». */
 export function visitTitle(visit: VisitTitleSource): string {
-  return text(visit.type_hd) || typeBkOrSkill(text(visit.type_bk), visit.required_skill) || 'Заявка';
+  return (
+    text(visit.type_hd) || typeBkOrSkill(text(visit.type_bk), visit.required_skill) || 'Заявка'
+  );
 }
 
 /** Номер в карточке: «№305871402». */
