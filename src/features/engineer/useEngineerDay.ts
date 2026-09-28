@@ -7,6 +7,7 @@ import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/
 import {
   currentVisit,
   hasActiveVisit,
+  mergeDay,
   plannedLeft,
   toEngineerDay,
   withVisitStatus,
@@ -96,7 +97,7 @@ export function useEngineerAction() {
     },
     onSuccess: (result, body, context) => {
       const day = result?.day ?? undefined;
-      if (day) queryClient.setQueryData(dayKey, day);
+      if (day) queryClient.setQueryData<EngineerMeDay>(dayKey, (cached) => mergeDay(cached, day));
       else void queryClient.invalidateQueries({ queryKey: dayKey });
       void queryClient.invalidateQueries({ queryKey: queryKeys.engineerRoute() });
 

@@ -9,6 +9,7 @@ import {
   routeGroups,
   shiftSummary,
   toEngineerDay,
+  mergeDay,
   withVisitStatus,
 } from './engineerDay';
 
@@ -354,5 +355,41 @@ describe('withVisitStatus — оптимистичный статус', () => {
     const next = withVisitStatus(raw, 'A', 'done');
     expect(next.active_request_id).toBeNull();
     expect(currentVisit(toEngineerDay(next))?.id).toBe('B');
+  });
+});
+
+describe('mergeDay — ответ действия поверх дня в кэше', () => {
+  it('чего нет в ответе действия (date, plan_published, start), берём из прежнего дня', () => {
+    const previous = day([visit('A', 1, 'planned')], {
+      engineer: {
+        id: 'E01',
+        name: 'Мельников',
+        shift_status: 'not_started',
+        start: { kind: 'office' },
+      },
+      summary: { total: 9, first_start: '10:20' },
+    });
+    const fromAction: EngineerMeDay = {
+      engineer: { id: 'E01', shift_status: 'on_shift', actual_transport: 'walk' },
+      summary: { total: 9, done: 0 },
+      active_request_id: null,
+      visits: [visit('A', 1, 'planned')],
+      banners: [],
+    };
+    const merged = mergeDay(previous, fromAction);
+    expect(merged.date).toBe('2026-09-29');
+    expect(merged.plan_published).toBe(true);
+    expect(merged.engineer).toMatchObject({
+      name: 'Мельников',
+      shift_status: 'on_shift',
+      actual_transport: 'walk',
+      start: { kind: 'office' },
+    });
+    expect(merged.summary).toEqual({ total: 9, done: 0, first_start: '10:20' });
+    expect(mergeDay(undefined, fromAction)).toBe(fromAction);
+  });
+
+  it('ни имени, ни id бригады — имени нет (шапка возьмёт профиль)', () => {
+    expect(model([], { engineer: { id: '' } }).engineer.name).toBe('');
   });
 });

@@ -9,7 +9,7 @@ import { formatKm } from '@/lib/format';
 
 export interface DoneToastText {
   title: string;
-  /** «14:10–15:18 · следующая — ул. Артюхиной, д. 3, 1,6 км»; нечего сказать — null. */
+  /** «{начало}–{конец} · следующая — {адрес}, {км} км»; нечего сказать — null. */
   description: string | null;
 }
 

@@ -201,6 +201,7 @@ export function toEngineerDay(raw: EngineerMeDay): EngineerDayModel {
 
   const engineer: Partial<EngineerMeDay['engineer']> = isObject(raw?.engineer) ? raw.engineer : {};
   const id = str(engineer.id) ?? '';
+  const name = str(engineer.name);
   const start = isObject(engineer.start) ? engineer.start : null;
   const kind = str(start?.kind);
   const colorIndex = num(engineer.color_index);
@@ -221,7 +222,8 @@ export function toEngineerDay(raw: EngineerMeDay): EngineerDayModel {
     clock: str(raw?.clock),
     engineer: {
       id,
-      name: engineerLabel(str(engineer.name), id),
+      // ни имени, ни id — пусто: шапка возьмёт имя из профиля
+      name: name || id ? engineerLabel(name, id) : '',
       transport: transportOf(engineer.transport),
       actualTransport: transportOf(engineer.actual_transport),
       shiftStart: time(engineer.shift_start),
@@ -411,4 +413,19 @@ export function withVisitStatus(
       ? null
       : raw.active_request_id;
   return { ...raw, visits, active_request_id: activeRequestId };
+}
+
+/**
+ * День из ответа действия (`EngineerActionOut.day`) поверх дня в кэше. В схеме это
+ * `EngineerDayResponse` — без `date`, `plan_published`, `shift_totals`: чего в ответе нет, берём
+ * из прежнего дня, чтобы экран не мигал до следующего опроса.
+ */
+export function mergeDay(previous: EngineerMeDay | undefined, next: EngineerMeDay): EngineerMeDay {
+  if (!previous) return next;
+  return {
+    ...previous,
+    ...next,
+    engineer: { ...previous.engineer, ...next.engineer },
+    summary: { ...previous.summary, ...next.summary },
+  };
 }

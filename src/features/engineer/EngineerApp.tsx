@@ -95,7 +95,7 @@ export default function EngineerApp() {
 
   const header = (
     <EngineerHeader
-      name={day?.engineer.name ?? user?.name ?? ''}
+      name={day?.engineer.name || user?.name || ''}
       menu={
         <EngineerMenu
           day={day}

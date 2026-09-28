@@ -125,7 +125,7 @@ export default function VisitCardPage() {
 
   const header = (
     <EngineerHeader
-      name={day?.engineer.name ?? user?.name ?? ''}
+      name={day?.engineer.name || user?.name || ''}
       onBack={goBack}
       menu={
         <EngineerMenu
