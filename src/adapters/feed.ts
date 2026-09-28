@@ -12,6 +12,7 @@ import {
   GitCompareArrows,
   MapPin,
   Timer,
+  TriangleAlert,
   UserCheck,
   UserX,
   Zap,
@@ -51,6 +52,7 @@ const ICONS: Record<string, { icon: LucideIcon; tone: StatusTone }> = {
   late: { icon: AlarmClockOff, tone: 'danger' },
   finished_early: { icon: Timer, tone: 'success' },
   manual_reassign: { icon: GitCompareArrows, tone: 'changed' },
+  incident: { icon: TriangleAlert, tone: 'warning' },
   transport_changed: { icon: CircleDot, tone: 'neutral' },
   en_route: { icon: MapPin, tone: 'info' },
   start: { icon: MapPin, tone: 'info' },
@@ -159,6 +161,11 @@ function textOf(event: EventItem, model: Labels, versionOf: ReadonlyMap<string, 
       return `${engineer(model, p.engineer_id)} освободился${p.actual_end ? ` в ${p.actual_end}` : ''}`;
     case 'extend_resource':
       return 'Добор ресурса под неназначенные';
+    case 'incident': {
+      // в headline бэка — id бригады: «Инцидент у инженера E06: {текст}»
+      const detail = headline?.includes(': ') ? headline.slice(headline.indexOf(': ') + 2) : null;
+      return `${engineer(model, p.engineer_id ?? event.engineer_id)}: инцидент${detail ? ` — ${detail}` : ''}`;
+    }
     default:
       return headline ?? `Событие: ${event.event_type}`;
   }

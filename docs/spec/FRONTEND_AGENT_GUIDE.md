@@ -161,3 +161,59 @@ applied_event, scenario, violations[]`.
   `straight_line`. Матрицы: `matrix_sources` → `local_osrm:car`, `math:walk|bike|public_transport`.
 - **Недопустимые переходы** статусов заявки → `409 ILLEGAL_TRANSITION`.
 - Пагинация списков — `limit` (по умолчанию 50).
+
+---
+
+## 8. Правки 28.09 (часы дня и контракты)
+
+### Часы дня (D-24) — обязательно
+У каждого сценария свои «часы»: `scenario.clock` (`HH:MM`) или `null` (реальное время Europe/Moscow).
+Стенд сидит демо-день Востока на сегодня с `clock = 12:30` (работает 24/7).
+
+- `GET /api/v1/data/scenarios/{id}/clock` → `{scenario_id, clock, real_now}`.
+- `POST /api/v1/data/scenarios/{id}/clock` тело `{time: "HH:MM"|null, autoplay: true}` →
+  `{scenario_id, clock, autoplayed:{done,in_progress,en_route,total}}`.
+  Назад переводить нельзя → `409 CLOCK_BACKWARD`. `time:null` — вернуть реальное время.
+- Автопрогон помечает визиты `done` / `in_progress` / `en_route` по плану.
+- Внутри дня «сейчас» = `clock` для: `event_time` по умолчанию в `/events/apply`,
+  `at` по умолчанию в `/engineers/*/actions`, SHIFT и флаги.
+- `clock` также в `GET /days/{date}` (`regions[].clock`) и `GET /engineers/me/day`.
+
+### Авария от оператора (D-33)
+`POST /events/apply` без `plan_id`/`event_time`, `source: "operator"`,
+`params: {region_id, comment}`. Бэк сам берёт активный план региона, время = часы дня,
+окно = `[время, max shift_end]`, геокодит адрес. Нет активного дня → `409 DAY_NOT_STARTED`.
+
+### Оператор: отмена/поиск/ответы
+- `BookingCancelIn {reason: client_refused|booking_error|other, comment?}`; `other` без `comment` → `422 COMMENT_REQUIRED`.
+- Отмена/перенос недопустимы для `done`/`cancelled`/`rescheduled`/`*_pending` → `409 ILLEGAL_TRANSITION` с текстом.
+- `GET /booking/requests?q=&region_id=&date=` → строки с `district`, `gigabit`, `technology`, `required_transport`, `engineer_name`.
+- Ответы `/booking/requests`, `/cancel`, `/reschedule` содержат `message` (готовый текст для тоста), у переноса — `date`, `window`.
+
+### Версии и сравнение
+- `GET /planning?scenario_id=` → `PlanListItem` c `version`, `event_id`, `event_type`, `headline`.
+- `CompareColumn`: `strategy`, `available`, `unassigned`, `visits_total`, `started_in_window`, `late`, `km_by_engineer[{engineer_id,km,tasks}]`.
+- `km_by_engineer` верхнего уровня: `{engineer_id: {ours:{km,tasks}, fifo:{...}, dispatcher:{...}}}`.
+- Для дня без распределения диспетчера `dispatcher.available = false`.
+
+### Лента
+`GET /events?scenario_id=` → `EventItem` с `headline`, `source`, `event_time`, `order_id`,
+`engineer_id`, `status`, `flag`, `applied_at`, `needs_decision`. В ленту попадают события
+`/events/apply`, применение версии (`plan_applied`) и факты инженера (`engineer_action`).
+
+### Инженер
+- `GET /engineers/me/day`: добавлены `clock`, `plan_published`, `visits[].lat/lon`,
+  `visits[].actual_start/actual_end/equipment`, `banners[{type,text,at,request_id?}]`,
+  `shift_totals{...,started_at,ended_at}`.
+- `POST /engineers/me/actions`: `fail.reason ∈ {client_refused,no_access,technical,client_reschedule,other}`;
+  `other` требует `comment` (`422 COMMENT_REQUIRED`), `client_reschedule` — `desired_date`.
+  После `fail` заявка не активна (`active_request_id=null`), следующая доступна сразу.
+- Действие `incident`: `transport_broken`+`new_transport` → предложение `transport_changed`;
+  `cannot_continue` → `engineer_unavailable`; `other`+`comment` → запись в ленту.
+
+### Ответы на §11 (синтетика)
+1. Отдельной ручки загрузки `*.instance.json` нет — синтетику загружайте через `POST /data/load`
+   (инженеры+заявки), координаты переводите на своей стороне.
+2. `source` задаётся в `scenario_metadata.source` (можно `"synthetic"`).
+3. Backend не переносит `coordinates_km`; передайте lat/lon по формуле из спеки — иначе геометрия/карта прямые.
+4. Смена CSV-дней в нашем демо — 10:00–22:00.

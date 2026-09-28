@@ -4,6 +4,7 @@ import { getMyDay, postAction } from '@/api/engineer';
 import type { EngineerMeDay } from '@/api/types';
 import { dayRaw, renderEngineer, visitRaw } from '@/test/engineer';
 import EngineerApp from './EngineerApp';
+import { FEATURES } from '@/config';
 
 vi.mock('@/api/engineer', () => ({
   getMyDay: vi.fn(),
@@ -49,8 +50,12 @@ describe('E-01 «Превью до начала смены»', () => {
     expect(stops[1]).toHaveTextContent('Прибытие ≈ 11:50 · 30 мин · окно 14–16');
     // до смены кнопок статуса нет
     expect(screen.queryByRole('button', { name: 'Отправиться в путь' })).toBeNull();
-    // «Не выйду сегодня» — только когда бэк примет unavailable до смены (⏳ 8.5)
-    expect(screen.queryByRole('button', { name: 'Не выйду сегодня' })).toBeNull();
+    // «Не выйду сегодня» — бэк принимает unavailable до смены (8.5, флаг unavailableBeforeShift)
+    if (FEATURES.unavailableBeforeShift) {
+      expect(screen.getByRole('button', { name: 'Не выйду сегодня' })).toBeInTheDocument();
+    } else {
+      expect(screen.queryByRole('button', { name: 'Не выйду сегодня' })).toBeNull();
+    }
   });
 
   it('адреса старта нет — «Старт: офис»', async () => {

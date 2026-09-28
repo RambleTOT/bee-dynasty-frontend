@@ -15,6 +15,21 @@ vi.mock('@/api/engineer', () => ({
 }));
 vi.mock('@/lib/notify', () => ({ notify: vi.fn() }));
 
+// флаг «Инцидент» (8.4) переключаем по тестам
+const flags = vi.hoisted(() => ({ engineerIncident: false }));
+vi.mock('@/config', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/config')>();
+  return {
+    ...actual,
+    FEATURES: {
+      ...actual.FEATURES,
+      get engineerIncident() {
+        return flags.engineerIncident;
+      },
+    },
+  };
+});
+
 const renderApp = (url = '/engineer') => renderEngineer({ home: <EngineerApp /> }, url);
 
 beforeEach(() => {
@@ -216,10 +231,20 @@ describe('E-03 «Мои заявки»', () => {
   });
 
   it('без действия incident в API — «Прервать» на всю ширину, «Инцидента» нет', async () => {
+    flags.engineerIncident = false;
     vi.mocked(getMyDay).mockResolvedValue(dayRaw([visitRaw('A', 1, 'en_route')]));
     renderApp();
     expect(await screen.findByRole('button', { name: 'Прервать' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Инцидент' })).toBeNull();
+  });
+
+  it('действие incident есть (флаг engineerIncident) — «Инцидент» рядом с «Прервать»', async () => {
+    flags.engineerIncident = true;
+    vi.mocked(getMyDay).mockResolvedValue(dayRaw([visitRaw('A', 1, 'en_route')]));
+    renderApp();
+    expect(await screen.findByRole('button', { name: 'Инцидент' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Прервать' })).toBeInTheDocument();
+    flags.engineerIncident = false;
   });
 
   it('«Далее»: сначала ждущие решения, затем запланированные по порядку; флаги', async () => {

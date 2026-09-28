@@ -411,6 +411,26 @@ describe('feed: события бэка 28.09', () => {
   });
 });
 
+describe('feed: инцидент инженера', () => {
+  it('текст с именем бригады, без кнопки решения', () => {
+    const chain = resolveDayChain(
+      makeRegion({ active_plan_id: 'P1', plan_state: 'applied', version: 1 }),
+      [
+        makeEvent({
+          event_id: 'I1',
+          event_type: 'incident',
+          plan_id: 'P1',
+          needs_decision: true,
+          payload: { headline: 'Инцидент у инженера e1: лопнуло колесо', engineer_id: 'e1', event_time: '13:10' },
+        }),
+      ],
+      [{ plan_id: 'P1', scenario_id: 'S0', kind: 'optimized', status: 'applied', created_at: '', version: 1, engineers_used: 1, total_distance_km: 1, planned_count: 1 }],
+    );
+    const [row] = buildFeed({ chain, model });
+    expect(row).toMatchObject({ time: '13:10', text: 'Бригада Соколов: инцидент — лопнуло колесо', tone: 'warning', action: null });
+  });
+});
+
 describe('compare: формат бэка 28.09', () => {
   it('поля колонки и km_by_engineer {бригада: {стратегия: {km, tasks}}}', () => {
     const cmp = buildCompare({

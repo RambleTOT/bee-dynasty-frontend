@@ -72,11 +72,11 @@ npm run dev          # http://localhost:5173, /api проксируется на
 | `failOther`               | 8.3 «Другое» + комментарий при прерывании        | вкл    |
 | `emergencyByRegion`       | 9.1 авария оператора по региону                  | вкл    |
 | `cancelComment`           | 9.3 «Другое» + комментарий при отмене оператором | вкл    |
-| `engineerIncident`        | 8.4 действие «Инцидент»                          | выкл   |
-| `unavailableBeforeShift`  | 8.5 «Не выйду сегодня» до начала смены           | выкл   |
+| `engineerIncident`        | 8.4 действие «Инцидент»                          | вкл    |
+| `unavailableBeforeShift`  | 8.5 «Не выйду сегодня» до начала смены           | вкл    |
 | `addEngineerAfterPublish` | §12 добавить инженера в начатый день             | выкл   |
 
-Расхождения спеки и API и обходы на фронте — `docs/API_NOTES.md`. Ошибки бэка, найденные фронтом, — `docs/BACKEND_REQUESTS_FROM_FRONT_28-09.md`.
+Расхождения спеки и API и обходы на фронте — `docs/API_NOTES.md`. Чего не хватает фронту от бэка (что и в каком формате) — `docs/BACKEND_REQUESTS.md`.
 
 ## Выкладка
 
