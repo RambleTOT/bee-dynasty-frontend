@@ -1,6 +1,6 @@
 /**
  * Данные экрана дня: `/days` → цепочка версий (события + планы) → действующий план → его сценарий →
- * DayModel (FRONTEND_SPEC §5.3, §6.1). Опрос — POLL.day.
+ * DayModel (FRONTEND_SPEC §5.3, §6.1). Опрос — POLL.day, при открытом сокете живых обновлений — редкий.
  */
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
@@ -13,16 +13,18 @@ import { getGeojson } from '@/api/visualization';
 import { resolveDayChain } from '@/adapters/dayChain';
 import { buildDayModel } from '@/adapters/dayModel';
 import { POLL } from '@/config';
+import { usePollInterval } from '@/realtime/useRealtime';
 
 export function dayChainKey(date: string, regionId: string) {
   return [...queryKeys.days(date, regionId), 'chain'] as const;
 }
 
 export function useDayData(date: string, regionId: string, clockOverride: string | null) {
+  const poll = usePollInterval(POLL.day);
   const dayQuery = useQuery({
     queryKey: queryKeys.days(date, regionId),
     queryFn: ({ signal }) => getDay(date, regionId, signal),
-    refetchInterval: POLL.day,
+    refetchInterval: poll,
   });
   const region = dayQuery.data?.regions.find((r) => String(r.region_id) === regionId) ?? null;
   const hasPlan = Boolean(region?.active_plan_id || region?.draft_plan_id);
@@ -34,7 +36,7 @@ export function useDayData(date: string, regionId: string, clockOverride: string
       return { events, plans: plans.items };
     },
     enabled: hasPlan,
-    refetchInterval: POLL.day,
+    refetchInterval: poll,
   });
   // пока цепочка грузится, план не запрашиваем — иначе мелькнёт прежняя версия
   const chainReady = !hasPlan || chainQuery.isSuccess || chainQuery.isError;
@@ -52,7 +54,7 @@ export function useDayData(date: string, regionId: string, clockOverride: string
     queryKey: queryKeys.plan(headPlanId ?? '-'),
     queryFn: ({ signal }) => getPlan(headPlanId as string, signal),
     enabled: Boolean(headPlanId),
-    refetchInterval: POLL.day,
+    refetchInterval: poll,
   });
 
   // сценарий действующей версии: после событий — производный (в нём новые заявки)
@@ -61,7 +63,7 @@ export function useDayData(date: string, regionId: string, clockOverride: string
     queryKey: queryKeys.scenario(scenarioId ?? '-'),
     queryFn: ({ signal }) => getScenario(scenarioId as string, signal),
     enabled: Boolean(scenarioId),
-    refetchInterval: POLL.day,
+    refetchInterval: poll,
   });
 
   const geojsonQuery = useQuery({

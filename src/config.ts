@@ -7,6 +7,21 @@ export const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true';
 /** Интервалы опроса, мс (FRONTEND_SPEC §5.1). В фоновой вкладке опрос выключен — см. queryClient. */
 export const POLL = { day: 10_000, engineer: 15_000, calendar: 30_000, slots: 30_000 } as const;
 
+/**
+ * Живые обновления по WebSocket (docs/REALTIME.md, контракт — docs/BACKEND_REQUESTS.md п. 38).
+ * Пока сокет открыт, опрос редкий — страховка на случай потерянного события.
+ */
+export const REALTIME = {
+  /** Опрос при открытом сокете. */
+  safetyPollMs: 60_000,
+  /** Сервер шлёт `ping` раз в 25 с; тишина дольше — соединение мёртвое, переподключаемся. */
+  heartbeatTimeoutMs: 60_000,
+  /** Паузы перед переподключением, дальше — последняя; ±20 % случайно, чтобы вкладки не шли разом. */
+  backoffMs: [1_000, 2_000, 5_000, 10_000, 30_000],
+  /** События за это время — одним обновлением запросов. */
+  batchMs: 250,
+} as const;
+
 /** Часовой пояс всех «сейчас» и дат (FRONTEND_SPEC §7). */
 export const TZ = 'Europe/Moscow';
 
@@ -25,6 +40,8 @@ const FEATURE_DEFAULTS = {
   addEngineerAfterPublish: true, // §12, P1-6 бригада в начатый день — событие engineer_added → предложение
   extendResourceCheck: true, // P1-5 «кого не хватает» — extend-resource/check, без сохранения предложения
   comparePlanStrategy: true, // P1-8 «Наш план» в сравнении — стратегия plan тем же расчётом, что FIFO
+  // п. 38: WebSocket живых обновлений (/realtime/ticket, /realtime/ws) — у бэка ещё нет
+  realtime: false,
 };
 
 export type FeatureFlag = keyof typeof FEATURE_DEFAULTS;

@@ -13,6 +13,7 @@ import { queryKeys } from '@/api/queryKeys';
 import { useAuth } from '@/auth/useAuth';
 import { POLL } from '@/config';
 import { useSearchState } from '@/hooks/useSearchState';
+import { usePollInterval } from '@/realtime/useRealtime';
 import { BK } from '@/lib/dictionaries';
 import { formatMonthTitle } from '@/lib/format';
 import { addMonths, monthGrid, monthOf, todayMsk } from '@/lib/time';
@@ -40,6 +41,7 @@ export default function CalendarPage() {
   const { user } = useAuth();
   const today = todayMsk();
   const currentMonth = monthOf(today);
+  const poll = usePollInterval(POLL.calendar);
   const month = search.month ?? currentMonth;
   const { region, status, type } = search;
 
@@ -59,7 +61,7 @@ export default function CalendarPage() {
         },
         signal,
       ),
-    refetchInterval: POLL.calendar,
+    refetchInterval: poll,
   });
   const regions = useQuery(regionsQuery);
 

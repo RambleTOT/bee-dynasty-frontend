@@ -2,6 +2,7 @@ import { createBrowserRouter, Outlet, type RouteObject } from 'react-router-dom'
 import { AuthProvider } from '@/auth/AuthProvider';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { NotFound } from '@/pages/NotFound';
+import { RealtimeProvider } from '@/realtime/RealtimeProvider';
 import { ErrorFallback } from './ErrorBoundary';
 import { MobileLayout } from './layouts/MobileLayout';
 import { RequireRole } from './RequireRole';
@@ -29,7 +30,9 @@ export const routes: RouteObject[] = [
   {
     element: (
       <AuthProvider>
-        <Outlet />
+        <RealtimeProvider>
+          <Outlet />
+        </RealtimeProvider>
       </AuthProvider>
     ),
     errorElement: <ErrorFallback />,

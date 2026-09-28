@@ -34,7 +34,13 @@ export default defineConfig(({ mode }) => ({
   server: {
     port: 5173,
     proxy: {
-      '/api': { target: API_TARGET, changeOrigin: true, secure: API_TARGET.startsWith('https') },
+      // ws — сокет живых обновлений /api/v1/realtime/ws (docs/REALTIME.md)
+      '/api': {
+        target: API_TARGET,
+        changeOrigin: true,
+        secure: API_TARGET.startsWith('https'),
+        ws: true,
+      },
     },
   },
   test: {

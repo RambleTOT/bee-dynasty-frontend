@@ -21,6 +21,7 @@ import { errorMessage, isApiError } from '@/api/errors';
 import { queryKeys } from '@/api/queryKeys';
 import type { EngineerAction, EngineerActionIn, EngineerMeDay } from '@/api/types';
 import { POLL } from '@/config';
+import { usePollInterval } from '@/realtime/useRealtime';
 import { notify } from '@/lib/notify';
 import { isRequestStatus, REQUEST_STATUS_LABEL, type RequestStatus } from '@/lib/statuses';
 import { doneToastText, showDoneToast } from './doneToastStore';
@@ -45,22 +46,24 @@ function withFailed(raw: EngineerMeDay): EngineerMeDay {
 }
 
 export function useEngineerDay() {
+  const poll = usePollInterval(POLL.engineer);
   return useQuery({
     queryKey: queryKeys.engineerDay(),
     queryFn: async ({ signal }) => withFailed(await getMyDay(signal)),
     select: toEngineerDay,
-    refetchInterval: POLL.engineer,
+    refetchInterval: poll,
   });
 }
 
 /** Маршрут по оставшимся точкам (E-04, ссылки в Яндекс Карты). `poll` — пока открыта карта. */
 export function useEngineerRoute({ enabled = true, poll = false } = {}) {
+  const interval = usePollInterval(POLL.engineer);
   return useQuery({
     queryKey: queryKeys.engineerRoute(),
     queryFn: ({ signal }) => getMyRoute(signal),
     select: toEngineerRoute,
     enabled,
-    refetchInterval: poll ? POLL.engineer : false,
+    refetchInterval: poll ? interval : false,
   });
 }
 
