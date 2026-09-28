@@ -123,10 +123,11 @@ describe('O-02.1 перенос', () => {
     expect(
       await screen.findByText('Заявка №100001 перенесена на 30.09, 14–16'),
     ).toBeInTheDocument();
-    expect(rescheduleBooking).toHaveBeenCalledWith('100001', {
-      new_date: '2026-09-30',
-      new_window: '14:00-16:00',
-    });
+    expect(rescheduleBooking).toHaveBeenCalledWith(
+      '100001',
+      { new_date: '2026-09-30', new_window: '14:00-16:00' },
+      { regionId: 'east', date: '2026-09-30' },
+    );
     expect(location()).toBe('/operator?request=100001');
   });
 

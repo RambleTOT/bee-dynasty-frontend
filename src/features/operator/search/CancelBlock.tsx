@@ -29,7 +29,8 @@ export function CancelBlock({ item, onClose }: { item: BookingItem; onClose: () 
   const body = cancelBody(reason, comment);
 
   const cancel = useMutation({
-    mutationFn: (payload: BookingCancelBody) => cancelBooking(item.id, payload),
+    mutationFn: (payload: BookingCancelBody) =>
+      cancelBooking(item.id, payload, { regionId: item.regionId, date: item.date }),
     onSuccess: (result) => {
       const { message } = normalizeOutcome(result);
       notify(message ?? cancelDoneText(item.date, todayMsk()), 'info');

@@ -108,7 +108,8 @@ function RescheduleStep({ item, q }: { item: BookingItem; q?: string }) {
   const back = searchUrl(item.id, q);
 
   const reschedule = useMutation({
-    mutationFn: (body: BookingRescheduleIn) => rescheduleBooking(item.id, body),
+    mutationFn: (body: BookingRescheduleIn) =>
+      rescheduleBooking(item.id, body, { regionId: item.regionId, date: item.date }),
     onSuccess: (result, body) => {
       const outcome = normalizeOutcome(result);
       invalidateBooking(queryClient);

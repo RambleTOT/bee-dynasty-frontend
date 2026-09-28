@@ -50,10 +50,11 @@ describe('CancelBlock при cancelComment', () => {
     expect(submit).toBeEnabled();
     fireEvent.click(submit);
     expect(await screen.findByText('Отменена')).toBeInTheDocument();
-    expect(cancelBooking).toHaveBeenCalledWith('100001', {
-      reason: 'other',
-      comment: 'Клиент переезжает',
-    });
+    expect(cancelBooking).toHaveBeenCalledWith(
+      '100001',
+      { reason: 'other', comment: 'Клиент переезжает' },
+      { regionId: 'east', date: '2026-09-29' },
+    );
     expect(onClose).toHaveBeenCalled();
   });
 

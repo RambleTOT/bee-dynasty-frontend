@@ -36,19 +36,36 @@ export const getSlots = (query: SlotsQuery, signal?: Signal) =>
 export const createBooking = (body: BookingRequestIn) =>
   api.post<BookingRequestOut & BookingMutationResult>('/booking/requests', body);
 
-export const cancelBooking = (requestId: string, body: BookingCancelBody) =>
+/**
+ * День заявки из строки поиска. Номера в разных днях и регионах совпадают (демо-наборы), а бэк ищет
+ * заявку по номеру в самом новом дне — `region_id` и `date` уточняют, какую именно (BACKEND_REQUESTS
+ * п. 28). Бэк без правки лишние параметры запроса пропускает.
+ */
+export interface BookingDay {
+  regionId?: string;
+  date?: string;
+}
+
+const dayQuery = (day?: BookingDay) => ({
+  query: { region_id: day?.regionId || undefined, date: day?.date || undefined },
+});
+
+export const cancelBooking = (requestId: string, body: BookingCancelBody, day?: BookingDay) =>
   api.post<BookingMutationResult>(
     `/booking/requests/${encodeURIComponent(requestId)}/cancel`,
     body,
+    dayQuery(day),
   );
 
 export const rescheduleBooking = (
   requestId: string,
   body: { new_date: string; new_window: string },
+  day?: BookingDay,
 ) =>
   api.post<BookingMutationResult>(
     `/booking/requests/${encodeURIComponent(requestId)}/reschedule`,
     body,
+    dayQuery(day),
   );
 
 /**

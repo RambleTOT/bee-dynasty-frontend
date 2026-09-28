@@ -144,7 +144,12 @@ describe('O-02 карточка и отмена', () => {
     expect(
       await screen.findByText('Заявка отменена. План на 29.09 пересчитан'),
     ).toBeInTheDocument();
-    expect(cancelBooking).toHaveBeenCalledWith('100001', { reason: 'booking_error' });
+    // день заявки — чтобы бэк не перепутал одинаковые номера в разных днях и регионах
+    expect(cancelBooking).toHaveBeenCalledWith(
+      '100001',
+      { reason: 'booking_error' },
+      expect.objectContaining({ regionId: 'east' }),
+    );
     await waitFor(() => expect(screen.queryByText('Отменить заявку?')).not.toBeInTheDocument());
     expect(location()).not.toContain('cancel=1');
     await waitFor(() => expect(searchRequests).toHaveBeenCalledTimes(2));
@@ -156,7 +161,11 @@ describe('O-02 карточка и отмена', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Отменить' }));
     fireEvent.click(screen.getByRole('button', { name: 'Отменить заявку' }));
     expect(await screen.findByText('Готово')).toBeInTheDocument();
-    expect(cancelBooking).toHaveBeenCalledWith('100001', { reason: 'client_refused' });
+    expect(cancelBooking).toHaveBeenCalledWith(
+      '100001',
+      { reason: 'client_refused' },
+      expect.objectContaining({ regionId: 'east' }),
+    );
   });
 
   it('ILLEGAL_TRANSITION — тост с текстом бэка, поиск обновлён, без падения', async () => {

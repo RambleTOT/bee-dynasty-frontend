@@ -131,10 +131,16 @@ describe('оператор', () => {
     expect(url).not.toContain('date=');
   });
 
-  it('отмена: причина и комментарий', async () => {
+  it('отмена: причина и комментарий; день заявки — в параметрах запроса', async () => {
     await cancelBooking('305857695', { reason: 'other', comment: 'Переезд' });
     expect(fetchMock.mock.calls[0][0]).toBe(`${API_URL}/booking/requests/305857695/cancel`);
     expect(lastBody()).toEqual({ reason: 'other', comment: 'Переезд' });
+
+    fetchMock.mockResolvedValueOnce(ok({}));
+    await cancelBooking('10211', { reason: 'client_refused' }, { regionId: 'east', date: '2026-09-28' });
+    expect(String(fetchMock.mock.calls.at(-1)?.[0])).toBe(
+      `${API_URL}/booking/requests/10211/cancel?region_id=east&date=2026-09-28`,
+    );
   });
 });
 
