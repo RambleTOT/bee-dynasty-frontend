@@ -1,3 +1,4 @@
+import { Play } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
   currentVisit,
@@ -9,6 +10,7 @@ import {
 } from '@/adapters/engineerDay';
 import { useAuth } from '@/auth/useAuth';
 import { searchParam, useSearchState } from '@/hooks/useSearchState';
+import { Button } from '@/ui';
 import { Placeholder } from '@/pages/Placeholder';
 import { DayError, DaySkeleton, NoVisits, PlanNotPublished } from './DayStates';
 import { DoneToast } from './DoneToast';
@@ -18,7 +20,9 @@ import { EngineerPage } from './EngineerPage';
 import { InterruptSheet } from './InterruptSheet';
 import { visitPath } from './paths';
 import { PlanChangedBanner, UnavailableBanner } from './PlanChangedBanner';
+import { PreviewScreen } from './PreviewScreen';
 import { isSeen, markSeen, useSeenVersion } from './seen';
+import { TransportSheet } from './TransportSheet';
 import { useEngineerAction, useEngineerDay } from './useEngineerDay';
 import { MyVisits } from './VisitList';
 
@@ -116,11 +120,25 @@ export default function EngineerApp() {
     <UnavailableBanner availableUntil={day.engineer.availableUntil} />
   ) : null;
 
+  // E-01: действия внизу экрана
+  const footer =
+    state === 'preview' ? (
+      <Button
+        variant="primary"
+        size="lg"
+        fullWidth
+        icon={Play}
+        onClick={() => openSheet('transport')}
+      >
+        Начать смену
+      </Button>
+    ) : null;
+
   return (
-    <EngineerPage header={header} banner={bannerNode} routeColor={routeColor}>
+    <EngineerPage header={header} banner={bannerNode} footer={footer} routeColor={routeColor}>
       {state === 'unpublished' && <PlanNotPublished />}
       {state === 'empty' && <NoVisits />}
-      {state === 'preview' && <Placeholder id="E-01" title="Превью до начала смены" />}
+      {state === 'preview' && <PreviewScreen day={day} />}
       {(state === 'shift' || state === 'unavailable') && (
         <MyVisits
           day={day}
@@ -134,6 +152,9 @@ export default function EngineerApp() {
       {state === 'finished' && <Placeholder id="E-10" title="Итоги смены" />}
       <DoneToast />
 
+      {search.sheet === 'transport' && state === 'preview' && (
+        <TransportSheet engineer={day.engineer} onClose={closeSheet} />
+      )}
       {search.sheet === 'interrupt' && state === 'shift' && current && (
         <InterruptSheet visit={current} dayDate={day.date} onClose={closeSheet} />
       )}
