@@ -43,5 +43,20 @@ export function applyEvent(event: DispatcherEvent) {
   return api.post<ReplanResult>('/events/apply', { ...event, source: 'dispatcher', apply: false });
 }
 
-export const listEvents = (scenarioId: string, signal?: Signal) =>
-  api.get<EventItem[]>('/events', { query: { scenario_id: scenarioId, limit: 50 }, signal });
+/**
+ * Журнал событий. Бэк режет по `limit` до фильтра по сценарию, а события на версиях после первого
+ * предложения записаны на производные сценарии — поэтому для дня берём общий список и фильтруем
+ * по цепочке версий (adapters/dayChain.ts).
+ */
+export const listEvents = (
+  filter: { scenarioId?: string | null; planId?: string | null; limit?: number } = {},
+  signal?: Signal,
+) =>
+  api.get<EventItem[]>('/events', {
+    query: {
+      scenario_id: filter.scenarioId ?? undefined,
+      plan_id: filter.planId ?? undefined,
+      limit: filter.limit ?? 200,
+    },
+    signal,
+  });

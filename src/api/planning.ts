@@ -23,11 +23,19 @@ export const runPlan = (scenarioId: string) =>
     include_baseline: true,
   });
 
+/** Геометрию маршрутов плана не берём (карта — из GeoJSON), поэтому `straight`: так быстрее. */
 export const getPlan = (planId: string, signal?: Signal) =>
-  api.get<PlanResponse>(`/planning/${planId}`, { signal });
+  api.get<PlanResponse>(`/planning/${planId}`, { query: { geometry: 'straight' }, signal });
 
-export const listPlans = (scenarioId: string, signal?: Signal) =>
-  api.get<PlanListResponse>('/planning', { query: { scenario_id: scenarioId }, signal });
+/**
+ * Список планов. Без `scenarioId` — последние планы всех сценариев: версии после событий живут
+ * в производных сценариях, поэтому цепочку версий дня собираем по общему списку (docs/API_NOTES.md).
+ */
+export const listPlans = (scenarioId?: string | null, signal?: Signal, limit = 200) =>
+  api.get<PlanListResponse>('/planning', {
+    query: { scenario_id: scenarioId ?? undefined, limit },
+    signal,
+  });
 
 export const applyPlan = (planId: string) =>
   api.post<PlanVersionResponse>(`/planning/${planId}/apply`);
@@ -38,12 +46,22 @@ export const rejectPlan = (planId: string) =>
 export const getPlanDiff = (planId: string, againstId: string, signal?: Signal) =>
   api.get<PlanDiffResponse>(`/planning/${planId}/diff`, { query: { against: againstId }, signal });
 
-export type CompareStrategy = 'ours' | 'fifo' | 'dispatcher';
+/** `incremental` — метрики действующего плана тем же расчётом, что FIFO и диспетчер (без перезапуска). */
+export type CompareStrategy = 'ours' | 'fifo' | 'dispatcher' | 'incremental';
 
+/**
+ * Сравнение стратегий. `scenario_id` обязателен: без него бэк берёт последний загруженный сценарий
+ * (любого дня). `plan_id` — для `incremental`.
+ */
 export const comparePlans = (
-  target: { plan_id: string } | { scenario_id: string },
+  target: { scenario_id: string; plan_id?: string | null },
   strategies: CompareStrategy[],
-) => api.post<CompareResponse>('/planning/compare', { ...target, strategies });
+) =>
+  api.post<CompareResponse>('/planning/compare', {
+    scenario_id: target.scenario_id,
+    ...(target.plan_id ? { plan_id: target.plan_id } : {}),
+    strategies,
+  });
 
 /** Базовый FIFO — только ради `baseline_routes` (FRONTEND_SPEC §6.3). */
 export const getBaseline = (planId: string) =>

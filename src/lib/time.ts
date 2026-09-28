@@ -145,3 +145,24 @@ export function monthGrid(month: string): string[] {
   for (let day = start; day <= end; day = addDays(day, 1)) days.push(day);
   return days;
 }
+
+/** Часть времени для окна: «18», «14:30». */
+function windowPart(time: string): string {
+  const minutes = toMin(time);
+  if (!Number.isFinite(minutes)) return time;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m === 0 ? String(h) : `${h}:${pad2(m)}`;
+}
+
+/** Окно коротко, как в макетах: «18–20», «14:30–16». */
+export function windowShort(start: string, end: string): string {
+  return `${windowPart(start)}–${windowPart(end)}`;
+}
+
+/** Окно полностью: «18:00–20:00». */
+export function windowFull(start: string, end: string): string {
+  const s = toMin(start);
+  const e = toMin(end);
+  return `${Number.isFinite(s) ? fromMin(s) : start}–${Number.isFinite(e) ? fromMin(e) : end}`;
+}
