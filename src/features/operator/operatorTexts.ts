@@ -84,17 +84,22 @@ export const T = {
     back: 'Назад',
     dates: 'Дата',
     windows: 'Окна',
+    /** Кнопка календаря в ленте дат и его окно. */
+    calendar: 'Выбрать дату в календаре',
+    calendarTitle: 'Выберите дату',
+    prevMonth: 'Предыдущий месяц',
+    nextMonth: 'Следующий месяц',
   },
   book: {
     cta: (window: string) => `Записать на ${window}`,
-    done: 'Записано',
     okPlanned: (id: string | undefined, date: string, window: string) =>
       `Заявка${no(id)} записана на ${date}, ${window}. План дня пересчитан`,
     okUnassigned: (id: string | undefined, date: string, window: string) =>
       `Заявка${no(id)} записана на ${date}, ${window}. Инженера назначит диспетчер`,
     okRecalc: (date: string, window: string) =>
       `Заявка записана на ${date}, ${window}. План дня пересчитывается`,
-    again: 'Новая запись',
+    /** Кнопка тоста о записи: к заявке в поиске. */
+    open: 'Открыть',
   },
   resch: {
     title: (id: string) => `Перенос заявки №${id}`,

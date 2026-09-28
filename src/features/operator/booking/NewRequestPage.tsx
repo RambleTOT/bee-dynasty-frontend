@@ -1,18 +1,20 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, CalendarCheck } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { normalizeOutcome, slotsFromError } from '@/adapters/booking';
 import { createBooking, type SlotsQuery } from '@/api/booking';
 import { isApiError } from '@/api/errors';
 import type { BookingRequestIn, BookingSlotsResponse } from '@/api/types';
 import { FEATURES } from '@/config';
 import { searchParam, useSearchState } from '@/hooks/useSearchState';
-import { next14Days, phoneMasked, typeFull, windowFull } from '@/lib/booking';
+import { phoneMasked, typeFull, windowFull } from '@/lib/booking';
 import { dismissAll, notify } from '@/lib/notify';
 import { TRANSPORT_LABEL } from '@/lib/statuses';
 import { todayMsk } from '@/lib/time';
 import { Button, Card, type InfoItem } from '@/ui';
 import { hasErrorCode, invalidateBooking, mutationErrorText } from '../bookingCache';
+import { searchUrl } from '../navigation';
 import { T } from '../operatorTexts';
 import { useDebouncedValue } from '../useDebouncedValue';
 import { useOperatorRegion } from '../useOperatorRegion';
@@ -62,17 +64,17 @@ function slotsParams(region: string | null, fields: SlotsFields): SlotsQuery | n
  */
 export default function NewRequestPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [search, setSearch] = useSearchState(pageSearch);
   const emergency = FEATURES.emergencyByRegion && search.tab === 'emergency';
   const regions = useOperatorRegion();
   const { region } = regions;
   const [form, dispatch] = useBookingForm();
 
-  // тост «Новая запись» висит, пока его не закроют, — но не дольше, чем открыта страница
+  // тост с номером записи висит, пока его не закроют, — но не дольше, чем открыта страница
   useEffect(() => dismissAll, []);
 
   const today = todayMsk();
-  const days = useMemo(() => next14Days(today), [today]);
 
   // Шаг 1 — фоном, после паузы 300 мс и без опроса; шаг 2 — сразу, с опросом (useSlots)
   const { date, typeBk, typeHd, address, gigabit, transport } = form;
@@ -84,7 +86,7 @@ export default function NewRequestPage() {
   const onStepTwo = !emergency && form.step === 2;
   // на вкладке «Авария» окна не нужны
   const activeParams = emergency ? null : onStepTwo ? params : typing;
-  const slots = useSlots(activeParams, { live: onStepTwo && !form.booked });
+  const slots = useSlots(activeParams, { live: onStepTwo });
   const model = slots.data;
 
   // выбранное окно стало занятым — выбор снимаем (свежие окна шага 2, не прошлый ответ)
@@ -97,14 +99,17 @@ export default function NewRequestPage() {
   const create = useMutation({
     mutationFn: (body: BookingRequestIn) => createBooking(body),
     onSuccess: (result, body) => {
-      dispatch({ type: 'booked' });
-      notify(bookedText(normalizeOutcome(result), body), 'success', {
+      const outcome = normalizeOutcome(result);
+      const id = outcome.requestId;
+      const ref = id ? { id, regionId: body.region_id, date: outcome.date ?? body.date } : null;
+      notify(bookedText(outcome, body), 'success', {
         persistent: true,
-        action: {
-          label: T.book.again,
-          onClick: () => dispatch({ type: 'reset', date: tomorrowMsk() }),
-        },
+        action: ref
+          ? { label: T.book.open, onClick: () => navigate(searchUrl(ref, ref.id)) }
+          : undefined,
       });
+      // записали — сразу новая запись: пустой шаг 1, регион остаётся (useOperatorRegion)
+      dispatch({ type: 'reset', date: tomorrowMsk() });
       invalidateBooking(queryClient);
     },
     onError: (error) => {
@@ -149,11 +154,7 @@ export default function NewRequestPage() {
       },
     ];
     const status: SlotsStatus = model ? 'ready' : slots.isError ? 'error' : 'loading';
-    const cta = form.booked
-      ? T.book.done
-      : form.window
-        ? T.book.cta(windowFull(form.window))
-        : T.slots.pick;
+    const cta = form.window ? T.book.cta(windowFull(form.window)) : T.slots.pick;
 
     return (
       <div className={styles.split}>
@@ -161,11 +162,11 @@ export default function NewRequestPage() {
           title={T.new.title}
           rows={summary}
           slots={model}
-          onEdit={form.booked ? undefined : () => dispatch({ type: 'step', value: 1 })}
+          onEdit={() => dispatch({ type: 'step', value: 1 })}
         />
         <SlotStep
           caption={T.new.step2}
-          days={days}
+          today={today}
           date={form.date}
           onDateChange={(day) => dispatch({ type: 'date', value: day })}
           status={status}
@@ -175,25 +176,22 @@ export default function NewRequestPage() {
           onRetry={() => void slots.refetch()}
           retrying={slots.isFetching}
           taken={form.slotTaken}
-          frozen={form.booked}
           actions={
             <>
-              {!form.booked && (
-                <Button
-                  variant="ghost"
-                  size="lg"
-                  icon={ArrowLeft}
-                  disabled={create.isPending}
-                  onClick={() => dispatch({ type: 'step', value: 1 })}
-                >
-                  {T.slots.back}
-                </Button>
-              )}
+              <Button
+                variant="ghost"
+                size="lg"
+                icon={ArrowLeft}
+                disabled={create.isPending}
+                onClick={() => dispatch({ type: 'step', value: 1 })}
+              >
+                {T.slots.back}
+              </Button>
               <Button
                 variant="primary"
                 size="lg"
                 icon={CalendarCheck}
-                disabled={!form.window || form.booked}
+                disabled={!form.window}
                 loading={create.isPending}
                 onClick={book}
               >

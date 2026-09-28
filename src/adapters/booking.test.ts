@@ -8,6 +8,7 @@ import {
   normalizeSearch,
   normalizeSearchItem,
   normalizeSlots,
+  searchQueries,
   slotsFromError,
 } from './booking';
 
@@ -121,6 +122,15 @@ describe('normalizeSearch', () => {
     expect(findExact(items, 'BK-0001', { regionId: 'east' })).toBeUndefined();
     expect(new Set(items.map(bookingKey)).size).toBe(2);
     expect(bookingKey({ id: 'BK-0001', ...where })).toBe('BK-0001|south_center|2026-09-29');
+  });
+
+  it('строка поиска: «ВК-» русскими — «BK-», номер без приставки — ещё и с «BK-», адрес — как есть', () => {
+    expect(searchQueries(' ВК-20260930-0001 ')).toEqual(['BK-20260930-0001']);
+    expect(searchQueries('вк 2026')).toEqual(['BK-2026']);
+    expect(searchQueries('20260930-0001')).toEqual(['20260930-0001', 'BK-20260930-0001']);
+    expect(searchQueries('10211')).toEqual(['10211', 'BK-10211']);
+    expect(searchQueries('Вкусная, 5')).toEqual(['Вкусная, 5']);
+    expect(searchQueries('Грайворон')).toEqual(['Грайворон']);
   });
 
   it('архивная копия того же дня — одна строка, первая из ответа (самый новый день)', () => {

@@ -14,7 +14,7 @@ import styles from './SlotStep.module.css';
 export function SlotStep({
   caption,
   note,
-  days,
+  today,
   date,
   onDateChange,
   status,
@@ -24,13 +24,13 @@ export function SlotStep({
   onRetry,
   retrying,
   taken,
-  frozen = false,
   actions,
 }: {
   caption: string;
   /** Строка над сеткой: «Сейчас: 29.09, 18–20» у переноса. */
   note?: ReactNode;
-  days: readonly string[];
+  /** Раньше этого дня дату не выбрать. */
+  today: string;
   date: string;
   onDateChange: (date: string) => void;
   status: SlotsStatus;
@@ -41,8 +41,6 @@ export function SlotStep({
   retrying: boolean;
   /** 409 SLOT_TAKEN: «Это окно только что заняли». */
   taken: boolean;
-  /** Записано — только смотреть. */
-  frozen?: boolean;
   actions: ReactNode;
 }) {
   return (
@@ -51,7 +49,7 @@ export function SlotStep({
         <h2 className={styles.title}>{T.slots.title}</h2>
         <span className={styles.caption}>{caption}</span>
       </div>
-      <DateStrip days={days} value={date} onChange={onDateChange} disabled={frozen} />
+      <DateStrip value={date} onChange={onDateChange} today={today} />
       {note && <p className={styles.note}>{note}</p>}
       <SlotGrid
         status={status}
@@ -61,7 +59,6 @@ export function SlotStep({
         onRetry={onRetry}
         retrying={retrying}
         date={date}
-        frozen={frozen}
       />
       {taken && (
         <Callout tone="danger" icon={CircleAlert} className={styles.taken}>

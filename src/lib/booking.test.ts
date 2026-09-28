@@ -4,7 +4,6 @@ import {
   dateWithWeekday,
   dayOfMonth,
   defaultHd,
-  next14Days,
   phoneInput,
   phoneMasked,
   phoneToApi,
@@ -49,15 +48,6 @@ describe('даты', () => {
   it('не дата — без падения', () => {
     expect(dateShort('')).toBe('');
     expect(dateWithWeekday('2026-02-30')).toBe('2026-02-30');
-  });
-
-  it('next14Days: 14 дат подряд с сегодняшней, через границу месяца', () => {
-    const days = next14Days('2026-09-28');
-    expect(days).toHaveLength(14);
-    expect(days[0]).toBe('2026-09-28');
-    expect(days[1]).toBe('2026-09-29');
-    expect(days[3]).toBe('2026-10-01');
-    expect(days[13]).toBe('2026-10-11');
   });
 });
 

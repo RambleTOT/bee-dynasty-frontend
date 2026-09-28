@@ -6,7 +6,7 @@ import { isValid, parseISO } from 'date-fns';
 import { BK, HD_BY_BK } from './dictionaries';
 import { formatDateShort, formatDateWithWeekday, formatWeekdayShort } from './format';
 import type { Transport } from './statuses';
-import { addDays, parseWindow } from './time';
+import { parseWindow } from './time';
 
 const isYmd = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && isValid(parseISO(value));
 
@@ -44,11 +44,6 @@ export const weekdayShort = (ymd: string) => (isYmd(ymd) ? formatWeekdayShort(ym
 
 /** '2026-10-01' → «1» — число месяца для ленты дат. */
 export const dayOfMonth = (ymd: string) => (isYmd(ymd) ? String(Number(ymd.slice(8, 10))) : ymd);
-
-/** 14 дат подряд, начиная с `today`. */
-export function next14Days(today: string): string[] {
-  return Array.from({ length: 14 }, (_, index) => addDays(today, index));
-}
 
 // --- тип заявки ---
 

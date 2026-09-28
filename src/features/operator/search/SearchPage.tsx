@@ -2,7 +2,7 @@ import { keepPreviousData, queryOptions, useQuery } from '@tanstack/react-query'
 import { MousePointerClick, Search, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { bookingKey, findExact, normalizeSearch } from '@/adapters/booking';
+import { bookingKey, findExact, normalizeSearch, searchQueries } from '@/adapters/booking';
 import { searchRequests } from '@/api/booking';
 import { queryKeys } from '@/api/queryKeys';
 import { searchParam, useSearchState } from '@/hooks/useSearchState';
@@ -30,7 +30,9 @@ const searchSchema = {
 const searchQuery = (q: string) =>
   queryOptions({
     queryKey: queryKeys.bookingSearch(q),
-    queryFn: ({ signal }) => searchRequests(q, signal),
+    // «ВК-…» русскими и номер без «BK-» — ещё одним запросом (searchQueries)
+    queryFn: async ({ signal }) =>
+      (await Promise.all(searchQueries(q).map((query) => searchRequests(query, signal)))).flat(),
     staleTime: SEARCH_STALE_MS,
     select: normalizeSearch,
   });

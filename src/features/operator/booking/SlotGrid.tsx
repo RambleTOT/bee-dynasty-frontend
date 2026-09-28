@@ -19,7 +19,7 @@ const KIND_LABEL: Record<SlotKind, string> = {
 
 /**
  * Сетка окон — 3 в ряд, из `slots[]` ответа (6 окон не зашиваем). Свободные — белые, занятые —
- * тусклые и не нажимаются, причины не показываем (D-22). `frozen` — после записи: только смотреть.
+ * тусклые и не нажимаются, причины не показываем (D-22).
  */
 export function SlotGrid({
   status,
@@ -29,7 +29,6 @@ export function SlotGrid({
   onRetry,
   retrying,
   date,
-  frozen = false,
 }: {
   status: SlotsStatus;
   slots: readonly SlotView[];
@@ -38,7 +37,6 @@ export function SlotGrid({
   onRetry: () => void;
   retrying: boolean;
   date: string;
-  frozen?: boolean;
 }) {
   if (status === 'loading') {
     return (
@@ -60,9 +58,8 @@ export function SlotGrid({
       {slots.length > 0 && (
         <div className={styles.grid} role="group" aria-label={T.slots.windows}>
           {slots.map((slot) => {
-            // записанное окно остаётся выбранным, даже если опрос уже вернул его занятым
             const kind: SlotKind =
-              slot.window === selected && (slot.available || frozen)
+              slot.window === selected && slot.available
                 ? 'selected'
                 : slot.available
                   ? 'free'
@@ -72,7 +69,7 @@ export function SlotGrid({
                 key={slot.window}
                 type="button"
                 className={cx(styles.slot, styles[kind])}
-                disabled={!slot.available || frozen}
+                disabled={!slot.available}
                 aria-pressed={kind === 'selected'}
                 onClick={() => onSelect(slot.window)}
               >

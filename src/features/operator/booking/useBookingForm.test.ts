@@ -117,17 +117,20 @@ describe('useBookingForm', () => {
     expect(f.form).toMatchObject({ date: '2026-09-30', window: null });
   });
 
-  it('после записи окно не снимается, «Новая запись» — пустой шаг 1', () => {
+  it('после записи — сразу пустой шаг 1 с датой по умолчанию', () => {
     const f = renderForm();
     f.dispatch({ type: 'typeBk', value: 'Дозаказ' });
     f.dispatch({ type: 'address', value: 'ул. Тестовая, д. 1' });
     f.dispatch({ type: 'step', value: 2 });
     f.dispatch({ type: 'window', value: '14:00-16:00' });
-    f.dispatch({ type: 'booked' });
-    f.dispatch({ type: 'slots', slots: slots('14:00-16:00') });
-    expect(f.form).toMatchObject({ booked: true, window: '14:00-16:00' });
     f.dispatch({ type: 'reset', date: '2026-09-29' });
-    expect(f.form).toMatchObject({ step: 1, typeBk: '', address: '', booked: false, window: null });
+    expect(f.form).toMatchObject({
+      step: 1,
+      typeBk: '',
+      address: '',
+      window: null,
+      date: '2026-09-29',
+    });
   });
 
   it('телефон — с маской; шаг 1 готов, когда поля заполнены', () => {

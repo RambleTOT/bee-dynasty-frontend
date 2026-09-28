@@ -183,7 +183,7 @@ describe('O-01.2 дата и окно', () => {
     expect(screen.getByRole('combobox', { name: 'Тип заявки BK' })).toHaveValue('Подключение');
   });
 
-  it('запись: тост с №, «Записано», «Назад» скрыт; «Новая запись» — пустой шаг 1', async () => {
+  it('запись: тост с №, сразу пустой шаг 1 (регион остался); «Открыть» — заявка в поиске', async () => {
     vi.mocked(createBooking).mockResolvedValue({
       request_id: '305881207',
       scenario_id: 'S1',
@@ -209,13 +209,13 @@ describe('O-01.2 дата и окно', () => {
       required_transport: null,
       client_contact: undefined,
     });
-    expect(screen.getByRole('button', { name: 'Записано' })).toBeDisabled();
-    expect(screen.queryByRole('button', { name: 'Назад' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Изменить' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Новая запись' }));
     expect(screen.getByText('Шаг 1 из 2')).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Адрес' })).toHaveValue('');
     expect(screen.getByRole('tab', { name: 'Восток' })).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Открыть' }));
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      '/operator?q=305881207&request=305881207&region=east&date=2026-09-29',
+    );
   });
 
   it('409 SLOT_TAKEN — плашка, выбор снят, окна запрошены заново', async () => {

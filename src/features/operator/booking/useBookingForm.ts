@@ -34,8 +34,6 @@ export interface BookingForm {
   window: string | null;
   /** 409 SLOT_TAKEN: плашка «Это окно только что заняли». */
   slotTaken: boolean;
-  /** Записано: шаг 2 только для чтения, пока не нажмут «Новая запись». */
-  booked: boolean;
 }
 
 export type BookingFormAction =
@@ -52,8 +50,7 @@ export type BookingFormAction =
   /** Пришли свежие окна выбранной даты. */
   | { type: 'slots'; slots: readonly SlotView[] }
   | { type: 'slotTaken' }
-  | { type: 'booked' }
-  /** «Новая запись»: пустой шаг 1 (регион хранится отдельно и остаётся). */
+  /** Записали — сразу новая запись: пустой шаг 1 (регион хранится отдельно и остаётся). */
   | { type: 'reset'; date: string };
 
 export const tomorrowMsk = () => addDays(todayMsk(), 1);
@@ -72,7 +69,6 @@ export function initialBookingForm(date: string = tomorrowMsk()): BookingForm {
     date,
     window: null,
     slotTaken: false,
-    booked: false,
   };
 }
 
@@ -107,13 +103,11 @@ export function bookingFormReducer(form: BookingForm, action: BookingFormAction)
     case 'window':
       return { ...form, window: action.value, slotTaken: false };
     case 'slots':
-      // выбранное окно стало занятым (или пропало) — выбор снимаем; записанное не трогаем
-      if (form.booked || !form.window || isSlotFree(action.slots, form.window)) return form;
+      // выбранное окно стало занятым (или пропало) — выбор снимаем
+      if (!form.window || isSlotFree(action.slots, form.window)) return form;
       return { ...form, window: null };
     case 'slotTaken':
       return { ...form, window: null, slotTaken: true };
-    case 'booked':
-      return { ...form, booked: true, slotTaken: false };
     case 'reset':
       return initialBookingForm(action.date);
   }

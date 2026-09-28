@@ -15,17 +15,10 @@ import { rescheduleBooking, searchRequests, type SlotsQuery } from '@/api/bookin
 import { isApiError } from '@/api/errors';
 import { queryKeys } from '@/api/queryKeys';
 import type { BookingRescheduleIn, BookingSlotsResponse } from '@/api/types';
-import {
-  dateShort,
-  dateWithWeekday,
-  next14Days,
-  typeFull,
-  windowFull,
-  windowShort,
-} from '@/lib/booking';
+import { dateShort, dateWithWeekday, typeFull, windowFull, windowShort } from '@/lib/booking';
 import { notify } from '@/lib/notify';
 import { isRegionId, REGION_LABEL } from '@/lib/statuses';
-import { todayMsk } from '@/lib/time';
+import { addDays, todayMsk } from '@/lib/time';
 import { PageLoader } from '@/pages/PageLoader';
 import { Button, ErrorState, type InfoItem } from '@/ui';
 import { BookingSummary } from '../booking/BookingSummary';
@@ -37,9 +30,11 @@ import { searchByIdUrl, searchUrl, type RescheduleState } from '../navigation';
 import { T } from '../operatorTexts';
 import styles from './ReschedulePage.module.css';
 
-/** Дата по умолчанию — дата заявки, если она не раньше сегодня (и есть в ленте), иначе завтра. */
-function defaultDate(requestDate: string, days: readonly string[]): string {
-  return days.includes(requestDate) ? requestDate : days[1];
+/** Дата по умолчанию — дата заявки, если она не раньше сегодня (хоть через месяц), иначе завтра. */
+function defaultDate(requestDate: string, today: string): string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(requestDate) && requestDate >= today
+    ? requestDate
+    : addDays(today, 1);
 }
 
 /**
@@ -84,8 +79,7 @@ function RescheduleStep({ item, q }: { item: BookingItem; q?: string }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const today = todayMsk();
-  const days = useMemo(() => next14Days(today), [today]);
-  const [date, setDate] = useState(() => defaultDate(item.date, days));
+  const [date, setDate] = useState(() => defaultDate(item.date, today));
   const [selected, setSelected] = useState<string | null>(null);
   const [taken, setTaken] = useState(false);
 
@@ -174,7 +168,7 @@ function RescheduleStep({ item, q }: { item: BookingItem; q?: string }) {
       <SlotStep
         caption={T.resch.caption}
         note={T.resch.now(dateShort(item.date), windowShort(item.window))}
-        days={days}
+        today={today}
         date={date}
         onDateChange={(day) => {
           if (day === date) return;

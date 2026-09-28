@@ -105,6 +105,10 @@ export const formatDayMonth = (ymd: string) => format(dateOf(ymd), 'd MMMM', { l
 export const formatMonthTitle = (month: string) =>
   capitalize(format(parseISO(`${month}-01`), 'LLLL yyyy', { locale: ru }));
 
+/** «Сентябрь» по 'YYYY-MM'. */
+export const formatMonthName = (month: string) =>
+  capitalize(format(parseISO(`${month}-01`), 'LLLL', { locale: ru }));
+
 /** «29.09». */
 export const formatDateShort = (ymd: string) => format(dateOf(ymd), 'dd.MM');
 

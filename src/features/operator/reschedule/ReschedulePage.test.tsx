@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { normalizeSearchItem } from '@/adapters/booking';
 import { getSlots, rescheduleBooking, searchRequests } from '@/api/booking';
@@ -93,6 +93,48 @@ describe('O-02.1 перенос', () => {
     renderReschedule('/operator/reschedule/100001?region=east&date=2026-09-30');
     expect(await screen.findByText('Сейчас: 30.09, 18–20')).toBeInTheDocument();
     expect(screen.getByText('Восток')).toBeInTheDocument();
+  });
+
+  it('заявка через два месяца: лента — с её датой и месяцем; календарь — любой день', async () => {
+    const state: RescheduleState = {
+      item: normalizeSearchItem({ ...row, date: '2026-11-27', window: '14:00-16:00' }),
+      q: '',
+    };
+    renderReschedule({ pathname: '/operator/reschedule/100001', state });
+    expect(screen.getByRole('button', { name: 'Пт, 27.11' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByText('Ноябрь')).toBeInTheDocument();
+    expect(screen.getByText('Сейчас: 27.11, 14–16')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Выбрать дату в календаре' }));
+    const calendar = screen.getByRole('dialog', { name: 'Выберите дату' });
+    expect(within(calendar).getByText('Ноябрь 2026')).toBeInTheDocument();
+    fireEvent.click(within(calendar).getByRole('button', { name: 'Следующий месяц' }));
+    fireEvent.click(within(calendar).getByRole('button', { name: 'Пн, 7 декабря' }));
+    expect(screen.queryByRole('dialog', { name: 'Выберите дату' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Пн, 07.12' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByText('Декабрь')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(getSlots).toHaveBeenCalledWith(
+        expect.objectContaining({ date: '2026-12-07' }),
+        expect.anything(),
+      ),
+    );
+  });
+
+  it('в календаре прошедшие дни не выбрать, назад раньше текущего месяца не листается', () => {
+    const state: RescheduleState = { item: normalizeSearchItem(row), q: '' };
+    renderReschedule({ pathname: '/operator/reschedule/100001', state });
+    fireEvent.click(screen.getByRole('button', { name: 'Выбрать дату в календаре' }));
+    const calendar = screen.getByRole('dialog', { name: 'Выберите дату' });
+    expect(within(calendar).getByRole('button', { name: 'Предыдущий месяц' })).toBeDisabled();
+    expect(within(calendar).getByRole('button', { name: 'Вс, 27 сентября' })).toBeDisabled();
+    expect(within(calendar).getByRole('button', { name: 'Пн, 28 сентября' })).toBeEnabled();
   });
 
   it('заявки с таким номером нет — в поиск с этим номером', async () => {

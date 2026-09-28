@@ -90,6 +90,20 @@ export const bookingKey = (item: BookingRef) =>
   `${item.id}|${item.regionId ?? ''}|${item.date ?? ''}`;
 
 /**
+ * Что спросить у бэка по строке поиска. Бэк ищет номер по началу (`startswith`), а адрес — по
+ * вхождению (BACKEND_REQUESTS п. 42), поэтому:
+ * - «ВК-2026…» русскими буквами → «BK-2026…»;
+ * - цифры без приставки («20260930-0001», «202609») — ещё и как номер записи «BK-…».
+ * Ответы нескольких запросов склеивает `normalizeSearch` (одна строка на заявку дня).
+ */
+export function searchQueries(raw: string): string[] {
+  const q = raw.trim().replace(/^[ВвBb][КкKk](?=[\s-]*\d)[\s-]*/, 'BK-');
+  const queries = [q];
+  if (/^\d[\d-]{2,}$/.test(q)) queries.push(`BK-${q}`);
+  return queries;
+}
+
+/**
  * Ответ GET /booking/requests → строки поиска, новые сверху. Одна строка на заявку дня: бэк отдаёт
  * и архивные копии того же дня (BACKEND_REQUESTS п. 27) — оставляем первую, из самого нового дня.
  */
