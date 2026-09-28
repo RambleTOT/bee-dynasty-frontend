@@ -85,11 +85,9 @@ npm run dev          # http://localhost:5173, /api проксируется на
 | `cancelComment`           | 9.3 «Другое» + комментарий при отмене оператором | вкл    |
 | `engineerIncident`        | 8.4 действие «Инцидент»                          | вкл    |
 | `unavailableBeforeShift`  | 8.5 «Не выйду сегодня» до начала смены           | вкл    |
-| `addEngineerAfterPublish` | P1-6 бригада в начатый день (`engineer_added`)   | выкл\* |
-| `extendResourceCheck`     | P1-5 «кого не хватает» без сохранения            | выкл\* |
-| `comparePlanStrategy`     | P1-8 «Наш план» в сравнении (стратегия `plan`)   | выкл\* |
-
-\* Правки есть в коде бэка (коммит `b0c6195`), но сервис ещё не перезапущен. После перезапуска: `VITE_FEATURES=addEngineerAfterPublish,extendResourceCheck,comparePlanStrategy` в `.env.local` и `npm run deploy`.
+| `addEngineerAfterPublish` | P1-6 бригада в начатый день (`engineer_added`)   | вкл    |
+| `extendResourceCheck`     | P1-5 «кого не хватает» без сохранения            | вкл    |
+| `comparePlanStrategy`     | P1-8 «Наш план» в сравнении (стратегия `plan`)   | вкл    |
 
 Расхождения спеки и API и обходы на фронте — `docs/API_NOTES.md`. Что нужно от бэка (запросы, где не работает алгоритм, безопасность) — `docs/BACKEND_REQUESTS.md`.
 

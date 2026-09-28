@@ -21,11 +21,10 @@ const FEATURE_DEFAULTS = {
   unavailableBeforeShift: true, // 8.5 unavailable при shift_status = not_started — проверено 28.09
   emergencyByRegion: true, // 9.1 авария оператора по params.region_id — есть с 28.09
   cancelComment: true, // 9.3 comment в отмене оператора — есть с 28.09
-  // Правки по docs/BACKEND_REQUESTS.md: код бэка 28.09 11:29 (гайд бэка §9), сервис ещё не перезапущен.
-  // Включить после перезапуска: VITE_FEATURES=addEngineerAfterPublish,extendResourceCheck,comparePlanStrategy
-  addEngineerAfterPublish: false, // §12, P1-6 бригада в начатый день — событие engineer_added → предложение
-  extendResourceCheck: false, // P1-5 «кого не хватает» — extend-resource/check, без сохранения предложения
-  comparePlanStrategy: false, // P1-8 «Наш план» в сравнении — стратегия plan тем же расчётом, что FIFO
+  // правки по docs/BACKEND_REQUESTS.md — на стенде с 28.09 19:07 (гайд бэка §9, §10)
+  addEngineerAfterPublish: true, // §12, P1-6 бригада в начатый день — событие engineer_added → предложение
+  extendResourceCheck: true, // P1-5 «кого не хватает» — extend-resource/check, без сохранения предложения
+  comparePlanStrategy: true, // P1-8 «Наш план» в сравнении — стратегия plan тем же расчётом, что FIFO
 };
 
 export type FeatureFlag = keyof typeof FEATURE_DEFAULTS;

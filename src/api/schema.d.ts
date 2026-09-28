@@ -815,7 +815,7 @@ export interface paths {
         };
         /**
          * Поиск записей оператора
-         * @description Поиск записей по номеру (префикс) или подстроке адреса, до 20 результатов.
+         * @description Поиск по дню региона (не только по записям оператора), статус — по плану (п. 16).
          */
         get: operations["search_booking_requests_api_v1_booking_requests_get"];
         put?: never;
@@ -841,7 +841,7 @@ export interface paths {
         put?: never;
         /**
          * Отменить запись
-         * @description Отменяет запись и пересчитывает день.
+         * @description Отменяет запись. В начатом дне — предложением диспетчеру (п. 16).
          */
         post: operations["cancel_booking_request_api_v1_booking_requests__request_id__cancel_post"];
         delete?: never;
