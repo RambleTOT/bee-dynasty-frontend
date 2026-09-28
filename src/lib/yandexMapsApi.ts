@@ -11,8 +11,19 @@ export interface YMapsGeoObjects {
   getBounds(): number[][] | null;
 }
 
+/** Событие API: поля — через `get`. */
+export interface YEvent {
+  get(name: string): unknown;
+}
+
+export interface YEventManager {
+  add(type: string, handler: (event: YEvent) => void): void;
+}
+
 export interface YMap {
   geoObjects: YMapsGeoObjects;
+  /** Слои карты: у слоя с тайлами есть событие `tileloadchange` (`readyTileNumber`). */
+  layers: { each(callback: (layer: { events: YEventManager }) => void): void };
   setBounds(bounds: number[][], options?: Record<string, unknown>): void;
   setCenter(center: number[], zoom?: number): void;
   destroy(): void;
@@ -20,7 +31,7 @@ export interface YMap {
 }
 
 export interface YMultiRoute {
-  model: { events: { add(type: string, handler: () => void): void } };
+  model: { events: YEventManager };
   getBounds(): number[][] | null;
 }
 
@@ -33,6 +44,11 @@ export interface YMaps {
   ) => YMap;
   Placemark: new (
     coordinates: number[],
+    properties?: Record<string, unknown>,
+    options?: Record<string, unknown>,
+  ) => unknown;
+  Polyline: new (
+    coordinates: number[][],
     properties?: Record<string, unknown>,
     options?: Record<string, unknown>,
   ) => unknown;
@@ -55,13 +71,23 @@ export const YANDEX_MAPS_KEY: string | null = import.meta.env.VITE_YANDEX_MAPS_K
 let loading: Promise<YMaps> | null = null;
 
 /**
- * Яндекс не строит маршрут: ключ не активен, кончился суточный лимит, нет сети. До перезагрузки
+ * Карта Яндекса не грузит тайлы: ключ не активен, кончился суточный лимит, нет сети. До перезагрузки
  * страницы встроенную карту Яндекса не показываем — остаётся карта OSM, лимит не тратим.
  */
 let unavailable = false;
 export const yandexMapsUnavailable = () => unavailable;
 export function markYandexMapsUnavailable() {
   unavailable = true;
+}
+
+/**
+ * Карта есть, но маршрут Яндекс не строит (бесплатный ключ: сервис маршрутов отвечает 401). До
+ * перезагрузки рисуем на карте Яндекса свою линию маршрута с бэка и маршрутизатор не дёргаем.
+ */
+let routingUnavailable = false;
+export const yandexRoutingUnavailable = () => routingUnavailable;
+export function markYandexRoutingUnavailable() {
+  routingUnavailable = true;
 }
 
 export function loadYandexMaps(): Promise<YMaps> {

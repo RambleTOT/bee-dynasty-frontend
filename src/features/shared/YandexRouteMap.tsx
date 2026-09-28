@@ -1,21 +1,29 @@
 /**
- * Встроенная Яндекс Карта с маршрутом, который строит Яндекс (мультимаршрут по точкам по порядку):
- * старт, точки с номерами, одна линия цветом бригады. Нет ключа, API не загрузился или Яндекс не
- * построил маршрут (ключ не активен, кончился лимит) — `fallback` (карта OSM). Цвет — CSS-переменная
- * с элемента карты: JS API понимает только готовый цвет.
+ * Встроенная Яндекс Карта с маршрутом: старт, точки с номерами, одна линия цветом бригады.
+ * - Маршрут сначала просим у Яндекса (мультимаршрут по точкам по порядку). Не построил (бесплатный
+ *   ключ: сервис маршрутов отвечает 401) — рисуем на карте Яндекса свою линию маршрута (`line`,
+ *   дорожная геометрия с бэка), дальше до перезагрузки маршрутизатор не дёргаем.
+ * - Нет ключа, API не загрузился или карта не грузит тайлы (ключ не активен, кончился суточный
+ *   лимит) — `fallback` (карта OSM).
+ * Цвет — CSS-переменная с элемента карты: JS API понимает только готовый цвет.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   loadYandexMaps,
   markYandexMapsUnavailable,
+  markYandexRoutingUnavailable,
   routingMode,
   YANDEX_MAPS_KEY,
   yandexMapsUnavailable,
+  yandexRoutingUnavailable,
   type YMap,
   type YMaps,
 } from '@/lib/yandexMapsApi';
 import { cx, Spinner } from '@/ui';
 import styles from './YandexRouteMap.module.css';
+
+/** Сколько ждём первые тайлы карты, прежде чем уйти на карту OSM. */
+const TILES_TIMEOUT_MS = 12_000;
 
 export interface RouteStop {
   lat: number;
@@ -28,6 +36,8 @@ export interface RouteStop {
 interface YandexRouteMapProps {
   start: { lat: number; lon: number } | null;
   stops: RouteStop[];
+  /** Линия маршрута `[lat, lon]` — если Яндекс маршрут не построит; нет — прямые между точками. */
+  line?: readonly (readonly [number, number])[];
   transport: string | null;
   /** CSS-переменная цвета маршрута, например `--engineer-route` или `--route-3`. */
   colorVar: string;
@@ -45,12 +55,12 @@ function draw(
   map: YMap,
   element: HTMLElement,
   props: YandexRouteMapProps,
-  onFail: () => void,
+  onRoutingFail: () => void,
 ) {
   map.geoObjects.removeAll();
   const color = cssColor(element, props.colorVar);
   const refs = [...(props.start ? [props.start] : []), ...props.stops].map((p) => [p.lat, p.lon]);
-  if (refs.length >= 2) {
+  if (refs.length >= 2 && !yandexRoutingUnavailable()) {
     const route = new ymaps.multiRouter.MultiRoute(
       { referencePoints: refs, params: { routingMode: routingMode(props.transport, refs.length), results: 1 } },
       {
@@ -64,9 +74,11 @@ function draw(
         routeActivePedestrianSegmentStrokeColor: color,
       },
     );
-    // ключ не активен или кончился суточный лимит — маршрута не будет, уходим на карту OSM
-    route.model.events.add('requestfail', onFail);
+    route.model.events.add('requestfail', onRoutingFail);
     map.geoObjects.add(route);
+  } else if (refs.length >= 2) {
+    const line = props.line && props.line.length >= 2 ? props.line.map(([lat, lon]) => [lat, lon]) : refs;
+    map.geoObjects.add(new ymaps.Polyline(line, {}, { strokeColor: color, strokeWidth: 5, strokeOpacity: 0.9 }));
   }
   if (props.start) {
     map.geoObjects.add(
@@ -95,6 +107,19 @@ export function YandexRouteMap(props: YandexRouteMapProps) {
   const [state, setState] = useState<'loading' | 'ready' | 'failed'>(
     YANDEX_MAPS_KEY && !yandexMapsUnavailable() ? 'loading' : 'failed',
   );
+
+  const redraw = useRef(() => {
+    const current = map.current;
+    if (current && element.current) {
+      draw(current.ymaps, current.map, element.current, latest.current, routingFailed.current);
+    }
+  });
+  // маршрут Яндекс не построил — та же карта, но со своей линией маршрута
+  const routingFailed = useRef(() => {
+    markYandexRoutingUnavailable();
+    redraw.current();
+  });
+  // тайлы не грузятся — карта OSM до перезагрузки страницы
   const fail = useRef(() => {
     markYandexMapsUnavailable();
     map.current?.map.destroy();
@@ -105,6 +130,7 @@ export function YandexRouteMap(props: YandexRouteMapProps) {
   useEffect(() => {
     if (!YANDEX_MAPS_KEY || yandexMapsUnavailable()) return;
     let cancelled = false;
+    let tilesTimer: ReturnType<typeof setTimeout> | undefined;
     loadYandexMaps()
       .then((ymaps) => {
         if (cancelled || !element.current) return;
@@ -114,9 +140,16 @@ export function YandexRouteMap(props: YandexRouteMapProps) {
           { suppressMapOpenBlock: true, yandexMapDisablePoiInteractivity: true },
         );
         map.current = { ymaps, map: instance };
-        draw(ymaps, instance, element.current, latest.current, () => {
-          if (!cancelled) fail.current();
-        });
+        let tiles = false;
+        instance.layers.each((layer) =>
+          layer.events.add('tileloadchange', (event) => {
+            if (Number(event.get('readyTileNumber')) > 0) tiles = true;
+          }),
+        );
+        tilesTimer = setTimeout(() => {
+          if (!cancelled && !tiles) fail.current();
+        }, TILES_TIMEOUT_MS);
+        redraw.current();
         setState('ready');
       })
       .catch(() => {
@@ -124,6 +157,7 @@ export function YandexRouteMap(props: YandexRouteMapProps) {
       });
     return () => {
       cancelled = true;
+      clearTimeout(tilesTimer);
       map.current?.map.destroy();
       map.current = null;
     };
@@ -134,11 +168,10 @@ export function YandexRouteMap(props: YandexRouteMapProps) {
     props.start ? `${props.start.lat},${props.start.lon}` : '-',
     ...props.stops.map((s) => `${s.number}:${s.lat},${s.lon}`),
     props.transport,
+    props.line?.length ?? 0,
   ].join('|');
   useEffect(() => {
-    if (map.current && element.current) {
-      draw(map.current.ymaps, map.current.map, element.current, latest.current, () => fail.current());
-    }
+    redraw.current();
   }, [signature]);
 
   if (state === 'failed') return <>{props.fallback}</>;

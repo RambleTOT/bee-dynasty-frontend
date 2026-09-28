@@ -95,7 +95,7 @@ export function MapScreen({
           }
         >
           {YANDEX_MAPS_KEY ? (
-            // маршрут строит Яндекс по оставшимся точкам; нет ключа или API — карта OSM
+            // маршрут строит Яндекс по оставшимся точкам, иначе — линия с бэка; нет ключа или тайлов — OSM
             <YandexRouteMap
               className={styles.yandex}
               start={route.start}
@@ -105,6 +105,7 @@ export function MapScreen({
                 number: point.sequence,
                 hint: requestNo(point.requestId),
               }))}
+              line={route.line}
               transport={linkTransport(day.engineer, route)}
               colorVar="--engineer-route"
               fallback={<EngineerMap route={route} />}

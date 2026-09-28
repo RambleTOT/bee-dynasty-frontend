@@ -288,6 +288,7 @@ export function DayMap({
           <YandexRouteMap
             start={brigadeStart}
             stops={brigadeStops}
+            line={lines.find((line) => line.engineerId === brigade)?.points}
             transport={brigadeEngineer.transport}
             colorVar={`--route-${brigadeEngineer.color.index}`}
             fallback={<div className={styles.yandexFail}>Яндекс Карты не загрузились</div>}
