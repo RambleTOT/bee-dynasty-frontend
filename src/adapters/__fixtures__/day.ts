@@ -184,6 +184,7 @@ export function makePlanItem(patch: Partial<PlanListItem> & { plan_id: string })
     scenario_id: 'S0',
     kind: 'optimized',
     status: 'applied',
+    version: 0,
     created_at: '2026-09-28T09:05:00+00:00',
     engineers_used: 3,
     total_distance_km: 42.3,

@@ -391,7 +391,7 @@ export const TRANSPORT_OPTIONS: { value: string; label: string }[] = [
 ];
 
 /** Время события из ленты: `payload.time` (часы события) или момент записи. */
-export function eventTimeOf(event: Pick<EventItem, 'payload'>): string | null {
-  const time = event.payload?.time ?? event.payload?.event_time;
+export function eventTimeOf(event: Pick<EventItem, 'payload'> & { event_time?: string | null }): string | null {
+  const time = event.event_time ?? event.payload?.event_time ?? event.payload?.time ?? event.payload?.applied_at;
   return typeof time === 'string' && /^\d{1,2}:\d{2}/.test(time) ? time.slice(0, 5) : null;
 }

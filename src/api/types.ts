@@ -188,8 +188,7 @@ export interface EngineerVisit extends EngineerVisitSchema {
   /** ⏳ 8.6 */
   actual_start?: string | null;
   actual_end?: string | null;
-  /** ⏳ 8.8 P2: {вид: количество} */
-  equipment?: Record<string, number> | null;
+  // equipment (8.8) — уже в схеме
 }
 
 export interface EngineerBanner {

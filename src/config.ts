@@ -15,12 +15,12 @@ export const TZ = 'Europe/Moscow';
  * Меняем руками после ответа бэка или проверки Swagger; один флаг на правку (FRONTEND_SPEC §5.4).
  */
 const FEATURE_DEFAULTS = {
-  dayClock: false, // §1  ручки /data/scenarios/{id}/clock, clock в /days и /me/day
-  failOther: false, // 8.3 fail.reason 'other' + comment
+  dayClock: true, // §1  ручки /data/scenarios/{id}/clock, clock в /days и /me/day — есть с 28.09
+  failOther: true, // 8.3 fail.reason 'other' + comment — есть с 28.09 (COMMENT_REQUIRED)
   engineerIncident: false, // 8.4 action 'incident' (есть в enum EngineerActionIn.action в /openapi.json)
   unavailableBeforeShift: false, // 8.5 unavailable при shift_status = not_started
-  emergencyByRegion: false, // 9.1 авария оператора по params.region_id
-  cancelComment: false, // 9.3 comment в отмене оператора
+  emergencyByRegion: true, // 9.1 авария оператора по params.region_id — есть с 28.09
+  cancelComment: true, // 9.3 comment в отмене оператора — есть с 28.09
   addEngineerAfterPublish: false, // §12 добавить инженера в начатый день → engineer_available → предложение
 };
 

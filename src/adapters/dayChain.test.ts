@@ -88,6 +88,18 @@ describe('resolveDayChain', () => {
     expect(chain.pendingProposals).toHaveLength(1);
   });
 
+  it('событие plan_applied первой версии (петля P1 → P1) не обрывает цепочку', () => {
+    const events = [
+      makeEvent({ event_id: 'A1', event_type: 'plan_applied', plan_id: 'P1', result_plan_id: 'P1', created_at: '2026-09-28T09:00:00Z' }),
+      makeEvent({ event_id: 'E1', plan_id: 'P1', result_plan_id: 'P2', created_at: '2026-09-28T10:00:00Z' }),
+      makeEvent({ event_id: 'A2', event_type: 'plan_applied', plan_id: 'P1', result_plan_id: 'P2', created_at: '2026-09-28T10:05:00Z' }),
+    ];
+    const plans = [makePlanItem({ plan_id: 'P1', status: 'superseded' }), makePlanItem({ plan_id: 'P2', status: 'applied' })];
+    const chain = resolveDayChain(region, events, plans);
+    expect(chain.headPlanId).toBe('P2');
+    expect(chain.versions[0].event?.event_id).toBe('E1');
+  });
+
   it('цикл в данных не зацикливает', () => {
     const events = [
       makeEvent({ event_id: 'E1', plan_id: 'P1', result_plan_id: 'P2' }),

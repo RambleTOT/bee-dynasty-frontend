@@ -82,3 +82,20 @@
 | 23  | `created_at` на SQLite | время ISO с поясом | без пояса (`2026-09-28T06:40:12`) — это UTC | `timeOfIso`: строку без пояса читаем как UTC |
 | 24  | `import_report.office.address` | «Офис: …» | хвост пустых колонок CSV: «…д 1с1;;;;;;» | обрезаем хвост `;` в подписи |
 | 25  | Демо-набор `load-demo` | имя бригады в чипе — фамилия | имена «Бригада 1…12» | число без фамилии — показываем имя целиком («Бригада 1») |
+
+## 28.09, 09:41 — бэк выкатил правки из `BACKEND_FIXES_FINAL_28-09.md`
+
+Сверено по живой схеме (`npm run gen:types`) и исходникам нового образа, проверено на локальной копии бэка.
+
+| #   | Правка | Что на бэке | Что сделали на фронте |
+| --- | --- | --- | --- |
+| 26  | §1 часы дня | `GET/POST /data/scenarios/{id}/clock` (автопрогон, `CLOCK_BACKWARD`), `clock` в `/days` и `/me/day`; «сейчас» событий и нажатий — по часам дня | флаг `dayClock = true`; «сейчас» дня — `clock` из `/days` |
+| 27  | §2 лента | в событиях `headline`, `source`, `event_time`, `order_id`, `engineer_id`, `status`, `flag`, `applied_at`; новые типы `plan_applied` (при каждом `/apply`) и `engineer_action` (факты инженера) | `plan_applied` — «Версия N применена…» с номером по цепочке (у бэка номер считается внутри производного сценария); «Принято в HH:MM» — из `applied_at`; факты инженера — с именами бригад. `headline` бэка — для незнакомых типов: в нём id бригад, а не имена |
+| 28  | §2 цепочка версий | `plan_applied` первой версии ссылается сам на себя (`plan_id = result_plan_id`) | обход цепочки пропускает петли и пройденные версии |
+| 29  | §4 версии | `version`, `event_id`, `event_type`, `headline` в `GET /planning` | номер — по-прежнему по цепочке (п. 14 не исправлен: версии после событий — в производных сценариях) |
+| 30  | §5 сравнение | в колонке `available`, `unassigned`, `visits_total`, `started_in_window`, `late`, `km_by_engineer[]`; верхний `km_by_engineer` теперь `{бригада: {стратегия: {km, tasks}}}`; без данных диспетчера — `{available: false}` | берём поля бэка, иначе считаем сами; оба формата `km_by_engineer` читаем |
+| 31  | 8.1–8.3, 8.6–8.9 инженер | баннеры, сброс активной после `fail`, коды причин `fail` (`other` → `COMMENT_REQUIRED`, `client_reschedule` → `DESIRED_DATE_REQUIRED`), `actual_*`, `equipment`, `color_index`, `started_at / ended_at` | флаг `failOther = true`; поля читаем, если пришли |
+| 32  | 8.4 `incident` | действия нет | `engineerIncident = false` |
+| 33  | 9.1 авария оператора | `params.region_id` без `plan_id`, окно по часам дня; нет применённого плана — `409 DAY_NOT_STARTED`. План ищется только в исходном сценарии дня — после первого принятого события (п. 14) авария оператора получит `DAY_NOT_STARTED` | флаг `emergencyByRegion = true` |
+| 34  | 9.3, 9.4, 9.9 оператор | `comment` при отмене (`other` → `COMMENT_REQUIRED`), `message` в ответах записи, отмены, переноса, понятный `ILLEGAL_TRANSITION` | флаг `cancelComment = true`; `message` бэка важнее текста по дате |
+| 35  | §12 добавить инженера после публикации | `POST …/engineers` после публикации по-прежнему `409` | `addEngineerAfterPublish = false` |

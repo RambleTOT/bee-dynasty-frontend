@@ -10,6 +10,11 @@ import NewRequestPage from './NewRequestPage';
 
 vi.mock('@/api/booking', () => ({ getSlots: vi.fn(), createBooking: vi.fn() }));
 vi.mock('@/api/data', () => ({ getRegions: vi.fn() }));
+// здесь — обычная запись без вкладки «Авария»; вкладку проверяет EmergencyForm.test.tsx
+vi.mock('@/config', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/config')>();
+  return { ...actual, FEATURES: { ...actual.FEATURES, emergencyByRegion: false } };
+});
 
 const WINDOWS = [
   '10:00-12:00',

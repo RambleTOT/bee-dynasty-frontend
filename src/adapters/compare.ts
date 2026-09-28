@@ -83,7 +83,9 @@ export function lateCount(routes: readonly RouteOut[] | null | undefined): numbe
 }
 
 const unassignedFromCoverage = (column: CompareColumn | undefined, total: number) =>
-  column && Number.isFinite(column.coverage_pct) ? Math.round(total * (1 - column.coverage_pct / 100)) : null;
+  column && typeof column.coverage_pct === 'number' && Number.isFinite(column.coverage_pct)
+    ? Math.round(total * (1 - column.coverage_pct / 100))
+    : null;
 
 const num = (n: number | null | undefined) => (n == null || !Number.isFinite(n) ? null : n);
 
@@ -94,12 +96,41 @@ export interface CompareInput {
   baseline: BaselineResponse | null;
 }
 
+interface EngineerKm {
+  km: number | null;
+  tasks: number | null;
+}
+
+/**
+ * Пробег и число заявок бригады по стратегии. Бэк отдавал это в двух форматах:
+ * `columns[s].km_by_engineer: [{engineer_id, km, tasks}]` и `km_by_engineer[id][s] = {km, tasks}` (28.09),
+ * раньше — `km_by_engineer[s][id] = km`. Читаем любой.
+ */
+function engineerKmReader(compare: CompareResponse | null) {
+  const columns = (compare?.columns ?? {}) as Record<string, CompareColumn | undefined>;
+  const top = (compare?.km_by_engineer ?? {}) as Record<string, unknown>;
+  return (strategy: string, engineerId: string): EngineerKm | null => {
+    const list = columns[strategy]?.km_by_engineer as { engineer_id?: unknown; km?: unknown; tasks?: unknown }[] | undefined;
+    const item = list?.find((x) => x.engineer_id === engineerId);
+    if (item) return { km: num(Number(item.km)), tasks: num(Number(item.tasks)) };
+    const byEngineer = top[engineerId] as Record<string, { km?: unknown; tasks?: unknown }> | undefined;
+    const nested = byEngineer && typeof byEngineer === 'object' ? byEngineer[strategy] : undefined;
+    if (nested && typeof nested === 'object') return { km: num(Number(nested.km)), tasks: num(Number(nested.tasks)) };
+    const legacy = top[strategy] as Record<string, unknown> | undefined;
+    const value = legacy && typeof legacy === 'object' ? legacy[engineerId] : undefined;
+    if (typeof value === 'number') return { km: num(value), tasks: null };
+    return null;
+  };
+}
+
 export function buildCompare({ model, plan, compare, baseline }: CompareInput): CompareModel {
   const columns = (compare?.columns ?? {}) as Record<string, CompareColumn | undefined>;
-  const kmBy = (compare?.km_by_engineer ?? {}) as Record<string, Record<string, number> | undefined>;
+  const kmOf = engineerKmReader(compare);
   const hasPlan = Boolean(plan);
-  const fifo = columns.fifo;
-  const disp = columns.dispatcher;
+  // `available: false` — у стратегии нет данных (например, диспетчер без контрольного файла)
+  const usable = (c: CompareColumn | undefined) => (c && c.available !== false ? c : undefined);
+  const fifo = usable(columns.fifo);
+  const disp = usable(columns.dispatcher);
   const total = plan?.summary.total_requests ?? model.requests.length;
 
   let dispatcherMissing: string | null = null;
@@ -126,18 +157,25 @@ export function buildCompare({ model, plan, compare, baseline }: CompareInput): 
   const fifoKm = num(fifo?.km_total);
   const dispKm = num(disp?.km_total);
 
-  // Неназначенные
+  // Неназначенные: поле бэка (28.09) → базовый план → расчёт из coverage_pct
   const oursUn = num(plan?.summary.unassigned_count);
   const fifoUn = num(
-    baseline?.baseline.unassigned_count ?? plan?.metrics?.baseline.unassigned_count ?? unassignedFromCoverage(fifo, total),
+    fifo?.unassigned ??
+      baseline?.baseline.unassigned_count ??
+      plan?.metrics?.baseline.unassigned_count ??
+      unassignedFromCoverage(fifo, total),
   );
-  const dispUn = num(unassignedFromCoverage(disp, total));
+  const dispUn = num(disp?.unassigned ?? unassignedFromCoverage(disp, total));
 
-  // Начато в окне, просрочено
+  // Начато в окне, просрочено: поля бэка (28.09), иначе считаем по маршрутам
+  const columnWin = (c: CompareColumn | undefined) =>
+    c && c.started_in_window != null && c.visits_total != null ? { n: c.started_in_window, m: c.visits_total } : null;
   const oursWin = plan ? inWindow(plan.routes ?? []) : null;
-  const fifoWin = baseline?.baseline_routes ? inWindow(baseline.baseline_routes) : null;
+  const fifoWin = columnWin(fifo) ?? (baseline?.baseline_routes ? inWindow(baseline.baseline_routes) : null);
+  const dispWin = dispatcherMissing ? null : columnWin(disp);
   const oursLate = plan ? lateCount(plan.routes ?? []) : null;
-  const fifoLate = baseline?.baseline_routes ? lateCount(baseline.baseline_routes) : null;
+  const fifoLate = num(fifo?.late ?? (baseline?.baseline_routes ? lateCount(baseline.baseline_routes) : null));
+  const dispLate = dispatcherMissing ? null : num(disp?.late ?? null);
 
   const cell = (value: number | null, format: (n: number) => string = formatInt): CompareCell =>
     value == null ? EMPTY : { value: format(value) };
@@ -191,22 +229,21 @@ export function buildCompare({ model, plan, compare, baseline }: CompareInput): 
             }
           : EMPTY,
       fifo: { value: winText(fifoWin) },
-      dispatcher: EMPTY,
+      dispatcher: dispWin ? { value: winText(dispWin) } : EMPTY,
     },
     {
       key: 'late',
       label: 'Просрочено',
       ours: withDelta(oursLate, fifoLate, 'count'),
       fifo: cell(fifoLate),
-      dispatcher: EMPTY,
+      dispatcher: cell(dispLate),
     },
   ];
 
   const baselineRoutes = new Map((baseline?.baseline_routes ?? []).map((r) => [r.engineer_id, r]));
   // пробег диспетчера по бригадам: одни нули при ненулевом итоге — данных нет (бэк 28.09)
-  const dispatcherKm = kmBy.dispatcher;
   const dispatcherKmKnown =
-    Boolean(dispatcherKm) && Object.values(dispatcherKm ?? {}).some((km) => Number(km) > 0);
+    !dispatcherMissing && model.engineers.some((e) => (kmOf('dispatcher', e.id)?.km ?? 0) > 0);
   const dispatcherTasks = new Map<string, number>();
   for (const r of model.requests) {
     if (r.dispatcherEngineerId) dispatcherTasks.set(r.dispatcherEngineerId, (dispatcherTasks.get(r.dispatcherEngineerId) ?? 0) + 1);
@@ -216,17 +253,17 @@ export function buildCompare({ model, plan, compare, baseline }: CompareInput): 
     const route = model.routeByEngineer.get(e.id);
     const used = (route?.visits.length ?? 0) > 0;
     const fifoRoute = baselineRoutes.get(e.id);
-    const fifoKmByEng = kmBy.fifo?.[e.id];
+    const fifoKm = kmOf('fifo', e.id);
     return {
       engineerId: e.id,
       label: e.label,
       short: e.short,
       color: e.color,
       ours: hasPlan && used ? (route?.distanceKm ?? null) : null,
-      fifo: num(fifoRoute ? fifoRoute.distance_km : (fifoKmByEng ?? null)),
-      dispatcher: dispatcherKmKnown ? num(dispatcherKm?.[e.id] ?? null) : null,
+      fifo: num(fifoRoute ? fifoRoute.distance_km : (fifoKm?.km ?? null)),
+      dispatcher: dispatcherKmKnown ? (kmOf('dispatcher', e.id)?.km ?? null) : null,
       tasksOurs: hasPlan ? (route?.taskCount ?? 0) : null,
-      tasksFifo: fifoRoute ? fifoRoute.task_count : null,
+      tasksFifo: fifoRoute ? fifoRoute.task_count : (fifoKm?.tasks ?? null),
       tasksDispatcher: dispatcherTasks.get(e.id) ?? 0,
     };
   });

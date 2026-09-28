@@ -151,9 +151,9 @@ describe('constraints', () => {
 describe('compare', () => {
   const compare: CompareResponse = {
     columns: {
-      incremental: { engineers_used: 0, km_total: 0, coverage_pct: 0, unassigned_urgent: 0, violations: 0, km_is_estimate: false },
-      fifo: { engineers_used: 2, km_total: 60, coverage_pct: 50, unassigned_urgent: 0, violations: 0, km_is_estimate: false },
-      dispatcher: { engineers_used: 1, km_total: 55.5, coverage_pct: 100, unassigned_urgent: 0, violations: 0, km_is_estimate: true },
+      incremental: { engineers_used: 0, km_total: 0, coverage_pct: 0, unassigned_urgent: 0, violations: 0, km_is_estimate: false, available: true },
+      fifo: { engineers_used: 2, km_total: 60, coverage_pct: 50, unassigned_urgent: 0, violations: 0, km_is_estimate: false, available: true },
+      dispatcher: { engineers_used: 1, km_total: 55.5, coverage_pct: 100, unassigned_urgent: 0, violations: 0, km_is_estimate: true, available: true },
     },
     km_by_engineer: { fifo: { e1: 30, e2: 30 }, dispatcher: { e2: 55.5 }, incremental: { e1: 0 } },
     notes: [],
@@ -211,7 +211,7 @@ describe('compare', () => {
       compare: {
         columns: {
           fifo: compare.columns!.fifo,
-          dispatcher: { engineers_used: 0, km_total: 0, coverage_pct: 0, unassigned_urgent: 0, violations: 0, km_is_estimate: true },
+          dispatcher: { engineers_used: 0, km_total: 0, coverage_pct: 0, unassigned_urgent: 0, violations: 0, km_is_estimate: true, available: true },
         },
         km_by_engineer: {},
         notes: [],
@@ -352,9 +352,9 @@ describe('feed', () => {
       makeRegion({ active_plan_id: 'P1', plan_state: 'applied', version: 1 }),
       events,
       [
-        { plan_id: 'P1', scenario_id: 'S0', kind: 'optimized', status: 'applied', created_at: '', engineers_used: 1, total_distance_km: 1, planned_count: 1 },
-        { plan_id: 'P2', scenario_id: 'S1', kind: 'replanned', status: 'rejected', created_at: '', engineers_used: 1, total_distance_km: 1, planned_count: 1 },
-        { plan_id: 'P3', scenario_id: 'S2', kind: 'replanned', status: 'proposed', created_at: '', engineers_used: 1, total_distance_km: 1, planned_count: 1 },
+        { plan_id: 'P1', scenario_id: 'S0', kind: 'optimized', status: 'applied', created_at: '', version: 0, engineers_used: 1, total_distance_km: 1, planned_count: 1 },
+        { plan_id: 'P2', scenario_id: 'S1', kind: 'replanned', status: 'rejected', created_at: '', version: 0, engineers_used: 1, total_distance_km: 1, planned_count: 1 },
+        { plan_id: 'P3', scenario_id: 'S2', kind: 'replanned', status: 'proposed', created_at: '', version: 0, engineers_used: 1, total_distance_km: 1, planned_count: 1 },
       ],
     );
     const rows = buildFeed({ chain, model });
@@ -364,6 +364,78 @@ describe('feed', () => {
     ]);
     expect(rows[0].action).toEqual({ label: 'Открыть', planId: 'P3' });
     expect(rows[0].chip?.label).toBe('Ждёт решения');
+  });
+});
+
+describe('feed: события бэка 28.09', () => {
+  it('plan_applied — номер версии из цепочки, «Принято в HH:MM»; факты инженера — с именами', () => {
+    const events = [
+      makeEvent({
+        event_id: 'F1',
+        event_type: 'engineer_action',
+        plan_id: 'P1',
+        payload: { action: 'complete', request_id: '305838184', engineer_id: 'e1', event_time: '14:05', headline: 'Инженер e1 выполнил №305838184' },
+        created_at: '2026-09-28T11:05:00Z',
+      }),
+      makeEvent({
+        event_id: 'A2',
+        event_type: 'plan_applied',
+        plan_id: 'P1',
+        result_plan_id: 'P2',
+        applied_at: '12:34',
+        payload: { headline: 'Версия 1 применена. Инженеры получили обновление', applied_at: '12:34' },
+        created_at: '2026-09-28T09:34:00Z',
+      }),
+      makeEvent({
+        event_id: 'E1',
+        plan_id: 'P1',
+        result_plan_id: 'P2',
+        payload: { request_id: 'U-0001', time: '12:30', headline: 'Авария №U-0001 → e1, прибытие 13:25', scenario: { urgent: { order_id: 'U-0001', engineer_id: 'e1', arrival: '13:25' } } },
+        created_at: '2026-09-28T09:31:00Z',
+      }),
+    ];
+    const chain = resolveDayChain(
+      makeRegion({ active_plan_id: 'P1', plan_state: 'applied', version: 1 }),
+      events,
+      [
+        { plan_id: 'P1', scenario_id: 'S0', kind: 'optimized', status: 'superseded', created_at: '', version: 1, engineers_used: 1, total_distance_km: 1, planned_count: 1 },
+        { plan_id: 'P2', scenario_id: 'S1', kind: 'replanned', status: 'applied', created_at: '', version: 1, engineers_used: 1, total_distance_km: 1, planned_count: 1 },
+      ],
+    );
+    const rows = buildFeed({ chain, model });
+    expect(rows.map((r) => [r.time, r.text, r.note])).toEqual([
+      ['14:05', 'Бригада Соколов выполнил №…8184', null],
+      ['12:34', 'Версия 2 применена. Инженеры получили обновление', null],
+      ['12:30', 'Авария №U-0001 → Бригада Соколов, прибытие 13:25', 'Принято в 12:34 · версия 2'],
+    ]);
+  });
+});
+
+describe('compare: формат бэка 28.09', () => {
+  it('поля колонки и km_by_engineer {бригада: {стратегия: {km, tasks}}}', () => {
+    const cmp = buildCompare({
+      model,
+      plan,
+      compare: {
+        columns: {
+          fifo: {
+            available: true, engineers_used: 2, km_total: 60, coverage_pct: 50, unassigned: 1, visits_total: 1,
+            started_in_window: 0, late: 1, unassigned_urgent: 0, violations: 0, km_is_estimate: false,
+            km_by_engineer: [{ engineer_id: 'e2', km: 30, tasks: 1 }],
+          },
+          dispatcher: { available: false, violations: 0, km_is_estimate: false },
+        },
+        km_by_engineer: { e2: { fifo: { km: 30, tasks: 1 } } },
+        notes: [],
+      },
+      baseline: null,
+    });
+    const byKey = Object.fromEntries(cmp.rows.map((r) => [r.key, r]));
+    expect(byKey.inWindow.fifo.value).toBe('0/1');
+    expect(byKey.late.fifo.value).toBe('1');
+    expect(byKey.unassigned.fifo.value).toBe('1');
+    expect(byKey.engineers.dispatcher).toEqual({ value: 'нет данных', note: 'только для CSV-дня' });
+    expect(cmp.engineers.find((e) => e.engineerId === 'e2')).toMatchObject({ fifo: 30, tasksFifo: 1 });
   });
 });
 

@@ -77,10 +77,16 @@ export function resolveDayChain(
     const visited = new Set([root]);
     let head = root;
     for (let depth = 0; depth < MAX_DEPTH; depth += 1) {
+      // `plan_applied` первой версии ссылается сам на себя — петли и пройденные версии пропускаем
       const next = (byBase.get(head) ?? [])
-        .filter((e) => e.result_plan_id && LIVE_STATUSES.has(planStatus.get(e.result_plan_id) ?? ''))
-        .sort(newestFirst)[0];
-      if (!next?.result_plan_id || visited.has(next.result_plan_id)) break;
+        .filter(
+          (e) =>
+            e.result_plan_id &&
+            !visited.has(e.result_plan_id) &&
+            LIVE_STATUSES.has(planStatus.get(e.result_plan_id) ?? ''),
+        )
+        .sort((a, b) => Number(a.event_type === 'plan_applied') - Number(b.event_type === 'plan_applied') || newestFirst(a, b))[0];
+      if (!next?.result_plan_id) break;
       head = next.result_plan_id;
       visited.add(head);
       chain.push({ planId: head, event: next });

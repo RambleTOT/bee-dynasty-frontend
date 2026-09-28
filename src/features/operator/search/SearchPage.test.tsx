@@ -8,6 +8,11 @@ import { renderScreen } from '../testUtils';
 import SearchPage from './SearchPage';
 
 vi.mock('@/api/booking', () => ({ searchRequests: vi.fn(), cancelBooking: vi.fn() }));
+// сценарии страницы — без «Другое» (флаг cancelComment выключен); «Другое» проверяет CancelBlock.test.tsx
+vi.mock('@/config', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/config')>();
+  return { ...actual, FEATURES: { ...actual.FEATURES, cancelComment: false } };
+});
 
 /** Строки ответа без полей ⏳ 9.2 — как в живой схеме 28.09. */
 const planned: BookingSearchItem = {

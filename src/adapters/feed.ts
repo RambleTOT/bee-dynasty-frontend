@@ -76,15 +76,47 @@ function engineer(model: Labels, id: unknown): string {
   return model.engineerById.get(id)?.label ?? `Бригада ${id}`;
 }
 
-function textOf(event: EventItem, model: Labels): string {
+const ACTION_TEXT: Record<string, (engineer: string, order: string) => string> = {
+  shift_start: (e) => `${e} начал смену`,
+  en_route: (e, o) => `${e} в пути к №${o}`,
+  start: (e, o) => `${e} начал работу по №${o}`,
+  complete: (e, o) => `${e} выполнил №${o}`,
+  fail: (e, o) => `${e}: проблема по №${o}`,
+  delay: (e) => `${e} задерживается`,
+  unavailable: (e) => `${e} недоступен`,
+  shift_end: (e) => `${e} завершил смену`,
+};
+
+const ACTION_TONE: Record<string, StatusTone> = {
+  complete: 'success',
+  fail: 'warning',
+  unavailable: 'warning',
+  delay: 'warning',
+};
+
+/**
+ * Текст строки. Шаблоны DESIGN_SPEC §7.3 с именами бригад из модели дня; `headline` бэка — для типов,
+ * которых шаблоны не знают (в нём id бригад, а не имена).
+ */
+function textOf(event: EventItem, model: Labels, versionOf: ReadonlyMap<string, number>): string {
   const p = (event.payload ?? {}) as Record<string, unknown>;
-  const headline = p.headline;
-  if (typeof headline === 'string' && headline.trim()) return headline;
+  const headline = typeof p.headline === 'string' && p.headline.trim() ? p.headline : (event.headline ?? null);
   const scenario = (p.scenario ?? {}) as Record<string, Record<string, unknown> | undefined>;
-  const order = p.request_id ?? p.order_id;
+  const order = p.request_id ?? p.order_id ?? event.order_id;
   const time = eventTimeOf(event);
 
   switch (event.event_type) {
+    case 'plan_applied': {
+      const version = event.result_plan_id ? versionOf.get(event.result_plan_id) : undefined;
+      return version
+        ? `Версия ${version} применена. Инженеры получили обновление`
+        : (headline ?? 'Версия применена. Инженеры получили обновление');
+    }
+    case 'engineer_action': {
+      const action = String(p.action ?? '');
+      const text = ACTION_TEXT[action];
+      return text ? text(engineer(model, p.engineer_id ?? event.engineer_id), num(order)) : (headline ?? `Действие инженера: ${action}`);
+    }
     case 'urgent_order_added': {
       const urgent = scenario.urgent;
       if (urgent?.engineer_id) {
@@ -128,7 +160,7 @@ function textOf(event: EventItem, model: Labels): string {
     case 'extend_resource':
       return 'Добор ресурса под неназначенные';
     default:
-      return `Событие: ${event.event_type}`;
+      return headline ?? `Событие: ${event.event_type}`;
   }
 }
 
@@ -139,8 +171,18 @@ export interface FeedInput {
 
 export function buildFeed({ chain, model }: FeedInput): FeedRow[] {
   const versionOf = new Map(chain.versions.map((v) => [v.planId, v.version]));
+  // когда версию приняли: событие `plan_applied` с `applied_at` (бэк 28.09)
+  const appliedAt = new Map<string, string>();
+  for (const e of chain.events) {
+    if (e.event_type !== 'plan_applied' || !e.result_plan_id) continue;
+    const at = e.applied_at ?? (e.payload?.applied_at as string | undefined);
+    if (typeof at === 'string' && at) appliedAt.set(e.result_plan_id, at.slice(0, 5));
+  }
   return chain.events.map((event) => {
-    const style = ICONS[event.event_type] ?? { icon: CircleDot, tone: 'neutral' as StatusTone };
+    const action = event.event_type === 'engineer_action' ? String(event.payload?.action ?? '') : '';
+    const style = action
+      ? { icon: MapPin, tone: ACTION_TONE[action] ?? ('info' as StatusTone) }
+      : (ICONS[event.event_type] ?? { icon: CircleDot, tone: 'neutral' as StatusTone });
     const result = event.result_plan_id ?? null;
     const status = result ? chain.planStatus.get(result) : undefined;
     const actionable = status === 'proposed' && event.plan_id === chain.headPlanId;
@@ -149,9 +191,12 @@ export function buildFeed({ chain, model }: FeedInput): FeedRow[] {
     const engineerFail = event.event_type === 'order_cancelled' && event.payload?.source === 'engineer';
 
     let note: string | null = null;
-    if (status === 'applied' || status === 'superseded' || status === 'completed') {
+    if (event.event_type === 'plan_applied' || action) {
+      note = null;
+    } else if (status === 'applied' || status === 'superseded' || status === 'completed') {
       const version = result ? versionOf.get(result) : undefined;
-      note = version ? `Принято · версия ${version}` : 'Принято';
+      const at = result ? appliedAt.get(result) : undefined;
+      note = [at ? `Принято в ${at}` : 'Принято', version ? `версия ${version}` : null].filter(Boolean).join(' · ');
     } else if (status === 'rejected') {
       note = 'Отклонено';
     } else if (status === 'proposed' && !actionable) {
@@ -163,7 +208,7 @@ export function buildFeed({ chain, model }: FeedInput): FeedRow[] {
       time: eventTimeOf(event) ?? timeOfIso(event.created_at),
       icon: style.icon,
       tone: style.tone,
-      text: textOf(event, model),
+      text: textOf(event, model, versionOf),
       chip: needsDecision
         ? engineerFail
           ? { label: 'Отменяется', tone: 'warning', icon: ClockAlert }

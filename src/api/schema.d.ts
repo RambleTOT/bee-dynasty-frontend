@@ -296,6 +296,30 @@ export interface paths {
         patch: operations["patch_scenario_engineer_api_v1_data_scenarios__scenario_id__engineers__engineer_id__patch"];
         trace?: never;
     };
+    "/api/v1/data/scenarios/{scenario_id}/clock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Часы дня
+         * @description Возвращает часы сценария (HH:MM) или null (реальное время Europe/Moscow).
+         */
+        get: operations["get_clock_api_v1_data_scenarios__scenario_id__clock_get"];
+        put?: never;
+        /**
+         * Установить часы дня
+         * @description Ставит часы сценария (HH:MM) или возвращает реальное время (null). Вперёд с автопрогоном визиты плана становятся фактами.
+         */
+        post: operations["set_clock_api_v1_data_scenarios__scenario_id__clock_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/planning/run": {
         parameters: {
             query?: never;
@@ -1211,8 +1235,14 @@ export interface components {
         };
         /** BookingCancelIn */
         BookingCancelIn: {
-            /** Reason */
-            reason?: string | null;
+            /**
+             * Reason
+             * @default client_refused
+             * @enum {string}
+             */
+            reason: "client_refused" | "booking_error" | "other";
+            /** Comment */
+            comment?: string | null;
         };
         /** BookingRequestIn */
         BookingRequestIn: {
@@ -1252,10 +1282,14 @@ export interface components {
             status: string;
             /** Tentative Engineer Id */
             tentative_engineer_id?: string | null;
+            /** Engineer Id */
+            engineer_id?: string | null;
             /** Plan Id */
             plan_id?: string | null;
             /** Window */
             window: string;
+            /** Message */
+            message?: string | null;
         };
         /** BookingRescheduleIn */
         BookingRescheduleIn: {
@@ -1280,18 +1314,50 @@ export interface components {
             slots?: components["schemas"]["SlotOut"][];
         };
         /**
+         * ClockIn
+         * @description Часы дня (D-24).
+         */
+        ClockIn: {
+            /**
+             * Time
+             * @description Время дня HH:MM или null (реальное время)
+             */
+            time?: string | null;
+            /**
+             * Autoplay
+             * @description Прогнать визиты плана до этого времени
+             * @default true
+             */
+            autoplay: boolean;
+        };
+        /**
          * CompareColumn
          * @description Колонка сравнения стратегий планирования (S0).
          */
         CompareColumn: {
+            /** Strategy */
+            strategy?: string | null;
+            /**
+             * Available
+             * @default true
+             */
+            available: boolean;
             /** Engineers Used */
-            engineers_used: number;
+            engineers_used?: number | null;
             /** Km Total */
-            km_total: number;
+            km_total?: number | null;
             /** Coverage Pct */
-            coverage_pct: number;
+            coverage_pct?: number | null;
             /** Unassigned Urgent */
-            unassigned_urgent: number;
+            unassigned_urgent?: number | null;
+            /** Unassigned */
+            unassigned?: number | null;
+            /** Visits Total */
+            visits_total?: number | null;
+            /** Started In Window */
+            started_in_window?: number | null;
+            /** Late */
+            late?: number | null;
             /**
              * Violations
              * @default 0
@@ -1302,6 +1368,10 @@ export interface components {
              * @default false
              */
             km_is_estimate: boolean;
+            /** Km By Engineer */
+            km_by_engineer?: {
+                [key: string]: unknown;
+            }[];
         };
         /**
          * CompareRequest
@@ -1343,9 +1413,7 @@ export interface components {
             };
             /** Km By Engineer */
             km_by_engineer?: {
-                [key: string]: {
-                    [key: string]: number;
-                };
+                [key: string]: unknown;
             };
             /** Notes */
             notes?: string[];
@@ -1764,6 +1832,10 @@ export interface components {
             arrival?: string | null;
             /** Start */
             start?: string | null;
+            /** Actual Start */
+            actual_start?: string | null;
+            /** Actual End */
+            actual_end?: string | null;
             /** Duration Minutes */
             duration_minutes: number;
             /**
@@ -1778,6 +1850,10 @@ export interface components {
             gigabit: boolean;
             /** Technology */
             technology?: string | null;
+            /** Equipment */
+            equipment?: {
+                [key: string]: number;
+            };
             /**
              * Why You
              * @default
@@ -1822,6 +1898,40 @@ export interface components {
             scenario_id?: string | null;
             /** Result Plan Id */
             result_plan_id?: string | null;
+            /**
+             * Headline
+             * @description Одна строка для ленты диспетчера
+             */
+            headline?: string | null;
+            /**
+             * Source
+             * @description dispatcher | operator | engineer | system
+             */
+            source?: string | null;
+            /**
+             * Event Time
+             * @description Время события HH:MM по часам дня
+             */
+            event_time?: string | null;
+            /** Order Id */
+            order_id?: string | null;
+            /** Engineer Id */
+            engineer_id?: string | null;
+            /**
+             * Status
+             * @description Статус заявки после события
+             */
+            status?: string | null;
+            /**
+             * Flag
+             * @description Флаг, если событие про смену флага
+             */
+            flag?: string | null;
+            /**
+             * Applied At
+             * @description Когда предложение приняли, HH:MM
+             */
+            applied_at?: string | null;
             /** Payload */
             payload?: {
                 [key: string]: unknown;
@@ -1929,7 +2039,7 @@ export interface components {
             still_unassigned?: string[];
             /** Cost */
             cost?: {
-                [key: string]: number;
+                [key: string]: unknown;
             };
         };
         /** HTTPValidationError */
@@ -2121,6 +2231,17 @@ export interface components {
             kind: string;
             /** Status */
             status: string;
+            /**
+             * Version
+             * @default 0
+             */
+            version: number;
+            /** Event Id */
+            event_id?: string | null;
+            /** Event Type */
+            event_type?: string | null;
+            /** Headline */
+            headline?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -2673,6 +2794,16 @@ export interface components {
              * @description Флаги: urgent/at_risk/late/changed/started_early/reaction_late.
              */
             flags?: string[];
+            /**
+             * Cancel Reason
+             * @description Причина отмены: client_refused|no_access|technical|other.
+             */
+            cancel_reason?: string | null;
+            /**
+             * Rescheduled To
+             * @description Дата переноса YYYY-MM-DD.
+             */
+            rescheduled_to?: string | null;
         };
         /**
          * RouteOut
@@ -3760,6 +3891,85 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_clock_api_v1_data_scenarios__scenario_id__clock_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scenario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_clock_api_v1_data_scenarios__scenario_id__clock_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scenario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClockIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Объект не найден (сценарий, план или событие). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Ошибка валидации входных данных или невозможность построить план. Поле `context.errors` содержит детали. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
