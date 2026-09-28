@@ -70,6 +70,7 @@ describe('длительность и время', () => {
   it('timeOfIso — по Москве; готовое HH:MM — как есть', () => {
     expect(timeOfIso('2026-09-29T09:31:00Z')).toBe('12:31');
     expect(timeOfIso('2026-09-29T21:05:00+00:00')).toBe('00:05');
+    expect(timeOfIso('2026-09-28T06:40:12.345')).toBe('09:40');
     expect(timeOfIso('13:25')).toBe('13:25');
     expect(timeOfIso('13:25:40')).toBe('13:25');
     expect(timeOfIso('')).toBe('');

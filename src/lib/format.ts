@@ -132,7 +132,8 @@ const isoTime = new Intl.DateTimeFormat('ru-RU', {
 export function timeOfIso(value: string | null | undefined): string {
   if (!value) return '';
   if (/^\d{1,2}:\d{2}/.test(value)) return value.slice(0, 5);
-  const date = new Date(value);
+  // бэк хранит UTC; без пояса в строке (SQLite) — считаем её UTC, а не местным временем браузера
+  const date = new Date(/T\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(value) ? `${value}Z` : value);
   if (Number.isNaN(date.getTime())) return '';
   const parts = isoTime.formatToParts(date);
   const hour = Number(parts.find((p) => p.type === 'hour')?.value) % 24;

@@ -1,7 +1,7 @@
 /**
  * «Сравнение» и DS-05: наш план / базовый FIFO / реальный диспетчер (FRONTEND_SPEC §6.3).
- * «Наш план» — стратегия `incremental` (метрики действующего плана тем же расчётом, что FIFO
- * и диспетчер); если её нет — сводка плана.
+ * «Наш план» — сводка действующего плана: стратегия `ours` перезапускает солвер, а `incremental`
+ * на бэке 28.09 отдаёт нули (docs/API_NOTES.md).
  */
 import type { BaselineResponse, CompareColumn, CompareResponse, PlanResponse, RouteOut } from '@/api/types';
 import { formatDelta, formatInt, formatKm } from '@/lib/format';
@@ -98,7 +98,6 @@ export function buildCompare({ model, plan, compare, baseline }: CompareInput): 
   const columns = (compare?.columns ?? {}) as Record<string, CompareColumn | undefined>;
   const kmBy = (compare?.km_by_engineer ?? {}) as Record<string, Record<string, number> | undefined>;
   const hasPlan = Boolean(plan);
-  const ours = columns.incremental;
   const fifo = columns.fifo;
   const disp = columns.dispatcher;
   const total = plan?.summary.total_requests ?? model.requests.length;
@@ -114,12 +113,12 @@ export function buildCompare({ model, plan, compare, baseline }: CompareInput): 
     : null;
 
   // Задействовано инженеров
-  const oursEng = num(ours?.engineers_used ?? plan?.summary.engineers_used);
+  const oursEng = num(plan?.summary.engineers_used);
   const fifoEng = num(fifo?.engineers_used);
   const dispEng = num(disp?.engineers_used);
 
   // Пробег
-  const oursKm = num(ours?.km_total ?? plan?.summary.total_distance_km);
+  const oursKm = num(plan?.summary.total_distance_km);
   const fifoKm = num(fifo?.km_total);
   const dispKm = num(disp?.km_total);
 
@@ -200,6 +199,10 @@ export function buildCompare({ model, plan, compare, baseline }: CompareInput): 
   ];
 
   const baselineRoutes = new Map((baseline?.baseline_routes ?? []).map((r) => [r.engineer_id, r]));
+  // пробег диспетчера по бригадам: одни нули при ненулевом итоге — данных нет (бэк 28.09)
+  const dispatcherKm = kmBy.dispatcher;
+  const dispatcherKmKnown =
+    Boolean(dispatcherKm) && Object.values(dispatcherKm ?? {}).some((km) => Number(km) > 0);
   const dispatcherTasks = new Map<string, number>();
   for (const r of model.requests) {
     if (r.dispatcherEngineerId) dispatcherTasks.set(r.dispatcherEngineerId, (dispatcherTasks.get(r.dispatcherEngineerId) ?? 0) + 1);
@@ -215,9 +218,9 @@ export function buildCompare({ model, plan, compare, baseline }: CompareInput): 
       label: e.label,
       short: e.short,
       color: e.color,
-      ours: hasPlan && used ? (kmBy.incremental?.[e.id] ?? route?.distanceKm ?? null) : null,
+      ours: hasPlan && used ? (route?.distanceKm ?? null) : null,
       fifo: num(fifoRoute ? fifoRoute.distance_km : (fifoKmByEng ?? null)),
-      dispatcher: num(kmBy.dispatcher?.[e.id] ?? null),
+      dispatcher: dispatcherKmKnown ? num(dispatcherKm?.[e.id] ?? null) : null,
       tasksOurs: hasPlan ? (route?.taskCount ?? 0) : null,
       tasksFifo: fifoRoute ? fifoRoute.task_count : null,
       tasksDispatcher: dispatcherTasks.get(e.id) ?? 0,

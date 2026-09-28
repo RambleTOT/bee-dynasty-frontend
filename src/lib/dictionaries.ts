@@ -140,5 +140,7 @@ export function engineerShort(name: string | null | undefined, id: string): stri
   const clean = (name ?? '').trim();
   if (!clean || clean === id) return id;
   const withoutPrefix = clean.replace(BRIGADE, '');
+  // «Бригада 1» (демо-набор): одна цифра в чипе непонятна — оставляем имя целиком
+  if (/^\d+$/.test(withoutPrefix)) return clean;
   return withoutPrefix.split(/\s+/)[0] || id;
 }

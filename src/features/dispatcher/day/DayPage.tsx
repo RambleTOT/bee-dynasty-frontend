@@ -264,6 +264,11 @@ export default function DayPage() {
             {highlight && (
               <div className={styles.highlightBar}>
                 Изменённые маршруты подсвечены, прежние — серым пунктиром
+                {highlight.planId && (
+                  <Button variant="inverse" size="sm" onClick={() => openProposal(highlight.planId as string)}>
+                    К предложению
+                  </Button>
+                )}
                 <Button variant="inverse" size="sm" onClick={() => setHighlight(null)}>
                   Скрыть
                 </Button>
@@ -356,6 +361,7 @@ export default function DayPage() {
               orderId={search.order}
               actions={actions}
               onTab={(event) => setSearch({ event })}
+              onRegion={(region) => setSearch({ region, order: null, brigade: null, status: null, type: null })}
               onClose={() => setSearch({ event: null, order: null })}
               onProposal={(planId, event) => {
                 sentEvents.current.set(planId, event);

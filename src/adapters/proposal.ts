@@ -313,6 +313,17 @@ export function newUrgentId(now: number = Date.now()): string {
   return `U-${now.toString(36).toUpperCase()}`;
 }
 
+/** Номер срочной заявки «U-0427»: короткий, как в макете, и не совпадает с заявками дня. */
+export function urgentIdFor(existing: ReadonlySet<string>, now: number = Date.now()): string {
+  let n = Math.floor(now / 1000) % 10000;
+  for (let i = 0; i < 10000; i += 1) {
+    const id = `U-${String(n).padStart(4, '0')}`;
+    if (!existing.has(id)) return id;
+    n = (n + 1) % 10000;
+  }
+  return newUrgentId(now);
+}
+
 export function urgentEvent(form: UrgentForm, id = newUrgentId()): DispatcherEvent {
   const request: UrgentRequestIn = {
     id,

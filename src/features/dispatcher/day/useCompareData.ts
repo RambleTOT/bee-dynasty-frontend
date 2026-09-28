@@ -16,11 +16,7 @@ export function useCompareData(model: DayModel | null) {
 
   const compareQuery = useQuery({
     queryKey: queryKeys.compare(planId ? `plan:${planId}` : `scenario:${scenarioId}`),
-    queryFn: () =>
-      comparePlans(
-        { scenario_id: scenarioId as string, plan_id: planId },
-        planId ? ['incremental', 'fifo', 'dispatcher'] : ['fifo', 'dispatcher'],
-      ),
+    queryFn: () => comparePlans({ scenario_id: scenarioId as string, plan_id: planId }, ['fifo', 'dispatcher']),
     enabled: Boolean(scenarioId),
     staleTime: Infinity,
     retry: false,

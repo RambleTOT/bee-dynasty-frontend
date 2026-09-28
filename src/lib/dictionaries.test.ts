@@ -29,6 +29,7 @@ describe('подписи бригад', () => {
     expect(engineerShort('Бригада Соколов', 'E01')).toBe('Соколов');
     expect(engineerShort('Капитанчук Александр', 'E07')).toBe('Капитанчук');
     expect(engineerShort(null, 'E00')).toBe('E00');
+    expect(engineerShort('Бригада 1', 'E01')).toBe('Бригада 1');
   });
 });
 

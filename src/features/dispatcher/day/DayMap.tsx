@@ -31,8 +31,12 @@ import styles from './DayMap.module.css';
 export interface MapHighlight {
   /** Бригады, чьи маршруты меняются: подсвечены, остальные приглушены. */
   engineers: ReadonlySet<string>;
+  /** Новые линии этих бригад (из предложения). */
+  lines: RouteLine[];
   /** Прежние линии этих бригад — серым пунктиром. */
   ghost: RouteLine[];
+  /** Предложение, к которому можно вернуться. */
+  planId: string | null;
 }
 
 interface DayMapProps {
@@ -99,7 +103,12 @@ export function DayMap({
 }: DayMapProps) {
   const [legendOpen, setLegendOpen] = useState(false);
   const hasPlan = Boolean(model.plan);
-  const lines = useMemo(() => (hasPlan ? routeLines(model, geojson) : []), [model, geojson, hasPlan]);
+  const lines = useMemo(() => {
+    const current = hasPlan ? routeLines(model, geojson) : [];
+    if (!highlight) return current;
+    // изменённые бригады — линиями предложения, остальные — как в действующем плане
+    return [...current.filter((l) => !highlight.engineers.has(l.engineerId)), ...highlight.lines];
+  }, [model, geojson, hasPlan, highlight]);
   const bounds = useMemo(() => dayBounds(model), [model]);
   const fitKey = `${model.date}:${model.regionId}:${model.planId ?? 'none'}:${bounds.length > 0}`;
 
@@ -119,7 +128,8 @@ export function DayMap({
       let size = 24;
       let kind: 'stop' | 'urgent' | 'unassigned' | 'plain';
       if (!hasPlan) {
-        kind = request.emergency ? 'urgent' : 'plain';
+        // до плана — нейтральные точки (§6.6)
+        kind = 'plain';
       } else if (request.emergency && request.status !== 'done') {
         kind = 'urgent';
       } else if (!request.visit) {

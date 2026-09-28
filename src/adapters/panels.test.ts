@@ -151,11 +151,11 @@ describe('constraints', () => {
 describe('compare', () => {
   const compare: CompareResponse = {
     columns: {
-      incremental: { engineers_used: 1, km_total: 42.3, coverage_pct: 50, unassigned_urgent: 0, violations: 0, km_is_estimate: false },
+      incremental: { engineers_used: 0, km_total: 0, coverage_pct: 0, unassigned_urgent: 0, violations: 0, km_is_estimate: false },
       fifo: { engineers_used: 2, km_total: 60, coverage_pct: 50, unassigned_urgent: 0, violations: 0, km_is_estimate: false },
       dispatcher: { engineers_used: 1, km_total: 55.5, coverage_pct: 100, unassigned_urgent: 0, violations: 0, km_is_estimate: true },
     },
-    km_by_engineer: { fifo: { e1: 30, e2: 30 }, dispatcher: { e2: 55.5 } },
+    km_by_engineer: { fifo: { e1: 30, e2: 30 }, dispatcher: { e2: 55.5 }, incremental: { e1: 0 } },
     notes: [],
   };
   const baseline = {
@@ -177,6 +177,18 @@ describe('compare', () => {
     expect(cmp.note).toBe('Δ — к базовому FIFO. Пробег реального диспетчера — оценка.');
     const e2 = cmp.engineers.find((e) => e.engineerId === 'e2')!;
     expect(e2).toMatchObject({ ours: null, fifo: 30, dispatcher: 55.5, tasksDispatcher: 2, tasksFifo: 1 });
+    // «Наш» по бригаде — из маршрута плана, а не из нулевого incremental
+    expect(cmp.engineers.find((e) => e.engineerId === 'e1')?.ours).toBeCloseTo(3.2);
+  });
+
+  it('пробег диспетчера по бригадам: одни нули — «нет данных»', () => {
+    const cmp = buildCompare({
+      model,
+      plan,
+      compare: { ...compare, km_by_engineer: { dispatcher: { e1: 0, e2: 0 } } },
+      baseline: null,
+    });
+    expect(cmp.engineers.every((e) => e.dispatcher === null)).toBe(true);
   });
 
   it('до плана: «Наш план» — прочерки, подсказка; нет диспетчера — «нет данных»', () => {
