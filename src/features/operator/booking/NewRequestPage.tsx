@@ -1,5 +1,218 @@
-import { Placeholder } from '@/pages/Placeholder';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, ArrowRight, CalendarCheck } from 'lucide-react';
+import { useEffect, useMemo } from 'react';
+import { normalizeOutcome, slotsFromError } from '@/adapters/booking';
+import { createBooking, type SlotsQuery } from '@/api/booking';
+import { isApiError } from '@/api/errors';
+import type { BookingRequestIn, BookingSlotsResponse } from '@/api/types';
+import { next14Days, phoneMasked, typeFull, windowFull } from '@/lib/booking';
+import { dismissAll, notify } from '@/lib/notify';
+import { TRANSPORT_LABEL } from '@/lib/statuses';
+import { todayMsk } from '@/lib/time';
+import { Button, Card, type InfoItem } from '@/ui';
+import { hasErrorCode, invalidateBooking, mutationErrorText } from '../bookingCache';
+import { T } from '../operatorTexts';
+import { useDebouncedValue } from '../useDebouncedValue';
+import { useOperatorRegion } from '../useOperatorRegion';
+import { BookingSummary } from './BookingSummary';
+import { bookedText, bookingRequestBody, TECHNOLOGY_REGION } from './bookingRequest';
+import { RegularForm } from './RegularForm';
+import type { SlotsStatus } from './SlotGrid';
+import { SlotStep } from './SlotStep';
+import {
+  MIN_ADDRESS,
+  stepOneReady,
+  tomorrowMsk,
+  useBookingForm,
+  type BookingForm,
+} from './useBookingForm';
+import { slotsKey, useSlots } from './useSlots';
+import styles from './NewRequestPage.module.css';
 
+type SlotsFields = Pick<
+  BookingForm,
+  'date' | 'typeBk' | 'typeHd' | 'address' | 'gigabit' | 'transport'
+>;
+
+/** Окна по полям формы: запрос уходит, когда выбраны регион, BK и HD (§8.3.7). */
+function slotsParams(region: string | null, fields: SlotsFields): SlotsQuery | null {
+  if (!region || !fields.typeBk || !fields.typeHd) return null;
+  const address = fields.address.trim();
+  return {
+    region_id: region,
+    date: fields.date,
+    type_bk: fields.typeBk,
+    type_hd: fields.typeHd,
+    address: address.length >= MIN_ADDRESS ? address : undefined,
+    gigabit: fields.gigabit,
+    required_transport: fields.transport ?? undefined,
+  };
+}
+
+/** O-01 «Новая запись» → O-01.2 «Дата и окно» (FRONTEND_SPEC §8.3.7, §8.3.8). */
 export default function NewRequestPage() {
-  return <Placeholder id="O-01" title="Новая запись" />;
+  const queryClient = useQueryClient();
+  const regions = useOperatorRegion();
+  const { region } = regions;
+  const [form, dispatch] = useBookingForm();
+
+  // тост «Новая запись» висит, пока его не закроют, — но не дольше, чем открыта страница
+  useEffect(() => dismissAll, []);
+
+  const today = todayMsk();
+  const days = useMemo(() => next14Days(today), [today]);
+
+  // Шаг 1 — фоном, после паузы 300 мс и без опроса; шаг 2 — сразу, с опросом (useSlots)
+  const { date, typeBk, typeHd, address, gigabit, transport } = form;
+  const params = useMemo(
+    () => slotsParams(region, { date, typeBk, typeHd, address, gigabit, transport }),
+    [region, date, typeBk, typeHd, address, gigabit, transport],
+  );
+  const typing = useDebouncedValue(params, 300);
+  const onStepTwo = form.step === 2;
+  const activeParams = onStepTwo ? params : typing;
+  const slots = useSlots(activeParams, { live: onStepTwo && !form.booked });
+  const model = slots.data;
+
+  // выбранное окно стало занятым — выбор снимаем (свежие окна шага 2, не прошлый ответ)
+  useEffect(() => {
+    if (onStepTwo && model && !slots.isPlaceholderData) {
+      dispatch({ type: 'slots', slots: model.slots });
+    }
+  }, [onStepTwo, model, slots.isPlaceholderData, dispatch]);
+
+  const create = useMutation({
+    mutationFn: (body: BookingRequestIn) => createBooking(body),
+    onSuccess: (result, body) => {
+      dispatch({ type: 'booked' });
+      notify(bookedText(normalizeOutcome(result), body), 'success', {
+        persistent: true,
+        action: {
+          label: T.book.again,
+          onClick: () => dispatch({ type: 'reset', date: tomorrowMsk() }),
+        },
+      });
+      invalidateBooking(queryClient);
+    },
+    onError: (error) => {
+      if (hasErrorCode(error, 'SLOT_TAKEN')) {
+        // тоста нет: плашка над кнопками, выбор снят, окна — из ответа (⏳ 9.5) или заново
+        dispatch({ type: 'slotTaken' });
+        const fresh = isApiError(error) ? slotsFromError(error.details) : null;
+        if (fresh && activeParams) {
+          queryClient.setQueryData<BookingSlotsResponse>(slotsKey(activeParams), (old) =>
+            old ? { ...old, slots: fresh } : old,
+          );
+        } else {
+          void slots.refetch();
+        }
+        return;
+      }
+      notify(mutationErrorText(error), 'error');
+    },
+  });
+
+  function book() {
+    if (!region || !form.window || create.isPending) return;
+    create.mutate(bookingRequestBody({ ...form, window: form.window }, region, model?.district));
+  }
+
+  if (onStepTwo) {
+    const district = model?.district;
+    const summary: (InfoItem | false)[] = [
+      { label: T.new.region, value: regions.nameOf(region) },
+      {
+        label: T.new.address,
+        value: [form.address.trim(), district].filter(Boolean).join(' · '),
+      },
+      { label: T.new.typeSummary, value: typeFull(form.typeBk, form.typeHd) },
+      region === TECHNOLOGY_REGION
+        ? { label: T.new.technology, value: T.new.technologyValue(form.technology, form.gigabit) }
+        : { label: T.new.gigabit, value: form.gigabit ? T.card.yes : T.card.no },
+      Boolean(form.contact) && { label: T.new.contactShort, value: phoneMasked(form.contact) },
+      {
+        label: T.new.transport,
+        value: form.transport ? TRANSPORT_LABEL[form.transport] : T.new.transportNone,
+      },
+    ];
+    const status: SlotsStatus = model ? 'ready' : slots.isError ? 'error' : 'loading';
+    const cta = form.booked
+      ? T.book.done
+      : form.window
+        ? T.book.cta(windowFull(form.window))
+        : T.slots.pick;
+
+    return (
+      <div className={styles.split}>
+        <BookingSummary
+          title={T.new.title}
+          rows={summary}
+          slots={model}
+          onEdit={form.booked ? undefined : () => dispatch({ type: 'step', value: 1 })}
+        />
+        <SlotStep
+          caption={T.new.step2}
+          days={days}
+          date={form.date}
+          onDateChange={(day) => dispatch({ type: 'date', value: day })}
+          status={status}
+          slots={model?.slots ?? []}
+          selected={form.window}
+          onSelect={(slot) => dispatch({ type: 'window', value: slot })}
+          onRetry={() => void slots.refetch()}
+          retrying={slots.isFetching}
+          taken={form.slotTaken}
+          frozen={form.booked}
+          actions={
+            <>
+              {!form.booked && (
+                <Button
+                  variant="ghost"
+                  size="lg"
+                  icon={ArrowLeft}
+                  disabled={create.isPending}
+                  onClick={() => dispatch({ type: 'step', value: 1 })}
+                >
+                  {T.slots.back}
+                </Button>
+              )}
+              <Button
+                variant="primary"
+                size="lg"
+                icon={CalendarCheck}
+                disabled={!form.window || form.booked}
+                loading={create.isPending}
+                onClick={book}
+              >
+                {cta}
+              </Button>
+            </>
+          }
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.center}>
+      <Card className={styles.card}>
+        <div className={styles.head}>
+          <h2 className={styles.title}>{T.new.title}</h2>
+          <span className={styles.step}>{T.new.step1}</span>
+        </div>
+        <RegularForm form={form} dispatch={dispatch} regions={regions} slots={model} />
+        <div className={styles.footer}>
+          <Button
+            variant="primary"
+            size="lg"
+            icon={ArrowRight}
+            disabled={!stepOneReady(form, region)}
+            onClick={() => dispatch({ type: 'step', value: 2 })}
+          >
+            {T.new.next}
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
 }

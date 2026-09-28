@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { configure, render } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
 import { MemoryRouter, Route, Routes, useLocation, type MemoryRouterProps } from 'react-router-dom';
-import { vi } from 'vitest';
+import { afterEach, vi } from 'vitest';
 import type { UserOut } from '@/api/types';
 import { AuthContext, type AuthContextValue } from '@/auth/useAuth';
 import { NotifyProvider } from '@/lib/notify';
@@ -18,6 +18,11 @@ import { NotifyProvider } from '@/lib/notify';
  */
 configure({ defaultHidden: true, asyncUtilTimeout: 4000 });
 vi.setConfig({ testTimeout: 30_000 });
+
+// регион оператора запоминается в sessionStorage — каждый тест начинает с чистой вкладки
+afterEach(() => {
+  window.sessionStorage.clear();
+});
 
 export const TEST_OPERATOR: UserOut = {
   id: 'op-1',
