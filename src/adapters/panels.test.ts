@@ -1,0 +1,357 @@
+import { describe, expect, it, vi } from 'vitest';
+import type { BaselineResponse, CompareResponse } from '@/api/types';
+import {
+  makeEngineer,
+  makeEvent,
+  makePlan,
+  makePoint,
+  makeRegion,
+  makeRequest,
+  makeRoute,
+  makeScenario,
+} from './__fixtures__/day';
+import { buildCompare, inWindow, lateCount } from './compare';
+import { assignmentSummary, constraintRows, otherEngineers, unassignedExplain } from './constraints';
+import { buildDayModel } from './dayModel';
+import { resolveDayChain } from './dayChain';
+import { buildFeed } from './feed';
+import { routeLines } from './geo';
+import {
+  cancelEvent,
+  changedAssignments,
+  diffCounters,
+  diffGroups,
+  maxShiftEnd,
+  metricsLine,
+  urgentDecision,
+  urgentEvent,
+} from './proposal';
+
+const scenario = makeScenario({
+  engineers: [
+    makeEngineer({ id: 'e1', name: 'Бригада Соколов', skills: ['installation', 'local'], skills_display: ['Подключение и дозаказ', 'Локальные работы'] }),
+    makeEngineer({ id: 'e2', name: 'Бригада Мельников' }),
+    makeEngineer({ id: 'e3', name: 'Бригада Попов', skills: ['local'], skills_display: ['Локальные работы'] }),
+    makeEngineer({ id: 'e4', name: 'Бригада Перов', transport: 'walk', transport_display: 'Пешком' }),
+  ],
+  requests: [
+    makeRequest({
+      id: '305838184',
+      window_start: '18:00',
+      window_end: '20:00',
+      required_transport: 'car',
+      required_transport_display: 'Автомобиль',
+      type_hd: 'Работа с кабелем',
+      dispatcher_engineer_id: 'e2',
+    }),
+    makeRequest({ id: '305830002', window_start: '14:00', window_end: '16:00', dispatcher_engineer_id: 'e2' }),
+  ],
+});
+
+const plan = makePlan({
+  plan_id: 'P1',
+  summary: {
+    engineers_used: 1,
+    total_distance_km: 42.3,
+    planned_count: 1,
+    total_requests: 2,
+    unassigned_count: 1,
+    unassigned_urgent: 0,
+    objective: [],
+  },
+  routes: [
+    makeRoute('e1', [
+      makePoint({
+        request_id: '305838184',
+        sequence: 7,
+        arrival: '17:52',
+        start: '18:00',
+        end: '19:10',
+        waiting_minutes: 8,
+        slack_minutes: 38,
+        leg_distance_km: 3.2,
+        window_start: '18:00',
+        window_end: '20:00',
+      }),
+    ]),
+  ],
+  unassigned: [{ request_id: '305830002', reason_code: 'NO_CAPACITY', reason: 'Нет свободных.', proven_static: false }],
+  explanations: [
+    {
+      request_id: '305838184',
+      status: 'assigned',
+      engineer_id: 'e1',
+      summary: 'Заявка назначена',
+      reasons: [],
+      local_alternatives: [{ engineer_id: 'e2', position: 3, delta_engineers: 1, delta_distance_km: 4.2 }],
+    },
+  ],
+});
+
+const model = buildDayModel({
+  date: '2026-09-28',
+  region: makeRegion({ active_plan_id: 'P1', plan_state: 'applied', version: 1 }),
+  scenario,
+  plan,
+});
+
+describe('constraints', () => {
+  const request = model.requestById.get('305838184')!;
+  const engineer = model.engineerById.get('e1')!;
+
+  it('три строки по фактам плана, формулировки макета', () => {
+    const rows = constraintRows(request.visit!, request, engineer);
+    expect(rows.map((r) => [r.label, r.ok])).toEqual([
+      ['Квалификация', true],
+      ['Время', true],
+      ['Ресурс', true],
+    ]);
+    expect(rows[0].text).toBe('Нужен навык «Подключение и дозаказ», у бригады есть');
+    expect(rows[1].text).toBe(
+      'Приезд 17:52, ждёт окна 8 мин, начало 18:00 (окно 18–20), окончание 19:10, смена до 22:00, запас 38 мин',
+    );
+    expect(rows[2].text).toBe('Нужен автомобиль (работа с кабелем), бригада на автомобиле');
+  });
+
+  it('несоответствие — строка как есть и предупреждение в консоль', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const walker = model.engineerById.get('e4')!;
+    const rows = constraintRows(request.visit!, request, walker);
+    expect(rows[2]).toMatchObject({ ok: false, text: 'Нужен автомобиль (работа с кабелем), бригада пешком' });
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('строка «Почему этот инженер»', () => {
+    expect(assignmentSummary(request.visit!, request, engineer)).toBe(
+      'Бригада Соколов: есть навык «Подключение и дозаказ», начнёт в 18:00 в окне 18–20, едет на автомобиле, 3,2 км от предыдущей заявки.',
+    );
+  });
+
+  it('«Почему не другие»: сначала альтернативы, затем навык и транспорт', () => {
+    const rows = otherEngineers(model, request, plan.explanations![0]);
+    expect(rows.map((r) => [r.label, r.reason])).toEqual([
+      ['Бригада Мельников', 'ещё +1 инженер в работе, пробег +4,2 км'],
+      ['Бригада Попов', 'нет навыка'],
+      ['Бригада Перов', 'пешком, а нужен автомобиль'],
+    ]);
+  });
+
+  it('неназначенная: причина по шаблону с подходящими бригадами и «Что поможет»', () => {
+    const request2 = model.requestById.get('305830002')!;
+    const explain = unassignedExplain(model, request2, 'NO_CAPACITY', 'Нет свободных.');
+    expect(explain.reason).toBe(
+      'Все подходящие инженеры заняты в окне 14–16: Бригада Соколов, Бригада Мельников, Бригада Перов',
+    );
+    expect(explain.help).toBe('Добавьте инженера или переназначьте вручную менее срочную заявку');
+    expect(unassignedExplain(model, request2, 'SOMETHING', 'Текст бэка.').reason).toBe('Текст бэка');
+  });
+});
+
+describe('compare', () => {
+  const compare: CompareResponse = {
+    columns: {
+      incremental: { engineers_used: 1, km_total: 42.3, coverage_pct: 50, unassigned_urgent: 0, violations: 0, km_is_estimate: false },
+      fifo: { engineers_used: 2, km_total: 60, coverage_pct: 50, unassigned_urgent: 0, violations: 0, km_is_estimate: false },
+      dispatcher: { engineers_used: 1, km_total: 55.5, coverage_pct: 100, unassigned_urgent: 0, violations: 0, km_is_estimate: true },
+    },
+    km_by_engineer: { fifo: { e1: 30, e2: 30 }, dispatcher: { e2: 55.5 } },
+    notes: [],
+  };
+  const baseline = {
+    plan_id: 'P1',
+    baseline: { engineers_used: 2, total_distance_km: 60, planned_count: 1, total_requests: 2, unassigned_count: 1, unassigned_urgent: 0 },
+    baseline_routes: [makeRoute('e2', [makePoint({ request_id: '305838184', sequence: 1, start: '20:30', window_start: '18:00', window_end: '20:00' })], { distance_km: 30 })],
+  } as unknown as BaselineResponse;
+
+  it('три колонки и Δ к FIFO', () => {
+    const cmp = buildCompare({ model, plan, compare, baseline });
+    const byKey = Object.fromEntries(cmp.rows.map((r) => [r.key, r]));
+    expect(byKey.engineers.ours).toEqual({ value: '1', delta: '−1 инженер' });
+    expect(byKey.km.ours).toEqual({ value: '42,3', delta: '−17,7 км (−30%)' });
+    expect(byKey.km.dispatcher).toEqual({ value: '55,5', note: 'оценка' });
+    expect(byKey.unassigned.dispatcher.value).toBe('0');
+    expect(byKey.inWindow.ours.value).toBe('1/1');
+    expect(byKey.inWindow.fifo.value).toBe('0/1');
+    expect(byKey.late.fifo.value).toBe('1');
+    expect(cmp.note).toBe('Δ — к базовому FIFO. Пробег реального диспетчера — оценка.');
+    const e2 = cmp.engineers.find((e) => e.engineerId === 'e2')!;
+    expect(e2).toMatchObject({ ours: null, fifo: 30, dispatcher: 55.5, tasksDispatcher: 2, tasksFifo: 1 });
+  });
+
+  it('до плана: «Наш план» — прочерки, подсказка; нет диспетчера — «нет данных»', () => {
+    const cmp = buildCompare({
+      model,
+      plan: null,
+      compare: { columns: { fifo: compare.columns!.fifo }, km_by_engineer: {}, notes: [] },
+      baseline: null,
+    });
+    expect(cmp.rows[0].ours.value).toBe('—');
+    expect(cmp.rows[0].fifo.value).toBe('2');
+    expect(cmp.rows[0].dispatcher).toEqual({ value: 'нет данных', note: 'только для CSV-дня' });
+    expect(cmp.note).toMatch(/^Нажмите «Построить план»/);
+  });
+
+  it('inWindow и lateCount', () => {
+    const routes = [makeRoute('e1', [makePoint({ request_id: 'a', sequence: 1, start: '12:30', window_start: '10:00', window_end: '12:00' }), makePoint({ request_id: 'b', sequence: 2, start: '13:00', window_start: '12:00', window_end: '14:00', flags: ['late'] })])];
+    expect(inWindow(routes)).toEqual({ n: 1, m: 2 });
+    expect(lateCount(routes)).toBe(2);
+  });
+});
+
+describe('proposal', () => {
+  const summary = { reassigned: 2, reordered: 1, time_shifted: 4, added: 1, removed: 0, newly_unassigned: 0, newly_assigned: 0, untouched: 61 };
+
+  it('счётчики и N баннера', () => {
+    expect(diffCounters(summary).map((c) => `${c.label} ${c.n}`)).toEqual([
+      'Передано 2',
+      'Новый порядок 1',
+      'Сдвиг времени 4',
+      'Добавлено 1',
+      'Без исполнителя 0',
+      'Не тронуто 61',
+    ]);
+    expect(changedAssignments(summary)).toBe(4);
+  });
+
+  it('группы по бригадам, передача — в группе «откуда»', () => {
+    const groups = diffGroups(
+      {
+        changes: [
+          { type: 'added', request_id: 'U-0001', engineer_id: 'e1', new_start: '13:25' },
+          { type: 'time_shifted', request_id: '305855129', engineer_id: 'e1', old_start: '14:00', new_start: '15:00', delta_minutes: 60 },
+          { type: 'reassigned', request_id: '305837780', from_engineer_id: 'e1', to_engineer_id: 'e2', old_start: '16:00', new_start: '16:20' },
+          { type: 'reordered', request_id: '305852310', engineer_id: 'e1', old_position: 2, new_position: 1 },
+          { type: 'weird', request_id: '1' },
+        ],
+      },
+      {
+        engineerById: model.engineerById,
+        requestById: model.requestById,
+        baseEngineerOf: () => null,
+        newOrderOf: () => ['305852310', 'U-0001', '305855129'],
+        requestInfo: (id) => (id === 'U-0001' ? { typeShort: 'Авария', duration: 80 } : null),
+        engineerOrder: ['e1', 'e2'],
+      },
+    );
+    expect(groups[0].label).toBe('Бригада Соколов');
+    expect(groups[0].items.map((i) => `${i.label}: ${i.text}`)).toEqual([
+      'Добавлена: U-0001 · Авария · 13:25–14:45',
+      'Сдвиг: №…5129: 14:00 → 15:00 (+60 мин)',
+      'Передана: №…7780: Бригада Соколов → Бригада Мельников, 16:00 → 16:20',
+      'Новый порядок: …2310, U-0001, …5129',
+    ]);
+    expect(groups.at(-1)?.items[0].label).toBe('Изменение: weird');
+  });
+
+  it('итоговая строка метрик', () => {
+    expect(
+      metricsLine({
+        metrics_before: { engineers_used: 10, km_total: 286.5 },
+        metrics_after: { engineers_used: 10, km_total: 293 },
+      }),
+    ).toBe('Инженеров 10 → 10 · Пробег 286,5 → 293,0 км (+6,5 км)');
+  });
+
+  it('карточка решения по аварии: из scenario.urgent, реакция > 2 ч — флаг', () => {
+    const decision = urgentDecision(
+      model,
+      { urgent: { order_id: 'U-1', engineer_id: 'e1', arrival: '13:25', start: '13:25', reaction_min: 135, reaction_target_min: 120 } },
+      null,
+      '11:10',
+      'U-1',
+    );
+    expect(decision).toMatchObject({ engineerLabel: 'Бригада Соколов', arrival: '13:25', reactionMin: 135, late: true });
+    const fromDiff = urgentDecision(
+      model,
+      null,
+      { changes: [{ type: 'added', request_id: 'U-1', engineer_id: 'e2', new_start: '13:00' }] },
+      '12:30',
+      'U-1',
+    );
+    expect(fromDiff).toMatchObject({ engineerId: 'e2', reactionMin: 30, late: false });
+  });
+
+  it('тела событий: apply и source добавит api, окно аварии — до конца смены', () => {
+    const event = urgentEvent(
+      { planId: 'P1', eventTime: '12:30', address: ' Волгоградский пр-т, 128 ', typeHd: 'Авария', transport: 'car', shiftEnd: maxShiftEnd(model) },
+      'U-TEST',
+    );
+    expect(event).toEqual({
+      type: 'urgent_order_added',
+      plan_id: 'P1',
+      event_time: '12:30',
+      request: {
+        id: 'U-TEST',
+        address: 'Волгоградский пр-т, 128',
+        duration_minutes: 80,
+        window_start: '12:30',
+        window_end: '22:00',
+        priority: 'urgent',
+        required_skill: 'emergency',
+        required_transport: 'car',
+        type_bk: 'Глобальная проблема',
+        type_hd: 'Авария',
+        source: 'dispatcher',
+      },
+    });
+    expect(cancelEvent('P1', '12:40', '305838184', 'other', '  ')).toMatchObject({ params: { reason: 'other' } });
+  });
+});
+
+describe('feed', () => {
+  it('шаблоны, «Ждёт решения» только у предложений к текущей версии', () => {
+    const events = [
+      makeEvent({
+        event_id: 'E2',
+        event_type: 'engineer_unavailable',
+        plan_id: 'P1',
+        result_plan_id: 'P3',
+        payload: { engineer_id: 'e2', time: '13:40', scenario: { engineer_unavailable: { unassigned_count: 2 } } },
+        created_at: '2026-09-28T10:41:00Z',
+      }),
+      makeEvent({
+        event_id: 'E1',
+        plan_id: 'P1',
+        result_plan_id: 'P2',
+        needs_decision: true,
+        payload: { request_id: 'U-0001', time: '12:30', scenario: { urgent: { order_id: 'U-0001', engineer_id: 'e1', arrival: '13:25' } } },
+        created_at: '2026-09-28T09:31:00Z',
+      }),
+    ];
+    const chain = resolveDayChain(
+      makeRegion({ active_plan_id: 'P1', plan_state: 'applied', version: 1 }),
+      events,
+      [
+        { plan_id: 'P1', scenario_id: 'S0', kind: 'optimized', status: 'applied', created_at: '', engineers_used: 1, total_distance_km: 1, planned_count: 1 },
+        { plan_id: 'P2', scenario_id: 'S1', kind: 'replanned', status: 'rejected', created_at: '', engineers_used: 1, total_distance_km: 1, planned_count: 1 },
+        { plan_id: 'P3', scenario_id: 'S2', kind: 'replanned', status: 'proposed', created_at: '', engineers_used: 1, total_distance_km: 1, planned_count: 1 },
+      ],
+    );
+    const rows = buildFeed({ chain, model });
+    expect(rows.map((r) => [r.time, r.text, r.needsDecision, r.note])).toEqual([
+      ['13:40', 'Бригада Мельников недоступен с 13:40: 2 без исполнителя', true, null],
+      ['12:30', 'Авария №U-0001 → Бригада Соколов, прибытие 13:25', false, 'Отклонено'],
+    ]);
+    expect(rows[0].action).toEqual({ label: 'Открыть', planId: 'P3' });
+    expect(rows[0].chip?.label).toBe('Ждёт решения');
+  });
+});
+
+describe('geo', () => {
+  it('линии из GeoJSON [lon, lat]; без GeoJSON — прямые отрезки', () => {
+    const lines = routeLines(model, {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          geometry: { type: 'LineString', coordinates: [[37.82, 55.72], [37.8, 55.75]] },
+          properties: { feature_type: 'route', engineer_id: 'e1', geometry_source: 'local_osrm:car' },
+        },
+        { type: 'Feature', geometry: { type: 'Point', coordinates: [37.8, 55.75] }, properties: { feature_type: 'request' } },
+      ],
+    });
+    expect(lines).toEqual([{ engineerId: 'e1', points: [[55.72, 37.82], [55.75, 37.8]], road: true }]);
+    expect(routeLines(model, null)).toEqual([{ engineerId: 'e1', points: [[55.72, 37.82], [55.75, 37.8]], road: false }]);
+  });
+});
