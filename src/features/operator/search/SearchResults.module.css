@@ -13,7 +13,7 @@
   flex-direction: column;
   gap: 6px;
   min-height: 0;
-  margin: -4px;
-  padding: 4px;
+  margin: calc(-1 * var(--space-1));
+  padding: var(--space-1);
   overflow-y: auto;
 }
