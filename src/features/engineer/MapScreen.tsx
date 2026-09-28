@@ -70,18 +70,21 @@ function MapSheet({ day, route }: { day: EngineerDayModel; route: EngineerRouteM
 
 /**
  * E-04 «Карта» (и просмотр маршрута в E-01): карта на всю высоту, сверху переключатель
- * «Список / Карта», снизу — шторка с текущей заявкой (`withSheet`).
+ * «Список / Карта», снизу — шторка с текущей заявкой (`withSheet`). Нажали на точку — `onOpenPoint`
+ * (заявка в шторке).
  */
 export function MapScreen({
   day,
   route,
   viewSwitch,
   withSheet,
+  onOpenPoint,
 }: {
   day: EngineerDayModel;
   route: EngineerRouteModel;
   viewSwitch: ReactNode;
   withSheet: boolean;
+  onOpenPoint: (requestId: string) => void;
 }) {
   const sheet = withSheet && currentVisit(day) !== null;
   return (
@@ -104,14 +107,16 @@ export function MapScreen({
                 lon: point.lon,
                 number: point.sequence,
                 hint: requestNo(point.requestId),
+                id: point.requestId,
               }))}
               line={route.line}
               transport={linkTransport(day.engineer, route)}
               colorVar="--engineer-route"
-              fallback={<EngineerMap route={route} />}
+              fallback={<EngineerMap route={route} onPointClick={onOpenPoint} />}
+              onStopClick={onOpenPoint}
             />
           ) : (
-            <EngineerMap route={route} />
+            <EngineerMap route={route} onPointClick={onOpenPoint} />
           )}
         </Suspense>
         <div className={styles.controls}>{viewSwitch}</div>

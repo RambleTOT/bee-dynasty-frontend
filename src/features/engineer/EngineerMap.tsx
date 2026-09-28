@@ -59,8 +59,15 @@ function markerIcon(sequence: number): L.DivIcon {
 /**
  * E-04 «Карта»: маршрут по оставшимся точкам — линия `geometry` (или прямые по точкам) и
  * маркеры-номера. Цвет — `--engineer-route` страницы (§10.2). Подложка OSM приглушена.
+ * Нажали на маркер — `onPointClick` (заявка в шторке).
  */
-export default function EngineerMap({ route }: { route: EngineerRouteModel }) {
+export default function EngineerMap({
+  route,
+  onPointClick,
+}: {
+  route: EngineerRouteModel;
+  onPointClick?: (requestId: string) => void;
+}) {
   const line = useMemo<LatLng[]>(() => {
     if (route.line.length > 1) return route.line;
     const points = [...(route.start ? [route.start] : []), ...route.points];
@@ -102,6 +109,7 @@ export default function EngineerMap({ route }: { route: EngineerRouteModel }) {
           icon={point.icon}
           title={`№${point.requestId}`}
           keyboard={false}
+          eventHandlers={onPointClick ? { click: () => onPointClick(point.requestId) } : undefined}
         />
       ))}
       <FitRoute bounds={bounds} signature={signature} />

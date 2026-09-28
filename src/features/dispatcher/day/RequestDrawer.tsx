@@ -1,41 +1,201 @@
 /**
- * DS-04 «Карточка заявки» — только для назначенных (D-29): серый блок фактов, «Почему этот инженер»
- * с тремя ограничениями и «Почему не другие» (FRONTEND_SPEC §6.2, §8.2).
+ * DS-04 «Карточка заявки»: серый блок фактов, «Почему этот инженер» с тремя ограничениями и «Почему
+ * не другие» (FRONTEND_SPEC §6.2, §8.2). Из списков и таймлайна — дровер, только для назначенных
+ * (D-29). С карты — диалог: и для назначенной, и для неназначенной (причина, «Назначить вручную»),
+ * и до плана (только факты).
  */
-import { ArrowRightLeft, ChevronDown, ChevronUp, CircleCheck, CircleX } from 'lucide-react';
+import { ArrowRightLeft, ChevronDown, ChevronUp, CircleCheck, CircleX, Lightbulb, ListChecks } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
-import { assignmentSummary, constraintRows, otherEngineers } from '@/adapters/constraints';
-import type { DayModel } from '@/adapters/dayModel';
+import { assignmentSummary, constraintRows, otherEngineers, unassignedExplain } from '@/adapters/constraints';
+import type { DayModel, DayRequest } from '@/adapters/dayModel';
 import { formatKm } from '@/lib/format';
 import { isRequestStatus } from '@/lib/statuses';
-import { Button, Drawer, EmptyState, FlagChip, StatusChip, cx } from '@/ui';
+import { Button, Drawer, EmptyState, FlagChip, Modal, StatusChip, cx } from '@/ui';
+import panel from './Panel.module.css';
 import styles from './Overlays.module.css';
+
+type CardView = 'drawer' | 'dialog';
+
+interface ShellProps {
+  as: CardView;
+  title: ReactNode;
+  subtitle?: ReactNode;
+  footer?: ReactNode;
+  onClose: () => void;
+  children: ReactNode;
+}
+
+function Shell({ as, title, subtitle, footer, onClose, children }: ShellProps) {
+  return as === 'dialog' ? (
+    <Modal open width={560} onClose={onClose} title={title} subtitle={subtitle} footer={footer}>
+      {children}
+    </Modal>
+  ) : (
+    <Drawer open onClose={onClose} title={title} subtitle={subtitle} footer={footer}>
+      {children}
+    </Drawer>
+  );
+}
+
+interface Fact {
+  label: string;
+  value: ReactNode;
+  wide?: boolean;
+}
+
+function Chips({ request }: { request: DayRequest }) {
+  return (
+    <div className={styles.chipsRow}>
+      {isRequestStatus(request.status) && <StatusChip status={request.status} />}
+      {request.flags.map((flag) => (
+        <FlagChip key={flag} flag={flag} />
+      ))}
+    </div>
+  );
+}
+
+function Facts({ request, fields }: { request: DayRequest; fields: Fact[] }) {
+  return (
+    <dl className={styles.facts}>
+      {fields.map((field) => (
+        <div key={field.label} className={cx(styles.fact, field.wide && styles.factWide)}>
+          <dt className={styles.factLabel}>{field.label}</dt>
+          <dd className={cx(styles.factValue, field.label === 'Адрес' && !request.hasAddress && styles.tertiary)}>
+            {field.value}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function gigabitOf(request: DayRequest): string | null {
+  return request.raw.gigabit || request.technology
+    ? [request.raw.gigabit ? 'да' : 'нет', request.technology].filter(Boolean).join(' · ')
+    : null;
+}
+
+/** С карты: заявка без визита — неназначенная в плане или день без плана. */
+function UnplannedCard({
+  model,
+  request,
+  onClose,
+  onReassign,
+  onShowInList,
+}: {
+  model: DayModel;
+  request: DayRequest;
+  onClose: () => void;
+  onReassign: (orderId: string) => void;
+  onShowInList: (orderId: string) => void;
+}) {
+  const gigabit = gigabitOf(request);
+  const item = model.plan ? model.unassigned.find((u) => u.requestId === request.id) : undefined;
+  const explain = item ? unassignedExplain(model, request, item.reasonCode, item.reason) : null;
+  const closed = request.status === 'done' || request.status === 'cancelled';
+  const fields: Fact[] = [
+    { label: 'Адрес', value: request.addressText, wide: true },
+    ...(request.district ? [{ label: 'Район', value: request.district }] : []),
+    { label: 'Временное окно', value: request.windowFull },
+    {
+      label: 'Длительность',
+      value: model.synthetic ? `${request.durationMinutes} мин` : `${request.durationMinutes} мин по нормативу`,
+    },
+    ...(gigabit && !model.synthetic ? [{ label: 'Гигабит · технология', value: gigabit }] : []),
+    { label: 'Требуемый транспорт', value: request.requiredTransport ? request.requiredTransportLabel : 'Не требуется' },
+    { label: 'Инженер', value: model.plan ? 'Не назначен' : 'План ещё не построен' },
+  ];
+  const ExplainIcon = explain?.icon;
+  return (
+    <Shell
+      as="dialog"
+      title={request.number}
+      subtitle={request.typeFull}
+      onClose={onClose}
+      footer={
+        model.plan ? (
+          <>
+            <Button variant="ghost" icon={ListChecks} onClick={() => onShowInList(request.id)}>
+              В списке неназначенных
+            </Button>
+            <Button
+              variant="tertiary"
+              icon={ArrowRightLeft}
+              disabled={model.planState !== 'applied' || closed}
+              onClick={() => onReassign(request.id)}
+            >
+              Назначить вручную
+            </Button>
+          </>
+        ) : undefined
+      }
+    >
+      <Chips request={request} />
+      <Facts request={request} fields={fields} />
+      {explain && ExplainIcon && (
+        <section className={styles.section}>
+          <h3 className={styles.h3}>Почему не назначена</h3>
+          <div className={panel.unReason}>
+            <ExplainIcon size={14} aria-hidden />
+            <span>{explain.reason}</span>
+          </div>
+          {explain.help && (
+            <div className={panel.unHelp}>
+              <Lightbulb size={14} aria-hidden />
+              <span>
+                <b>Что поможет:</b> {explain.help}
+              </span>
+            </div>
+          )}
+        </section>
+      )}
+    </Shell>
+  );
+}
 
 export function RequestDrawer({
   model,
   requestId,
+  as = 'drawer',
   onClose,
   onCancel,
   onReassign,
+  onShowInList,
 }: {
   model: DayModel;
   requestId: string;
+  /** Дровер — из списков и таймлайна; диалог — с карты. */
+  as?: CardView;
   onClose: () => void;
   onCancel: (orderId: string) => void;
   onReassign: (orderId: string) => void;
+  /** Диалог неназначенной: к ней во вкладке «Неназначенные». */
+  onShowInList?: (orderId: string) => void;
 }) {
   const [details, setDetails] = useState(false);
   const request = model.requestById.get(requestId);
   const visit = request?.visit ?? null;
   const engineer = request?.engineerId ? model.engineerById.get(request.engineerId) : null;
 
+  if (request && (!visit || !engineer) && as === 'dialog') {
+    return (
+      <UnplannedCard
+        model={model}
+        request={request}
+        onClose={onClose}
+        onReassign={onReassign}
+        onShowInList={onShowInList ?? (() => undefined)}
+      />
+    );
+  }
+
   if (!request || !visit || !engineer) {
     return (
-      <Drawer open onClose={onClose} title={`№${requestId}`}>
+      <Shell as={as} title={`№${requestId}`} onClose={onClose}>
         <EmptyState title="Заявка не найдена в текущей версии плана">
           Возможно, её сняли или передали в другую версию. Обновите день.
         </EmptyState>
-      </Drawer>
+      </Shell>
     );
   }
 
@@ -47,11 +207,9 @@ export function RequestDrawer({
   const reasons = explanation?.reasons ?? [];
   const canEdit = model.planState === 'applied';
   const closed = request.status === 'done' || request.status === 'cancelled';
-  const gigabit = request.raw.gigabit || request.technology
-    ? [request.raw.gigabit ? 'да' : 'нет', request.technology].filter(Boolean).join(' · ')
-    : null;
+  const gigabit = gigabitOf(request);
 
-  const fields: { label: string; value: ReactNode; wide?: boolean }[] = [
+  const fields: Fact[] = [
     { label: 'Адрес', value: request.addressText, wide: true },
     ...(request.district ? [{ label: 'Район', value: request.district }] : []),
     { label: 'Временное окно', value: request.windowFull },
@@ -78,8 +236,8 @@ export function RequestDrawer({
   ];
 
   return (
-    <Drawer
-      open
+    <Shell
+      as={as}
       onClose={onClose}
       title={request.number}
       subtitle={request.typeFull}
@@ -104,22 +262,8 @@ export function RequestDrawer({
         </>
       }
     >
-      <div className={styles.chipsRow}>
-        {isRequestStatus(request.status) && <StatusChip status={request.status} />}
-        {request.flags.map((flag) => (
-          <FlagChip key={flag} flag={flag} />
-        ))}
-      </div>
-      <dl className={styles.facts}>
-        {fields.map((field) => (
-          <div key={field.label} className={cx(styles.fact, field.wide && styles.factWide)}>
-            <dt className={styles.factLabel}>{field.label}</dt>
-            <dd className={cx(styles.factValue, field.label === 'Адрес' && !request.hasAddress && styles.tertiary)}>
-              {field.value}
-            </dd>
-          </div>
-        ))}
-      </dl>
+      <Chips request={request} />
+      <Facts request={request} fields={fields} />
       <section className={styles.section}>
         <h3 className={styles.h3}>Почему этот инженер</h3>
         <p className={styles.body}>{assignmentSummary(visit, request, engineer)}</p>
@@ -164,6 +308,6 @@ export function RequestDrawer({
           </>
         )}
       </section>
-    </Drawer>
+    </Shell>
   );
 }

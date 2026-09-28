@@ -69,7 +69,7 @@ function CurrentUrl() {
   return <output data-testid="url">{pathname + search}</output>;
 }
 
-function renderModal() {
+function renderModal(initialDate: string | null = null) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const invalidate = vi.spyOn(client, 'invalidateQueries');
   const onClose = vi.fn();
@@ -80,7 +80,10 @@ function renderModal() {
         future={{ v7_startTransition: false, v7_relativeSplatPath: true }}
       >
         <Routes>
-          <Route path="/dispatcher" element={<ImportModal onClose={onClose} />} />
+          <Route
+            path="/dispatcher"
+            element={<ImportModal onClose={onClose} initialDate={initialDate} />}
+          />
           <Route path="/dispatcher/day/:date" element={<p>DS-03</p>} />
         </Routes>
         <CurrentUrl />
@@ -156,6 +159,50 @@ describe('DS-02 Загрузка CSV · шаг 1', () => {
     const { onClose } = renderModal();
     fireEvent.click(screen.getByRole('button', { name: 'Отмена' }));
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe('DS-02 Загрузка CSV · дата плана', () => {
+  it('по умолчанию — сегодня; с пустого дня — его дата, импорт и «Открыть день» — на неё', async () => {
+    vi.mocked(importBeeline).mockResolvedValue({ ...summary('east', 3, 12), date: '2026-10-05' });
+    renderModal('2026-10-05');
+    const field = screen.getByLabelText('Дата плана');
+    expect(field).toHaveValue('2026-10-05');
+    expect(screen.getByText('Заявки из файлов попадут на 5 октября')).toBeInTheDocument();
+
+    const requests = csvFile('vostok.csv', REQUESTS_CSV);
+    pickFile('Файл заявок (.csv) · Восток', requests);
+    fireEvent.click(uploadButton());
+    const dialog = await screen.findByRole('dialog', { name: 'Отчёт импорта' });
+    expect(importBeeline).toHaveBeenCalledWith({
+      requestsFile: requests,
+      controlFile: null,
+      regionId: 'east',
+      date: '2026-10-05',
+    });
+    expect(within(dialog).getByText('Шаг 2 из 2 · план на 05.10.2026')).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Открыть день' }));
+    expect(screen.getByTestId('url')).toHaveTextContent('/dispatcher/day/2026-10-05?region=east');
+  });
+
+  it('дату можно сменить; прошедший день — ошибка, «Загрузить» неактивна', () => {
+    renderModal();
+    const field = screen.getByLabelText('Дата плана');
+    expect(field).toHaveValue('2026-09-29');
+    pickFile('Файл заявок (.csv) · Восток', csvFile('vostok.csv', REQUESTS_CSV));
+
+    fireEvent.change(field, { target: { value: '2026-09-20' } });
+    expect(screen.getByText('Выберите сегодняшний или будущий день')).toBeInTheDocument();
+    expect(uploadButton()).toBeDisabled();
+
+    fireEvent.change(field, { target: { value: '2026-10-12' } });
+    expect(screen.getByText('Заявки из файлов попадут на 12 октября')).toBeInTheDocument();
+    expect(uploadButton()).toBeEnabled();
+  });
+
+  it('дата из адреса в прошлом — берём сегодня', () => {
+    renderModal('2026-09-01');
+    expect(screen.getByLabelText('Дата плана')).toHaveValue('2026-09-29');
   });
 });
 

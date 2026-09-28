@@ -5,25 +5,18 @@
  *   дорожная геометрия с бэка), дальше до перезагрузки маршрутизатор не дёргаем.
  * - Нет ключа, API не загрузился или карта не грузит тайлы (ключ не активен, кончился суточный
  *   лимит) — `fallback` (карта OSM).
+ * - Клик по точке с `id` — `onStopClick` (заявка в диалоге).
  * Цвет — CSS-переменная с элемента карты: JS API понимает только готовый цвет.
  */
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useReducer, useRef, type ReactNode } from 'react';
 import {
-  loadYandexMaps,
-  markYandexMapsUnavailable,
   markYandexRoutingUnavailable,
   routingMode,
-  YANDEX_MAPS_KEY,
-  yandexMapsUnavailable,
   yandexRoutingUnavailable,
-  type YMap,
-  type YMaps,
 } from '@/lib/yandexMapsApi';
 import { cx, Spinner } from '@/ui';
+import { useYandexMap, type YandexMapHandle } from './useYandexMap';
 import styles from './YandexRouteMap.module.css';
-
-/** Сколько ждём первые тайлы карты, прежде чем уйти на карту OSM. */
-const TILES_TIMEOUT_MS = 12_000;
 
 export interface RouteStop {
   lat: number;
@@ -31,6 +24,8 @@ export interface RouteStop {
   /** Номер на метке — `sequence`. */
   number: number | string;
   hint?: string;
+  /** Заявка точки: по клику — `onStopClick(id)`. */
+  id?: string;
 }
 
 interface YandexRouteMapProps {
@@ -43,6 +38,7 @@ interface YandexRouteMapProps {
   colorVar: string;
   fallback: ReactNode;
   className?: string;
+  onStopClick?: (id: string) => void;
 }
 
 function cssColor(element: HTMLElement, name: string): string {
@@ -51,11 +47,11 @@ function cssColor(element: HTMLElement, name: string): string {
 }
 
 function draw(
-  ymaps: YMaps,
-  map: YMap,
+  { ymaps, map }: YandexMapHandle,
   element: HTMLElement,
   props: YandexRouteMapProps,
   onRoutingFail: () => void,
+  onStopClick: (id: string) => void,
 ) {
   map.geoObjects.removeAll();
   const color = cssColor(element, props.colorVar);
@@ -86,13 +82,14 @@ function draw(
     );
   }
   for (const stop of props.stops) {
-    map.geoObjects.add(
-      new ymaps.Placemark(
-        [stop.lat, stop.lon],
-        { iconContent: String(stop.number), hintContent: stop.hint },
-        { preset: 'islands#icon', iconColor: color },
-      ),
+    const placemark = new ymaps.Placemark(
+      [stop.lat, stop.lon],
+      { iconContent: String(stop.number), hintContent: stop.hint },
+      { preset: 'islands#icon', iconColor: color },
     );
+    const id = stop.id;
+    if (id && props.onStopClick) placemark.events.add('click', () => onStopClick(id));
+    map.geoObjects.add(placemark);
   }
   const bounds = map.geoObjects.getBounds();
   if (bounds && refs.length >= 2) map.setBounds(bounds, { checkZoomRange: true, zoomMargin: 40 });
@@ -100,68 +97,16 @@ function draw(
 }
 
 export function YandexRouteMap(props: YandexRouteMapProps) {
-  const element = useRef<HTMLDivElement>(null);
-  const map = useRef<{ ymaps: YMaps; map: YMap } | null>(null);
+  const { element, handle, failed } = useYandexMap({ controls: ['zoomControl'] });
   const latest = useRef(props);
   latest.current = props;
-  const [state, setState] = useState<'loading' | 'ready' | 'failed'>(
-    YANDEX_MAPS_KEY && !yandexMapsUnavailable() ? 'loading' : 'failed',
-  );
-
-  const redraw = useRef(() => {
-    const current = map.current;
-    if (current && element.current) {
-      draw(current.ymaps, current.map, element.current, latest.current, routingFailed.current);
-    }
-  });
   // маршрут Яндекс не построил — та же карта, но со своей линией маршрута
-  const routingFailed = useRef(() => {
+  const [routingFails, routingFailed] = useReducer((n: number) => n + 1, 0);
+  const onRoutingFail = useRef(() => {
     markYandexRoutingUnavailable();
-    redraw.current();
+    routingFailed();
   });
-  // тайлы не грузятся — карта OSM до перезагрузки страницы
-  const fail = useRef(() => {
-    markYandexMapsUnavailable();
-    map.current?.map.destroy();
-    map.current = null;
-    setState('failed');
-  });
-
-  useEffect(() => {
-    if (!YANDEX_MAPS_KEY || yandexMapsUnavailable()) return;
-    let cancelled = false;
-    let tilesTimer: ReturnType<typeof setTimeout> | undefined;
-    loadYandexMaps()
-      .then((ymaps) => {
-        if (cancelled || !element.current) return;
-        const instance = new ymaps.Map(
-          element.current,
-          { center: [55.751, 37.618], zoom: 11, controls: ['zoomControl'] },
-          { suppressMapOpenBlock: true, yandexMapDisablePoiInteractivity: true },
-        );
-        map.current = { ymaps, map: instance };
-        let tiles = false;
-        instance.layers.each((layer) =>
-          layer.events.add('tileloadchange', (event) => {
-            if (Number(event.get('readyTileNumber')) > 0) tiles = true;
-          }),
-        );
-        tilesTimer = setTimeout(() => {
-          if (!cancelled && !tiles) fail.current();
-        }, TILES_TIMEOUT_MS);
-        redraw.current();
-        setState('ready');
-      })
-      .catch(() => {
-        if (!cancelled) setState('failed');
-      });
-    return () => {
-      cancelled = true;
-      clearTimeout(tilesTimer);
-      map.current?.map.destroy();
-      map.current = null;
-    };
-  }, []);
+  const onStopClick = useRef((id: string) => latest.current.onStopClick?.(id));
 
   // перерисовываем, только когда меняется набор точек — опрос не сбивает ручной масштаб
   const signature = [
@@ -171,14 +116,16 @@ export function YandexRouteMap(props: YandexRouteMapProps) {
     props.line?.length ?? 0,
   ].join('|');
   useEffect(() => {
-    redraw.current();
-  }, [signature]);
+    if (handle && element.current) {
+      draw(handle, element.current, latest.current, onRoutingFail.current, onStopClick.current);
+    }
+  }, [handle, element, signature, routingFails]);
 
-  if (state === 'failed') return <>{props.fallback}</>;
+  if (failed) return <>{props.fallback}</>;
   return (
     <div className={cx(styles.wrap, props.className)}>
       <div ref={element} className={styles.map} />
-      {state === 'loading' && (
+      {!handle && (
         <div className={styles.loading}>
           <Spinner size={24} label="Загрузка Яндекс Карт" />
         </div>

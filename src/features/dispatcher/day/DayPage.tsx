@@ -107,12 +107,14 @@ export default function DayPage() {
   const planState = model?.planState ?? data.region?.plan_state ?? 'none';
   const isToday = date === todayMsk();
 
+  // число заявок дня региона — всегда в шапке; снятые (отмена, перенос) не считаем
   let meta: string | null = null;
   if (model) {
     const total = model.requests.filter((r) => r.status !== 'cancelled' && r.status !== 'rescheduled').length;
-    if (planState === 'none') meta = `${countOf(total, PL_REQUEST)} · плана нет`;
-    else if (planState === 'draft') meta = `${countOf(total, PL_REQUEST)} · план не опубликован`;
-    else meta = `Версия ${model.version}${isToday || model.clock ? ` · сейчас ${model.now}` : ''}`;
+    const count = countOf(total, PL_REQUEST);
+    if (planState === 'none') meta = `${count} · плана нет`;
+    else if (planState === 'draft') meta = `${count} · план не опубликован`;
+    else meta = `${count} · версия ${model.version}${isToday || model.clock ? ` · сейчас ${model.now}` : ''}`;
   }
 
   const rosterButton = (
@@ -208,7 +210,7 @@ export default function DayPage() {
           icon={CalendarX2}
           title={`На ${formatDayTitle(date).toLowerCase()} в регионе «${REGION_LABEL[regionId]}» заявок нет`}
           action={
-            <Button variant="secondary" icon={Upload} onClick={() => navigate('/dispatcher?modal=import')}>
+            <Button variant="secondary" icon={Upload} onClick={() => navigate(`/dispatcher?modal=import&date=${date}`)}>
               Загрузить CSV
             </Button>
           }
@@ -246,10 +248,9 @@ export default function DayPage() {
                 geojson={data.geojson}
                 filters={filters}
                 brigade={search.brigade}
-                selectedRequest={search.request ?? search.focus}
+                selectedRequest={search.pin ?? search.request ?? search.focus}
                 highlight={highlight}
-                onOpenRequest={openRequest}
-                onOpenUnassigned={openUnassigned}
+                onOpenRequest={(id) => setSearch({ pin: id })}
               />
             ) : (
               <Timeline
@@ -352,6 +353,17 @@ export default function DayPage() {
               onClose={() => setSearch({ request: null })}
               onCancel={(orderId) => setSearch({ request: null, event: 'cancel', order: orderId })}
               onReassign={(orderId) => setSearch({ request: null, reassign: orderId, base: null })}
+            />
+          )}
+          {search.pin && !search.request && (
+            <RequestDrawer
+              as="dialog"
+              model={model}
+              requestId={search.pin}
+              onClose={() => setSearch({ pin: null })}
+              onCancel={(orderId) => setSearch({ pin: null, event: 'cancel', order: orderId })}
+              onReassign={(orderId) => setSearch({ pin: null, reassign: orderId, base: null })}
+              onShowInList={(orderId) => setSearch({ pin: null, tab: 'un', focus: orderId })}
             />
           )}
           {search.event && (

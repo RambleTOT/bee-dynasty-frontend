@@ -24,11 +24,21 @@ export interface YMap {
   geoObjects: YMapsGeoObjects;
   /** Слои карты: у слоя с тайлами есть событие `tileloadchange` (`readyTileNumber`). */
   layers: { each(callback: (layer: { events: YEventManager }) => void): void };
-  setBounds(bounds: number[][], options?: Record<string, unknown>): void;
+  setBounds(bounds: number[][], options?: Record<string, unknown>): PromiseLike<void> | void;
   setCenter(center: number[], zoom?: number): void;
+  getZoom(): number;
+  setZoom(zoom: number, options?: Record<string, unknown>): void;
   destroy(): void;
   container: { fitToViewport(): void };
 }
+
+/** Метка, линия: подписка на `click` — через `events`. */
+export interface YGeoObject {
+  events: YEventManager;
+}
+
+/** Класс макета из шаблона: `{{ properties.x }}` экранирует, `{{ properties.x|raw }}` — нет. */
+export type YLayoutClass = unknown;
 
 export interface YMultiRoute {
   model: { events: YEventManager };
@@ -46,12 +56,13 @@ export interface YMaps {
     coordinates: number[],
     properties?: Record<string, unknown>,
     options?: Record<string, unknown>,
-  ) => unknown;
+  ) => YGeoObject;
   Polyline: new (
     coordinates: number[][],
     properties?: Record<string, unknown>,
     options?: Record<string, unknown>,
   ) => unknown;
+  templateLayoutFactory: { createClass(template: string): YLayoutClass };
   multiRouter: {
     MultiRoute: new (
       model: { referencePoints: number[][]; params?: Record<string, unknown> },

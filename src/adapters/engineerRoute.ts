@@ -79,12 +79,31 @@ export function routeFromVisits(visits: readonly EngineerVisitModel[]): Engineer
   return { transport: null, start, points, line: line.length > 1 ? line : [] };
 }
 
+/**
+ * Номера точек — как в списке и карточке (`sequence` визита дня): `/me/route?remaining=true`
+ * нумерует оставшиеся точки заново с 1, и на карте «5» была бы заявкой «7 из 9».
+ */
+function withDayNumbers(
+  route: EngineerRouteModel,
+  visits: readonly EngineerVisitModel[],
+): EngineerRouteModel {
+  const sequenceById = new Map(visits.map((visit) => [visit.id, visit.sequence]));
+  let changed = false;
+  const points = route.points.map((point) => {
+    const sequence = sequenceById.get(point.requestId);
+    if (sequence === undefined || sequence === point.sequence) return point;
+    changed = true;
+    return { ...point, sequence };
+  });
+  return changed ? { ...route, points } : route;
+}
+
 /** Маршрут для карты и ссылок: ответ `/me/route`, а если в нём нет точек — по визитам дня. */
 export function effectiveRoute(
   route: EngineerRouteModel | null | undefined,
   visits: readonly EngineerVisitModel[],
 ): EngineerRouteModel {
-  if (route && route.points.length > 0) return route;
+  if (route && route.points.length > 0) return withDayNumbers(route, visits);
   const fallback = routeFromVisits(visits);
   if (fallback.points.length === 0 && route) return route;
   return { ...fallback, transport: route?.transport ?? null };

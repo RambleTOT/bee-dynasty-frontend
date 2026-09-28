@@ -1,7 +1,7 @@
 /**
  * DS-01: фильтры и открытая модалка — в адресе (FRONTEND_SPEC §4):
  * `month=2026-09`, `region=all|east|south_east|south_center`, `status`, `type` — по одному значению (D-27),
- * `modal=import` — DS-02.
+ * `modal=import` — DS-02, `date=YYYY-MM-DD` — день, на который загружаем CSV (с пустого дня DS-03).
  */
 import type { MenuOption } from '@/ui';
 import { searchParam, type SearchParamDef } from '@/hooks/useSearchState';
@@ -17,10 +17,17 @@ import {
 } from '@/lib/statuses';
 
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+const YMD = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 
 /** `month=YYYY-MM`; нет или мусор — `null`, то есть текущий месяц (в адрес его не пишем). */
 const monthParam: SearchParamDef<string | null> = {
   parse: (raw) => (raw !== null && MONTH.test(raw) ? raw : null),
+  serialize: (value) => value,
+};
+
+/** `date=YYYY-MM-DD` для DS-02; нет или мусор — `null` (сегодня). */
+const dateParam: SearchParamDef<string | null> = {
+  parse: (raw) => (raw !== null && YMD.test(raw) ? raw : null),
   serialize: (value) => value,
 };
 
@@ -37,6 +44,7 @@ export const calendarSearch = {
   status: searchParam.enum(REQUEST_STATUSES),
   type: searchParam.enum(BK_KEYS),
   modal: searchParam.enum(['import']),
+  date: dateParam,
 };
 
 /** «Без фильтра» в пилюлях «Статус» и «Тип заявки». */

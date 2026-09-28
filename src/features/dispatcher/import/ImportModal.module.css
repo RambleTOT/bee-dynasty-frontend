@@ -5,6 +5,11 @@
   gap: var(--space-3);
 }
 
+/* шаг 1: дата плана */
+.dateField {
+  max-width: 320px;
+}
+
 /* шаг 1: карточка региона */
 .region {
   display: flex;

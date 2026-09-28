@@ -11,12 +11,13 @@ import {
 } from '@/adapters/importReport';
 import { importBeeline } from '@/api/data';
 import { formatFileSize, readCsvRowCount } from '@/lib/csv';
-import { countOf, formatDateFull, PL_BRIGADE, PL_ROW } from '@/lib/format';
+import { countOf, formatDateFull, formatDayMonth, PL_BRIGADE, PL_ROW } from '@/lib/format';
 import { REGION_LABEL, REGIONS, type RegionId } from '@/lib/statuses';
-import { Button, Modal } from '@/ui';
+import { todayMsk } from '@/lib/time';
+import { Button, Input, Modal } from '@/ui';
 import { regionsQuery } from '../calendar/regionsQuery';
 import { FileDrop } from './FileDrop';
-import { importDate } from './importDate';
+import { initialImportDate, isImportDate } from './importDate';
 import { ReportCard } from './ReportCard';
 import styles from './ImportModal.module.css';
 
@@ -70,15 +71,25 @@ function useBlockStrayDrops() {
 
 /**
  * DS-02 «Загрузка CSV» — модалка 720 в два шага (FRONTEND_SPEC §8.2):
- * 1) файлы по регионам → регионы грузятся параллельно на `todayMsk()` (D-26);
+ * 1) дата плана и файлы по регионам → регионы грузятся параллельно на выбранную дату;
  * 2) отчёт импорта по каждому региону → «Открыть день».
+ * Дата по умолчанию — сегодня, с пустого дня — дата этого дня (`initialDate`). В спеке даты нет
+ * (D-26: всегда сегодня) — поле добавлено по просьбе заказчика, docs/API_NOTES.md п. 55.
  */
-export function ImportModal({ onClose }: { onClose: () => void }) {
+export function ImportModal({
+  onClose,
+  initialDate = null,
+}: {
+  onClose: () => void;
+  initialDate?: string | null;
+}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const regions = useQuery(regionsQuery);
   const [picks, setPicks] = useState<Picks>(NO_PICKS);
   const [run, setRun] = useState<ImportRun | null>(null);
+  const [date, setDate] = useState(() => initialImportDate(initialDate));
+  const dateOk = isImportDate(date);
   useBlockStrayDrops();
 
   const upload = useMutation({
@@ -194,8 +205,8 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
             variant="primary"
             icon={Upload}
             loading={busy}
-            disabled={jobs.length === 0}
-            onClick={() => upload.mutate({ date: importDate(), jobs }, { onSuccess: setRun })}
+            disabled={jobs.length === 0 || !dateOk}
+            onClick={() => upload.mutate({ date, jobs }, { onSuccess: setRun })}
           >
             Загрузить
           </Button>
@@ -203,6 +214,18 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
       }
     >
       <div className={styles.stack}>
+        <Input
+          type="date"
+          label="Дата плана"
+          value={date}
+          min={todayMsk()}
+          required
+          disabled={busy}
+          fieldClassName={styles.dateField}
+          hint={dateOk ? `Заявки из файлов попадут на ${formatDayMonth(date)}` : undefined}
+          error={dateOk ? undefined : 'Выберите сегодняшний или будущий день'}
+          onChange={(event) => setDate(event.target.value)}
+        />
         {REGIONS.map((regionId) => {
           const { requests, control } = picks[regionId];
           const brigades = regions.data?.find(

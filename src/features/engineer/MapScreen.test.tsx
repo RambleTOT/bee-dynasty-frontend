@@ -12,10 +12,23 @@ vi.mock('@/api/engineer', () => ({
   postAction: vi.fn(),
 }));
 vi.mock('@/lib/notify', () => ({ notify: vi.fn() }));
-// Leaflet в jsdom не рисует — сама карта проверяется в EngineerMap.test.tsx
+// Leaflet в jsdom не рисует — сама карта проверяется в EngineerMap.test.tsx; точки — кнопками
 vi.mock('./EngineerMap', () => ({
-  default: ({ route }: { route: EngineerRouteModel }) => (
-    <div data-testid="engineer-map">{route.points.map((point) => point.sequence).join(',')}</div>
+  default: ({
+    route,
+    onPointClick,
+  }: {
+    route: EngineerRouteModel;
+    onPointClick?: (requestId: string) => void;
+  }) => (
+    <div data-testid="engineer-map">
+      {route.points.map((point) => point.sequence).join(',')}
+      {route.points.map((point) => (
+        <button key={point.requestId} type="button" onClick={() => onPointClick?.(point.requestId)}>
+          Точка {point.sequence}
+        </button>
+      ))}
+    </div>
   ),
 }));
 
@@ -49,13 +62,29 @@ beforeEach(() => {
 });
 
 describe('E-04 «Карта»', () => {
+  it('нажали на точку — шторка с заявкой; «Открыть заявку» — карточка, назад — карта без шторки', async () => {
+    vi.mocked(getMyDay).mockResolvedValue(onShift('en_route'));
+    renderEngineer({ home: <EngineerApp />, card: <p>Карточка заявки</p> }, '/engineer?view=map');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Точка 5' }));
+    expect(screen.getByTestId('location')).toHaveTextContent('/engineer?view=map&point=305866318');
+    const sheet = screen.getByRole('dialog', { name: 'Заявка 5' });
+    expect(within(sheet).getByText('СЛЕДУЮЩАЯ · 5 ИЗ 9')).toBeInTheDocument();
+    expect(within(sheet).getByText('ул.Окская, д. 5, кв. 13')).toBeInTheDocument();
+    expect(within(sheet).getByText('№305866318')).toBeInTheDocument();
+
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Открыть заявку' }));
+    expect(screen.getByTestId('location')).toHaveTextContent('/engineer/request/305866318');
+    expect(screen.getByText('Карточка заявки')).toBeInTheDocument();
+  });
+
   it('«Список / Карта»: карта грузит маршрут только когда открыта', async () => {
     vi.mocked(getMyDay).mockResolvedValue(onShift());
     renderEngineer({ home: <EngineerApp /> });
 
     fireEvent.click(await screen.findByRole('tab', { name: 'Карта' }));
     expect(screen.getByTestId('location')).toHaveTextContent('/engineer?view=map');
-    expect(await screen.findByTestId('engineer-map')).toHaveTextContent('4,5');
+    await waitFor(() => expect(screen.getByTestId('engineer-map')).toHaveTextContent('4,5'));
     expect(getMyRoute).toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('tab', { name: 'Список' }));

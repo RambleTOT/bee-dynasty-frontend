@@ -18,6 +18,7 @@ import { Button, SegmentedControl, type SegmentOption } from '@/ui';
 import { DayError, DaySkeleton, NoVisits, PlanNotPublished } from './DayStates';
 import { DoneToast } from './DoneToast';
 import { EngineerHeader } from './EngineerHeader';
+import { headerSub } from './headerSub';
 import { EngineerMenu } from './EngineerMenu';
 import { EngineerPage } from './EngineerPage';
 import { IncidentSheet } from './IncidentSheet';
@@ -33,12 +34,17 @@ import { TransportSheet } from './TransportSheet';
 import { UnavailableSheet } from './UnavailableSheet';
 import { useEngineerDay, useEngineerRoute, useShiftEnd } from './useEngineerDay';
 import { MyVisits } from './VisitList';
+import { VisitSheet } from './VisitSheet';
 
 type View = 'list' | 'map';
 
-/** Вид и открытая шторка — в адресе (§4): `view=list|map`, `sheet=…` (E-02, E-06, E-07, E-08). */
+/**
+ * Вид и открытая шторка — в адресе (§4): `view=list|map`, `sheet=…` (E-02, E-06, E-07, E-08),
+ * `point=№` — заявка, на которую нажали на карте.
+ */
 const engineerSearch = {
   view: searchParam.enum(['list', 'map'] as const, 'list'),
+  point: searchParam.string(),
   sheet: searchParam.enum([
     'transport',
     'interrupt',
@@ -96,6 +102,7 @@ export default function EngineerApp() {
   const header = (
     <EngineerHeader
       name={day?.engineer.name || user?.name || ''}
+      sub={headerSub(user?.region_ids, day?.date)}
       menu={
         <EngineerMenu
           day={day}
@@ -189,6 +196,7 @@ export default function EngineerApp() {
           route={effectiveRoute(route.data, day.visits)}
           viewSwitch={viewSwitch}
           withSheet={state !== 'preview'}
+          onOpenPoint={(point) => setSearch({ point })}
         />
       ) : (
         <>
@@ -228,6 +236,18 @@ export default function EngineerApp() {
         (state === 'shift' || (state === 'preview' && FEATURES.unavailableBeforeShift)) && (
           <UnavailableSheet day={day} beforeShift={state === 'preview'} onClose={closeSheet} />
         )}
+      {search.point && !search.sheet && (
+        <VisitSheet
+          day={day}
+          visitId={search.point}
+          onClose={() => setSearch({ point: null })}
+          onOpen={(id) => {
+            // «назад» с карточки — на карту без шторки
+            setSearch({ point: null });
+            navigate(visitPath(id));
+          }}
+        />
+      )}
     </EngineerPage>
   );
 }

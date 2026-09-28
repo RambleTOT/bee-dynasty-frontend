@@ -3,21 +3,20 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   currentVisit,
-  isClosedStatus,
   isPendingStatus,
   pageState,
   type EngineerDayModel,
-  type EngineerVisitModel,
 } from '@/adapters/engineerDay';
 import { effectiveRoute, linkTransport, routeUrlTo } from '@/adapters/engineerRoute';
 import { useAuth } from '@/auth/useAuth';
 import { FEATURES } from '@/config';
 import { searchParam, useSearchState } from '@/hooks/useSearchState';
-import { durationLabel, requestNo, requestNoShort } from '@/lib/engineerLabels';
-import { Button, buttonClassName, EmptyState, InfoGrid, type InfoItem } from '@/ui';
+import { requestNoShort } from '@/lib/engineerLabels';
+import { Button, buttonClassName, EmptyState, InfoGrid } from '@/ui';
 import { DayError, DaySkeleton } from './DayStates';
 import { DoneToast } from './DoneToast';
 import { EngineerHeader } from './EngineerHeader';
+import { headerSub } from './headerSub';
 import { EngineerMenu } from './EngineerMenu';
 import { EngineerPage } from './EngineerPage';
 import { IncidentSheet } from './IncidentSheet';
@@ -27,6 +26,7 @@ import { changedKey, isSeen, markSeen, useSeenVersion } from './seen';
 import { StatusPanel } from './StatusPanel';
 import { useEngineerDay, useEngineerRoute, useShiftEnd } from './useEngineerDay';
 import { AddressText, CardChips, EquipmentLine } from './VisitBits';
+import { positionLabel, visitDetails } from './visitFacts';
 import list from './VisitList.module.css';
 import styles from './VisitCardPage.module.css';
 
@@ -34,33 +34,6 @@ import styles from './VisitCardPage.module.css';
 const cardSearch = {
   sheet: searchParam.enum(['interrupt', 'incident'] as const),
 };
-
-/** «СЛЕДУЮЩАЯ · 5 ИЗ 9» (§9.2 E-03.1); для текущей — «ТЕКУЩАЯ». [Д] ждущая и закрытая — свои подписи. */
-function positionLabel(visit: EngineerVisitModel, isCurrent: boolean, total: number): string {
-  const kind = isCurrent
-    ? 'ТЕКУЩАЯ'
-    : isPendingStatus(visit.status)
-      ? 'ЖДЁТ РЕШЕНИЯ'
-      : isClosedStatus(visit.status)
-        ? 'ЗАВЕРШЁННАЯ'
-        : 'СЛЕДУЮЩАЯ';
-  return `${kind} · ${visit.sequence} ИЗ ${total}`;
-}
-
-/** Серый блок: Номер · Тип · Район · Окно · Приезд · начало · Длительность · Гигабит · Технология. */
-function details(visit: EngineerVisitModel): (InfoItem | null)[] {
-  const item = (label: string, value: string | null | false) => (value ? { label, value } : null);
-  return [
-    item('Номер', requestNo(visit.id)),
-    item('Тип', visit.typeBk),
-    item('Район', visit.district),
-    item('Окно', visit.windowFull),
-    item('Приезд · начало', [visit.arrival, visit.start].filter(Boolean).join(' · ')),
-    item('Длительность', visit.durationMin != null && durationLabel(visit.durationMin)),
-    item('Гигабит', visit.gigabit && 'да'),
-    item('Технология', visit.technology),
-  ];
-}
 
 /** «Маршрут в Яндекс Картах» — от старта `/me/route` через точки до этой заявки (§9.2 E-03.1). */
 function YandexRouteLink({ day, visitId }: { day: EngineerDayModel; visitId: string }) {
@@ -126,6 +99,7 @@ export default function VisitCardPage() {
   const header = (
     <EngineerHeader
       name={day?.engineer.name || user?.name || ''}
+      sub={headerSub(user?.region_ids, day?.date)}
       onBack={goBack}
       menu={
         <EngineerMenu
@@ -202,7 +176,7 @@ export default function VisitCardPage() {
         <div className={list.address}>
           <AddressText address={visit.address} />
         </div>
-        <InfoGrid items={details(visit)} />
+        <InfoGrid items={visitDetails(visit)} />
         <EquipmentLine equipment={visit.equipment} />
         {visit.whyYou && (
           <p className={styles.why}>

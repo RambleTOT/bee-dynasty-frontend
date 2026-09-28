@@ -173,7 +173,12 @@ export default function CalendarPage() {
         )}
       </div>
 
-      {search.modal === 'import' && <ImportModal onClose={() => setSearch({ modal: null })} />}
+      {search.modal === 'import' && (
+        <ImportModal
+          initialDate={search.date}
+          onClose={() => setSearch({ modal: null, date: null })}
+        />
+      )}
     </div>
   );
 }

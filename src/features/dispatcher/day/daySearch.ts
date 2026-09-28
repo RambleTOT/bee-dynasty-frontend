@@ -20,6 +20,8 @@ export const daySearch = {
   brigade: searchParam.string(),
   /** DS-04: карточка заявки. */
   request: searchParam.string(),
+  /** DS-04 с карты: заявка в диалоге (клик по маркеру). */
+  pin: searchParam.string(),
   /** Неназначенная, к которой прокрутить вкладку «Неназначенные». */
   focus: searchParam.string(),
   /** DS-06: вкладка формы события; `order` — заявка для «Отмены» из карточки. */
@@ -47,6 +49,7 @@ export type DaySearch = typeof daySearch;
 /** Закрыть все панели разом (переход по дням, смена региона). */
 export const CLOSED_PANELS = {
   request: null,
+  pin: null,
   focus: null,
   event: null,
   order: null,

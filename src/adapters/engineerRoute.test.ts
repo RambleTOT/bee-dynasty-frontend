@@ -56,11 +56,26 @@ describe('маршрут по визитам — если /me/route пуст', (
   it('ответ /me/route с точками важнее; пустой — заменяем визитами', () => {
     const visits = visitsWithPoints();
     const fromApi = toEngineerRoute(raw);
-    expect(effectiveRoute(fromApi, visits)).toBe(fromApi);
+    const route = effectiveRoute(fromApi, visits);
+    expect(route.start).toBe(fromApi.start);
+    expect(route.line).toBe(fromApi.line);
+    // номера на карте — как в списке дня: бэк нумерует оставшиеся точки заново с 1
+    expect(route.points.map((p) => [p.requestId, p.sequence])).toEqual([
+      ['A', 1],
+      ['B', 2],
+    ]);
+    const numbered = toEngineerRoute({
+      ...raw,
+      points: [
+        { request_id: 'D', sequence: 4, lat: 55.707, lon: 37.761 },
+        { request_id: 'F', sequence: 6, lat: 55.713, lon: 37.748 },
+      ],
+    });
+    expect(effectiveRoute(numbered, visits)).toBe(numbered);
     const empty = toEngineerRoute({ transport: 'walk', points: [], geometry: null });
-    const route = effectiveRoute(empty, visits);
-    expect(route.points.map((p) => p.requestId)).toEqual(['D', 'F']);
-    expect(route.transport).toBe('walk');
+    const byVisits = effectiveRoute(empty, visits);
+    expect(byVisits.points.map((p) => p.requestId)).toEqual(['D', 'F']);
+    expect(byVisits.transport).toBe('walk');
     expect(effectiveRoute(undefined, visits).points).toHaveLength(2);
   });
 });

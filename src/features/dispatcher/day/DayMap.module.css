@@ -288,7 +288,7 @@
   color: var(--text-secondary);
 }
 
-/* Яндекс: ссылка на маршрут бригады и встроенная карта маршрута */
+/* Яндекс: ссылка на маршрут выбранной бригады в Яндекс Картах */
 .yandexBar {
   position: absolute;
   top: var(--space-4);
@@ -298,25 +298,45 @@
   gap: var(--space-2);
 }
 
-.yandexLayer {
+/* Яндекс Карта дня: свой контекст наложения — панели карты (z-index 500) остаются сверху */
+.ycanvas {
   position: absolute;
   inset: 0;
-  z-index: 700;
-  background: var(--bg-surface);
+  isolation: isolate;
+  background: var(--bg-surface-nested);
 }
 
-.yandexClose {
+/* слои Яндекса (z-index до тысяч) — внутри карты, кнопки масштаба над ней */
+.ycanvas .map {
   position: absolute;
-  top: var(--space-4);
-  left: var(--space-4);
-  z-index: 1;
+  inset: 0;
+  z-index: 0;
 }
 
-.yandexFail {
+.yloading {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  color: var(--text-secondary);
-  font: var(--font-body);
+}
+
+/* метка Яндекса ставит макет левым верхним углом в точку — центрируем маркер на точке */
+.ymarker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate(-50%, -50%);
+}
+
+/* подсказка Яндекса — та же тёмная плашка, что и на карте OSM; ширина — по тексту (у слоя подсказки её нет) */
+.yhint {
+  width: max-content;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-inverse);
+  box-shadow: var(--shadow-float);
+  color: var(--on-inverse);
+  font: var(--font-caption);
+  white-space: nowrap;
 }
