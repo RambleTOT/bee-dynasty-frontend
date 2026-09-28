@@ -50,21 +50,20 @@ interface ImportRun {
 }
 
 /**
- * Чем занят день региона — второй файл на него не грузим. Демо-день не мешает: календарь создаёт
- * его на сегодня сам, а заменить его CSV должен бэк (docs/BACKEND_REQUESTS.md п. 31).
+ * Что уже есть у региона на дату. CSV — новый файл его заменит: бэк отправит прежний CSV-день в
+ * архив (перед загрузкой — предупреждение и подтверждение). Записи оператора — CSV бэк не примет
+ * (`DATE_HAS_BOOKINGS`). Демо-день не мешает: календарь создаёт его на сегодня сам.
  */
-const DAY_TAKEN: Record<string, string> = {
-  csv: 'уже загружен CSV',
-  booking: 'уже есть записи оператора',
-};
+type DayConflict = 'replace' | 'blocked';
 
-/** День региона на дату (`/days` пропускает архивные), если он не даёт загрузить CSV. */
-function takenDay(
+function dayConflict(
   data: { regions: DayRegion[] } | undefined,
   regionId: RegionId,
-): DayRegion | null {
+): DayConflict | null {
   const day = data?.regions.find((region) => region.region_id === regionId && region.scenario_id);
-  return day && DAY_TAKEN[day.source ?? ''] ? day : null;
+  if (day?.source === 'csv') return 'replace';
+  if (day?.source === 'booking') return 'blocked';
+  return null;
 }
 
 const requestsMeta = ({ file, rows }: Picked) =>
@@ -123,9 +122,11 @@ export function ImportModal({
       staleTime: 0,
     })),
   });
-  const taken = Object.fromEntries(
-    REGIONS.map((regionId, index) => [regionId, takenDay(dayChecks[index].data, regionId)]),
-  ) as Record<RegionId, DayRegion | null>;
+  const conflicts = Object.fromEntries(
+    REGIONS.map((regionId, index) => [regionId, dayConflict(dayChecks[index].data, regionId)]),
+  ) as Record<RegionId, DayConflict | null>;
+  // регионы, где новый файл заменит загруженный CSV: перед загрузкой — подтверждение
+  const [confirming, setConfirming] = useState(false);
   const checking = dateOk && !run && dayChecks.some((check) => check.isPending);
 
   const upload = useMutation({
@@ -175,12 +176,13 @@ export function ImportModal({
 
   const jobs: ImportJob[] = REGIONS.flatMap((regionId) => {
     const { requests, control } = picks[regionId];
-    return requests && !taken[regionId]
+    return requests && conflicts[regionId] !== 'blocked'
       ? [{ regionId, requestsFile: requests.file, controlFile: control?.file ?? null }]
       : [];
   });
 
   const busy = upload.isPending;
+  const replacing = jobs.filter((job) => conflicts[job.regionId] === 'replace');
 
   if (run) {
     const totals = importTotals(run.reports);
@@ -242,13 +244,48 @@ export function ImportModal({
             icon={Upload}
             loading={busy}
             disabled={jobs.length === 0 || !dateOk || checking}
-            onClick={() => upload.mutate({ date, jobs }, { onSuccess: setRun })}
+            onClick={() =>
+              replacing.length > 0
+                ? setConfirming(true)
+                : upload.mutate({ date, jobs }, { onSuccess: setRun })
+            }
           >
             Загрузить
           </Button>
         </>
       }
     >
+      {confirming && (
+        <Modal
+          open
+          width={480}
+          title="Заменить загруженный CSV?"
+          onClose={() => setConfirming(false)}
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setConfirming(false)}>
+                Отмена
+              </Button>
+              <Button
+                variant="primary"
+                icon={Upload}
+                onClick={() => {
+                  setConfirming(false);
+                  upload.mutate({ date, jobs }, { onSuccess: setRun });
+                }}
+              >
+                Заменить и загрузить
+              </Button>
+            </>
+          }
+        >
+          <p className={styles.confirmText}>
+            На {formatDayMonth(date)} уже загружен CSV:{' '}
+            {replacing.map((job) => REGION_LABEL[job.regionId]).join(', ')}. Новый файл заменит его:
+            прежние заявки, план и события дня уйдут в архив и пропадут с экрана дня.
+          </p>
+        </Modal>
+      )}
       <div className={styles.stack}>
         <Input
           type="date"
@@ -268,8 +305,8 @@ export function ImportModal({
             (region) => region.region_id === regionId,
           )?.engineer_count;
           const name = REGION_LABEL[regionId];
-          const day = taken[regionId];
-          const locked = busy || day !== null;
+          const conflict = conflicts[regionId];
+          const locked = busy || conflict === 'blocked';
           return (
             <section key={regionId} className={styles.region} aria-label={name}>
               <div className={styles.regionHead}>
@@ -278,10 +315,16 @@ export function ImportModal({
                   <span className={styles.regionNote}>{countOf(brigades, PL_BRIGADE)}</span>
                 )}
               </div>
-              {day && (
+              {conflict === 'replace' && (
                 <Callout tone="warning">
-                  На {formatDayMonth(date)} у региона {DAY_TAKEN[day.source ?? '']}. Второй CSV на
-                  этот день не загрузить — сначала удалите старые записи дня
+                  На {formatDayMonth(date)} у региона уже загружен CSV. Новый файл заменит его:
+                  прежние заявки, план и события дня уйдут в архив
+                </Callout>
+              )}
+              {conflict === 'blocked' && (
+                <Callout tone="warning">
+                  На {formatDayMonth(date)} у региона уже есть записи оператора — CSV на этот день
+                  бэк не примет. Выберите другую дату
                 </Callout>
               )}
               <div className={styles.files}>

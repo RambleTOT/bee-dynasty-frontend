@@ -83,6 +83,27 @@ export default function DayPage() {
   // тело события по плану предложения: для повтора при STALE_PROPOSAL (§6.4, п. 8)
   const sentEvents = useRef(new Map<string, DispatcherEvent>());
 
+  // Карточка заявки поверх предложения — отдельным шагом истории: «Назад» браузера, «К предложению»
+  // и ✕ возвращают к предложению. Открыли по ссылке (шага нет) — просто закрываем.
+  const cardPushed = useRef(false);
+  useEffect(() => {
+    if (!search.pin) cardPushed.current = false;
+  }, [search.pin]);
+  const openCardOverProposal = (id: string) => {
+    const next = new URLSearchParams(location.search);
+    next.set('pin', id);
+    cardPushed.current = true;
+    navigate({ search: `?${next.toString()}` });
+  };
+  const closeCard = () => {
+    if (cardPushed.current) {
+      cardPushed.current = false;
+      navigate(-1);
+    } else {
+      setSearch({ pin: null });
+    }
+  };
+
   const goDate = (delta: number) => {
     const next = new URLSearchParams();
     next.set('region', regionId);
@@ -355,17 +376,6 @@ export default function DayPage() {
               onReassign={(orderId) => setSearch({ request: null, reassign: orderId, base: null })}
             />
           )}
-          {search.pin && !search.request && (
-            <RequestDrawer
-              as="dialog"
-              model={model}
-              requestId={search.pin}
-              onClose={() => setSearch({ pin: null })}
-              onCancel={(orderId) => setSearch({ pin: null, event: 'cancel', order: orderId })}
-              onReassign={(orderId) => setSearch({ pin: null, reassign: orderId, base: null })}
-              onShowInList={(orderId) => setSearch({ pin: null, tab: 'un', focus: orderId })}
-            />
-          )}
           {search.event && (
             <EventModal
               tab={search.event}
@@ -400,7 +410,21 @@ export default function DayPage() {
               onEditManually={(orderId, basePlanId) =>
                 setSearch({ proposal: null, against: null, reassign: orderId, base: basePlanId })
               }
+              onOpenRequest={openCardOverProposal}
               onClose={() => setSearch({ proposal: null, against: null })}
+            />
+          )}
+          {/* после предложения: карточка из него — поверх */}
+          {search.pin && !search.request && (
+            <RequestDrawer
+              as="dialog"
+              model={model}
+              requestId={search.pin}
+              onClose={closeCard}
+              onBack={search.proposal ? closeCard : undefined}
+              onCancel={(orderId) => setSearch({ pin: null, event: 'cancel', order: orderId })}
+              onReassign={(orderId) => setSearch({ pin: null, reassign: orderId, base: null })}
+              onShowInList={(orderId) => setSearch({ pin: null, tab: 'un', focus: orderId })}
             />
           )}
           {search.compare && (

@@ -5,6 +5,13 @@
   gap: var(--space-3);
 }
 
+/* подтверждение замены загруженного CSV */
+.confirmText {
+  margin: 0;
+  color: var(--text-primary);
+  font: var(--font-body);
+}
+
 /* шаг 1: дата плана */
 .dateField {
   max-width: 320px;

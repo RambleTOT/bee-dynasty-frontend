@@ -105,10 +105,15 @@ export function eventTitle(
 
 // ---------- «Что изменится» ----------
 
+/** Кусок строки «Что изменится»: текст или номер заявки — ссылка на её карточку. */
+export type DiffPart = string | { requestId: string; label: string };
+
 export interface DiffItem {
   kind: 'added' | 'reordered' | 'time_shifted' | 'reassigned' | 'removed' | 'newly_unassigned' | 'other';
   label: string;
+  /** Строка целиком; `parts` — она же кусками, номера заявок отдельно. */
   text: string;
+  parts: DiffPart[];
   icon: LucideIcon;
   tone: StatusTone;
 }
@@ -143,10 +148,15 @@ const ITEM_STYLE: Record<DiffItem['kind'], { icon: LucideIcon; tone: StatusTone;
   other: { icon: CircleDot, tone: 'neutral', label: 'Изменение' },
 };
 
-function item(kind: DiffItem['kind'], text: string, label?: string): DiffItem {
+function item(kind: DiffItem['kind'], parts: DiffPart[], label?: string): DiffItem {
   const style = ITEM_STYLE[kind];
-  return { kind, text, icon: style.icon, tone: style.tone, label: label ?? style.label };
+  const text = parts.map((part) => (typeof part === 'string' ? part : part.label)).join('');
+  return { kind, text, parts, icon: style.icon, tone: style.tone, label: label ?? style.label };
 }
+
+/** Номер заявки ссылкой: «10211», короткий «…4567» или «№10211». */
+const ref = (id: string, label: string = num(id)): DiffPart => ({ requestId: id, label });
+const refNo = (id: string): DiffPart => ref(id, `№${num(id)}`);
 
 const signedMinutes = (m: number) => `${m > 0 ? '+' : m < 0 ? '−' : ''}${Math.abs(m)} мин`;
 
@@ -188,8 +198,10 @@ export function diffGroups(diff: Pick<PlanDiffResponse, 'changes'>, ctx: DiffCon
         const info = ctx.requestInfo(id);
         const start = raw.new_start ?? '';
         const end = info && start ? fromMin(toMin(start) + info.duration) : '';
-        const parts = [num(id), info?.typeShort, start && end ? `${start}–${end}` : start].filter(Boolean);
-        group(raw.engineer_id ?? null).items.push(item('added', parts.join(' · ')));
+        const rest = [info?.typeShort, start && end ? `${start}–${end}` : start].filter(Boolean);
+        group(raw.engineer_id ?? null).items.push(
+          item('added', [ref(id), ...(rest.length ? [` · ${rest.join(' · ')}`] : [])]),
+        );
         break;
       }
       case 'reordered': {
@@ -197,34 +209,36 @@ export function diffGroups(diff: Pick<PlanDiffResponse, 'changes'>, ctx: DiffCon
         if (engineerId && reorderedDone.has(engineerId)) break;
         if (engineerId) reorderedDone.add(engineerId);
         const order = engineerId ? ctx.newOrderOf(engineerId) : [id];
-        group(engineerId).items.push(item('reordered', order.map(num).join(', ')));
+        group(engineerId).items.push(
+          item('reordered', order.flatMap((orderId, index) => (index ? [', ', ref(orderId)] : [ref(orderId)]))),
+        );
         break;
       }
       case 'time_shifted': {
         const delta = Number(raw.delta_minutes) || toMin(raw.new_start ?? '') - toMin(raw.old_start ?? '');
         group(raw.engineer_id ?? null).items.push(
-          item('time_shifted', `№${num(id)}: ${raw.old_start} → ${raw.new_start} (${signedMinutes(delta)})`),
+          item('time_shifted', [refNo(id), `: ${raw.old_start} → ${raw.new_start} (${signedMinutes(delta)})`]),
         );
         break;
       }
       case 'reassigned': {
         const from = raw.from_engineer_id ?? null;
         group(from).items.push(
-          item(
-            'reassigned',
-            `№${num(id)}: ${engineerName(ctx, from)} → ${engineerName(ctx, raw.to_engineer_id)}, ${raw.old_start} → ${raw.new_start}`,
-          ),
+          item('reassigned', [
+            refNo(id),
+            `: ${engineerName(ctx, from)} → ${engineerName(ctx, raw.to_engineer_id)}, ${raw.old_start} → ${raw.new_start}`,
+          ]),
         );
         break;
       }
       case 'removed':
-        group(ctx.baseEngineerOf(id)).items.push(item('removed', `№${num(id)}`));
+        group(ctx.baseEngineerOf(id)).items.push(item('removed', [refNo(id)]));
         break;
       case 'newly_unassigned':
-        group(ctx.baseEngineerOf(id)).items.push(item('newly_unassigned', `№${num(id)}`));
+        group(ctx.baseEngineerOf(id)).items.push(item('newly_unassigned', [refNo(id)]));
         break;
       default:
-        group(raw.engineer_id ?? null).items.push(item('other', `№${num(id)}`, `Изменение: ${raw.type ?? '—'}`));
+        group(raw.engineer_id ?? null).items.push(item('other', [refNo(id)], `Изменение: ${raw.type ?? '—'}`));
     }
   }
 

@@ -423,6 +423,24 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* номер заявки в «Что изменится» — ссылка на её карточку */
+.requestLink {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-primary);
+  font: var(--font-caption-medium);
+  font-variant-numeric: tabular-nums;
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.requestLink:hover {
+  text-decoration-color: currentColor;
+}
+
 .metricsBar {
   display: flex;
   align-items: center;

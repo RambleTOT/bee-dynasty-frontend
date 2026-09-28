@@ -53,6 +53,24 @@ describe('DS-04 «Карточка заявки» с карты — диалог
     expect(within(dialog).queryByText('Почему не назначена')).toBeNull();
   });
 
+  it('из предложения: только смотреть, внизу «К предложению»; новой заявки в плане ещё нет', () => {
+    const on = { ...handlers(), onBack: vi.fn() };
+    const model = overlayModel();
+    const { unmount } = render(
+      <RequestDrawer as="dialog" model={model} requestId="305800002" {...on} />,
+    );
+    const dialog = screen.getByRole('dialog', { name: model.requestById.get('305800002')!.number });
+    expect(within(dialog).queryByRole('button', { name: 'Переназначить' })).toBeNull();
+    expect(within(dialog).queryByRole('button', { name: 'Отменить заявку' })).toBeNull();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'К предложению' }));
+    expect(on.onBack).toHaveBeenCalled();
+    unmount();
+
+    render(<RequestDrawer as="dialog" model={model} requestId="U-0001" {...on} />);
+    expect(screen.getByText('Заявка есть только в предложении')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'К предложению' })).toBeInTheDocument();
+  });
+
   it('из списков (дровер) неназначенную не открываем — «не найдена в текущей версии»', () => {
     render(<RequestDrawer model={overlayModel()} requestId="305800007" {...handlers()} />);
     expect(screen.getByText('Заявка не найдена в текущей версии плана')).toBeInTheDocument();

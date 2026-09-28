@@ -4,7 +4,7 @@
  * (D-29). С карты — диалог: и для назначенной, и для неназначенной (причина, «Назначить вручную»),
  * и до плана (только факты).
  */
-import { ArrowRightLeft, ChevronDown, ChevronUp, CircleCheck, CircleX, Lightbulb, ListChecks } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, ChevronDown, ChevronUp, CircleCheck, CircleX, Lightbulb, ListChecks } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { assignmentSummary, constraintRows, otherEngineers, unassignedExplain } from '@/adapters/constraints';
 import type { DayModel, DayRequest } from '@/adapters/dayModel';
@@ -75,6 +75,15 @@ function gigabitOf(request: DayRequest): string | null {
     : null;
 }
 
+/** Карточка поверх предложения — только смотреть и вернуться к нему. */
+function BackToProposal({ onBack }: { onBack: () => void }) {
+  return (
+    <Button variant="ghost" icon={ArrowLeft} onClick={onBack}>
+      К предложению
+    </Button>
+  );
+}
+
 /** С карты: заявка без визита — неназначенная в плане или день без плана. */
 function UnplannedCard({
   model,
@@ -82,12 +91,14 @@ function UnplannedCard({
   onClose,
   onReassign,
   onShowInList,
+  onBack,
 }: {
   model: DayModel;
   request: DayRequest;
   onClose: () => void;
   onReassign: (orderId: string) => void;
   onShowInList: (orderId: string) => void;
+  onBack?: () => void;
 }) {
   const gigabit = gigabitOf(request);
   const item = model.plan ? model.unassigned.find((u) => u.requestId === request.id) : undefined;
@@ -113,7 +124,9 @@ function UnplannedCard({
       subtitle={request.typeFull}
       onClose={onClose}
       footer={
-        model.plan ? (
+        onBack ? (
+          <BackToProposal onBack={onBack} />
+        ) : model.plan ? (
           <>
             <Button variant="ghost" icon={ListChecks} onClick={() => onShowInList(request.id)}>
               В списке неназначенных
@@ -161,16 +174,19 @@ export function RequestDrawer({
   onCancel,
   onReassign,
   onShowInList,
+  onBack,
 }: {
   model: DayModel;
   requestId: string;
-  /** Дровер — из списков и таймлайна; диалог — с карты. */
+  /** Дровер — из списков и таймлайна; диалог — с карты и из предложения. */
   as?: CardView;
   onClose: () => void;
   onCancel: (orderId: string) => void;
   onReassign: (orderId: string) => void;
   /** Диалог неназначенной: к ней во вкладке «Неназначенные». */
   onShowInList?: (orderId: string) => void;
+  /** Открыта из предложения: только смотреть, внизу — «К предложению». */
+  onBack?: () => void;
 }) {
   const [details, setDetails] = useState(false);
   const request = model.requestById.get(requestId);
@@ -185,16 +201,28 @@ export function RequestDrawer({
         onClose={onClose}
         onReassign={onReassign}
         onShowInList={onShowInList ?? (() => undefined)}
+        onBack={onBack}
       />
     );
   }
 
   if (!request || !visit || !engineer) {
     return (
-      <Shell as={as} title={`№${requestId}`} onClose={onClose}>
-        <EmptyState title="Заявка не найдена в текущей версии плана">
-          Возможно, её сняли или передали в другую версию. Обновите день.
-        </EmptyState>
+      <Shell
+        as={as}
+        title={`№${requestId}`}
+        onClose={onClose}
+        footer={onBack && <BackToProposal onBack={onBack} />}
+      >
+        {onBack ? (
+          <EmptyState title="Заявка есть только в предложении">
+            Её карточка появится в плане после «Принять изменения».
+          </EmptyState>
+        ) : (
+          <EmptyState title="Заявка не найдена в текущей версии плана">
+            Возможно, её сняли или передали в другую версию. Обновите день.
+          </EmptyState>
+        )}
       </Shell>
     );
   }
@@ -242,6 +270,9 @@ export function RequestDrawer({
       title={request.number}
       subtitle={request.typeFull}
       footer={
+        onBack ? (
+          <BackToProposal onBack={onBack} />
+        ) : (
         <>
           <Button
             variant="danger"
@@ -260,6 +291,7 @@ export function RequestDrawer({
             Переназначить
           </Button>
         </>
+        )
       }
     >
       <Chips request={request} />

@@ -51,6 +51,7 @@ export function ProposalDrawer({
   onResent,
   onShowOnMap,
   onEditManually,
+  onOpenRequest,
   onClose,
 }: {
   planId: string;
@@ -63,6 +64,8 @@ export function ProposalDrawer({
   onResent: (planId: string, event: DispatcherEvent) => void;
   onShowOnMap: (highlight: MapHighlight) => void;
   onEditManually: (orderId: string, basePlanId: string) => void;
+  /** Номер заявки в «Что изменится» — её карточка поверх предложения; закрыли — снова предложение. */
+  onOpenRequest: (requestId: string) => void;
   onClose: () => void;
 }) {
   const viewMode = Boolean(against);
@@ -372,7 +375,23 @@ export function ProposalDrawer({
                         <Icon size={16} aria-hidden />
                       </span>
                       <span className={styles.diffKind}>{item.label}</span>
-                      <span className={styles.diffText}>{item.text}</span>
+                      <span className={styles.diffText}>
+                        {item.parts.map((part, partIndex) =>
+                          typeof part === 'string' ? (
+                            part
+                          ) : (
+                            <button
+                              key={partIndex}
+                              type="button"
+                              className={styles.requestLink}
+                              title="Открыть заявку"
+                              onClick={() => onOpenRequest(part.requestId)}
+                            >
+                              {part.label}
+                            </button>
+                          ),
+                        )}
+                      </span>
                     </div>
                   );
                 })}

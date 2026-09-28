@@ -293,6 +293,12 @@ describe('proposal', () => {
       'Передана: №…7780: Бригада Соколов → Бригада Мельников, 16:00 → 16:20',
       'Новый порядок: …2310, U-0001, …5129',
     ]);
+    // номера заявок — отдельными кусками: в окне предложения это ссылки на карточку
+    const refs = (index: number) =>
+      groups[0].items[index].parts.flatMap((part) => (typeof part === 'string' ? [] : [part.requestId]));
+    expect(refs(3)).toEqual(['305852310', 'U-0001', '305855129']);
+    expect(refs(1)).toEqual(['305855129']);
+    expect(groups[0].items[3].parts[1]).toBe(', ');
     expect(groups.at(-1)?.items[0].label).toBe('Изменение: weird');
   });
 

@@ -207,8 +207,12 @@ describe('DS-02 Загрузка CSV · дата плана', () => {
     await waitFor(() => expect(uploadButton()).toBeEnabled());
   });
 
-  it('у региона на эту дату уже загружен CSV — второй не грузим; демо-день не мешает', async () => {
-    const days: Record<string, string> = { east: 'csv', south_east: 'demo' };
+  it('на дату уже загружен CSV — предупреждение и подтверждение замены; записи оператора — нельзя', async () => {
+    const days: Record<string, string> = {
+      east: 'csv',
+      south_east: 'demo',
+      south_center: 'booking',
+    };
     vi.mocked(getDay).mockImplementation(async (date, regionId) => ({
       date,
       regions:
@@ -216,26 +220,32 @@ describe('DS-02 Загрузка CSV · дата плана', () => {
           ? [{ region_id: regionId, scenario_id: `sc-${regionId}`, source: days[regionId] }]
           : [],
     }));
-    vi.mocked(importBeeline).mockResolvedValue({
-      ...summary('south_east', 3, 12),
-      date: '2026-10-05',
-    });
+    vi.mocked(importBeeline).mockResolvedValue({ ...summary('east', 3, 12), date: '2026-10-05' });
     renderModal('2026-10-05');
     const east = regionCard('Восток');
     expect(
-      await within(east).findByText(/На 5 октября у региона уже загружен CSV/),
+      await within(east).findByText(
+        /На 5 октября у региона уже загружен CSV. Новый файл заменит его/,
+      ),
     ).toBeInTheDocument();
-    expect(within(east).getByLabelText('Файл заявок (.csv) · Восток')).toBeDisabled();
+    expect(within(east).getByLabelText('Файл заявок (.csv) · Восток')).toBeEnabled();
+    const center = regionCard('Югоцентр');
+    expect(within(center).getByText(/уже есть записи оператора/)).toBeInTheDocument();
+    expect(within(center).getByLabelText('Файл заявок (.csv) · Югоцентр')).toBeDisabled();
+    expect(within(regionCard('Юго-восток')).queryByText(/На 5 октября/)).toBeNull();
 
-    expect(within(regionCard('Юго-восток')).queryByText(/Второй CSV/)).toBeNull();
-    const requests = csvFile('yv.csv', REQUESTS_CSV);
-    pickFile('Файл заявок (.csv) · Юго-восток', requests);
+    const requests = csvFile('vostok.csv', REQUESTS_CSV);
+    pickFile('Файл заявок (.csv) · Восток', requests);
     await waitFor(() => expect(uploadButton()).toBeEnabled());
     fireEvent.click(uploadButton());
+    const confirm = screen.getByRole('dialog', { name: 'Заменить загруженный CSV?' });
+    expect(within(confirm).getByText(/уже загружен CSV: Восток/)).toBeInTheDocument();
+    expect(importBeeline).not.toHaveBeenCalled();
+
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Заменить и загрузить' }));
     await screen.findByRole('dialog', { name: 'Отчёт импорта' });
-    expect(importBeeline).toHaveBeenCalledTimes(1);
     expect(importBeeline).toHaveBeenCalledWith(
-      expect.objectContaining({ regionId: 'south_east', date: '2026-10-05' }),
+      expect.objectContaining({ regionId: 'east', date: '2026-10-05', requestsFile: requests }),
     );
   });
 
