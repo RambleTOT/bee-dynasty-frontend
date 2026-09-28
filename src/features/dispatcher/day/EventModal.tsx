@@ -15,6 +15,7 @@ import {
   urgentEvent,
   urgentIdFor,
 } from '@/adapters/proposal';
+import { countOf, PL_REQUEST } from '@/lib/format';
 import { notify } from '@/lib/notify';
 import { REGION_LABEL, REGIONS, isRequestStatus, REQUEST_STATUS_LABEL } from '@/lib/statuses';
 import { Button, Callout, Input, Modal, RadioCards, SegmentedControl, Select, Textarea, cx } from '@/ui';
@@ -333,7 +334,7 @@ export function EventModal({
             value={engineerId}
             options={onShift.map((e) => ({
               value: e.id,
-              label: `${e.label} · ${e.used ? `${e.taskCount} заявок` : 'не задействован'}`,
+              label: `${e.label} · ${e.used ? countOf(e.taskCount, PL_REQUEST) : 'не задействован'}`,
             }))}
             onChange={setEngineerId}
             error={engineerError}

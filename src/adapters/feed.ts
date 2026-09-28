@@ -19,6 +19,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { EventItem } from '@/api/types';
+import { engineerVerb as verb } from '@/lib/dictionaries';
 import { transportOn } from '@/lib/explainTexts';
 import { timeOfIso } from '@/lib/format';
 import type { StatusTone } from '@/lib/statuses';
@@ -79,14 +80,14 @@ function engineer(model: Labels, id: unknown): string {
 }
 
 const ACTION_TEXT: Record<string, (engineer: string, order: string) => string> = {
-  shift_start: (e) => `${e} начал смену`,
+  shift_start: (e) => `${e} ${verb(e, 'начал', 'начала')} смену`,
   en_route: (e, o) => `${e} в пути к №${o}`,
-  start: (e, o) => `${e} начал работу по №${o}`,
-  complete: (e, o) => `${e} выполнил №${o}`,
+  start: (e, o) => `${e} ${verb(e, 'начал', 'начала')} работу по №${o}`,
+  complete: (e, o) => `${e} ${verb(e, 'выполнил', 'выполнила')} №${o}`,
   fail: (e, o) => `${e}: проблема по №${o}`,
   delay: (e) => `${e} задерживается`,
-  unavailable: (e) => `${e} недоступен`,
-  shift_end: (e) => `${e} завершил смену`,
+  unavailable: (e) => `${e} ${verb(e, 'недоступен', 'недоступна')}`,
+  shift_end: (e) => `${e} ${verb(e, 'завершил', 'завершила')} смену`,
 };
 
 const ACTION_TONE: Record<string, StatusTone> = {
@@ -98,9 +99,14 @@ const ACTION_TONE: Record<string, StatusTone> = {
 
 /**
  * Текст строки. Шаблоны DESIGN_SPEC §7.3 с именами бригад из модели дня; `headline` бэка — для типов,
- * которых шаблоны не знают (в нём id бригад, а не имена).
+ * которых шаблоны не знают (в нём id бригад, а не имена). `pending` — предложение ещё ждёт решения.
  */
-function textOf(event: EventItem, model: Labels, versionOf: ReadonlyMap<string, number>): string {
+function textOf(
+  event: EventItem,
+  model: Labels,
+  versionOf: ReadonlyMap<string, number>,
+  pending: boolean,
+): string {
   const p = (event.payload ?? {}) as Record<string, unknown>;
   const headline = typeof p.headline === 'string' && p.headline.trim() ? p.headline : (event.headline ?? null);
   const scenario = (p.scenario ?? {}) as Record<string, Record<string, unknown> | undefined>;
@@ -132,18 +138,22 @@ function textOf(event: EventItem, model: Labels, versionOf: ReadonlyMap<string, 
       const reason = typeof p.reason === 'string' ? FAIL_REASON[p.reason] : null;
       if (p.source === 'engineer') {
         const owner = model.requestById.get(String(order))?.engineerId;
-        return `${engineer(model, owner)}: «${reason ?? 'Прервано'}» по №${num(order)} — требует решения`;
+        const text = `${engineer(model, owner)}: «${reason ?? 'Прервано'}» по №${num(order)}`;
+        return pending ? `${text} — требует решения` : text;
       }
       return `Отмена №${num(order)}${reason ? `: ${reason.toLowerCase()}` : ''}`;
     }
     case 'engineer_unavailable': {
       const left = Number(scenario.engineer_unavailable?.unassigned_count);
-      return `${engineer(model, p.engineer_id)} недоступен${time ? ` с ${time}` : ''}${
+      const who = engineer(model, p.engineer_id);
+      return `${who} ${verb(who, 'недоступен', 'недоступна')}${time ? ` с ${time}` : ''}${
         Number.isFinite(left) && left > 0 ? `: ${left} без исполнителя` : ''
       }`;
     }
-    case 'engineer_available':
-      return `${engineer(model, p.engineer_id)} снова доступен`;
+    case 'engineer_available': {
+      const who = engineer(model, p.engineer_id);
+      return `${who} снова ${verb(who, 'доступен', 'доступна')}`;
+    }
     case 'transport_changed':
       return `${engineer(model, p.engineer_id)} ${transportOn(String(p.transport ?? ''))}`;
     case 'order_added': {
@@ -157,8 +167,10 @@ function textOf(event: EventItem, model: Labels, versionOf: ReadonlyMap<string, 
       return `№${num(order)} → ${engineer(model, p.to_engineer_id)} вручную`;
     case 'engineer_delayed':
       return `${engineer(model, p.engineer_id)} отстаёт на ${Number(p.delay_min) || 0} мин`;
-    case 'finished_early':
-      return `${engineer(model, p.engineer_id)} освободился${p.actual_end ? ` в ${p.actual_end}` : ''}`;
+    case 'finished_early': {
+      const who = engineer(model, p.engineer_id);
+      return `${who} ${verb(who, 'освободился', 'освободилась')}${p.actual_end ? ` в ${p.actual_end}` : ''}`;
+    }
     case 'extend_resource':
       return 'Добор ресурса под неназначенные';
     case 'incident': {
@@ -215,7 +227,7 @@ export function buildFeed({ chain, model }: FeedInput): FeedRow[] {
       time: eventTimeOf(event) ?? timeOfIso(event.created_at),
       icon: style.icon,
       tone: style.tone,
-      text: textOf(event, model, versionOf),
+      text: textOf(event, model, versionOf, needsDecision),
       chip: needsDecision
         ? engineerFail
           ? { label: 'Отменяется', tone: 'warning', icon: ClockAlert }

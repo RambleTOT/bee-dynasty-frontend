@@ -135,6 +135,14 @@ export function engineerLabel(name: string | null | undefined, id: string): stri
   return clean;
 }
 
+/**
+ * Глагол к подписи бригады: «Бригада 1 выполнила» — женский род, имя инженера («Капитанчук
+ * Александр») — мужской.
+ */
+export function engineerVerb(label: string, masculine: string, feminine: string): string {
+  return BRIGADE.test(label.trim()) ? feminine : masculine;
+}
+
 /** Имя без «Бригада»: «Соколов»; «Капитанчук Александр» → «Капитанчук»; нет имени → id. */
 export function engineerShort(name: string | null | undefined, id: string): string {
   const clean = (name ?? '').trim();

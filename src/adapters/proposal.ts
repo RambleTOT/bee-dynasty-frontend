@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import type { DispatcherEvent } from '@/api/events';
 import type { DiffSummary, EventItem, PlanDiffResponse, UrgentRequestIn } from '@/api/types';
-import { BK, transportLabel } from '@/lib/dictionaries';
+import { BK, engineerVerb as verb, transportLabel } from '@/lib/dictionaries';
 import { formatDelta, formatInt, formatKm } from '@/lib/format';
 import { fromMin, toMin } from '@/lib/time';
 import type { StatusTone } from '@/lib/statuses';
@@ -59,7 +59,7 @@ function engineerName(model: Labels, id: string | null | undefined): string {
   return model.engineerById.get(id)?.label ?? `Бригада ${id}`;
 }
 
-/** Короткое имя события для заголовков: «Авария №U-0001», «Отмена №…8184», «Бригада Соколов недоступен». */
+/** Короткое имя события для заголовков: «Авария №U-0001», «Отмена №…8184», «Бригада Соколов недоступна». */
 export function eventTitle(
   model: Labels,
   type: string,
@@ -76,9 +76,9 @@ export function eventTitle(
     case 'order_cancelled':
       return `Отмена №${num(order)}`;
     case 'engineer_unavailable':
-      return `${engineer} недоступен`;
+      return `${engineer} ${verb(engineer, 'недоступен', 'недоступна')}`;
     case 'engineer_available':
-      return `${engineer} снова доступен`;
+      return `${engineer} снова ${verb(engineer, 'доступен', 'доступна')}`;
     case 'transport_changed':
       return `${engineer}: смена транспорта`;
     case 'manual_reassign':

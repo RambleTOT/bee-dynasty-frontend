@@ -178,5 +178,8 @@ describe('ошибки и ответы мутаций', () => {
     });
     expect(normalizeOutcome(undefined)).toEqual({});
     expect(normalizeOutcome({ message: '' })).toEqual({});
+    expect(normalizeOutcome({ message: 'Заявка №BK-0001 перенесена на 30.09, 16:00-18:00' }).message).toBe(
+      'Заявка №BK-0001 перенесена на 30.09, 16:00–18:00',
+    );
   });
 });

@@ -9,7 +9,9 @@ import {
   hasActiveVisit,
   mergeDay,
   plannedLeft,
+  statusAfterFail,
   toEngineerDay,
+  withFailedVisits,
   withVisitStatus,
   type EngineerDayModel,
 } from '@/adapters/engineerDay';
@@ -23,10 +25,29 @@ import { notify } from '@/lib/notify';
 import type { RequestStatus } from '@/lib/statuses';
 import { doneToastText, showDoneToast } from './doneToastStore';
 
+/**
+ * Заявки, прерванные в этой вкладке: id → статус после «Прервать» и день. Обход ошибки бэка 8.2
+ * (`withFailedVisits`): живёт до перезагрузки страницы, дальше решает бэк.
+ */
+const failedVisits = new Map<string, { status: RequestStatus; date: string | null }>();
+
+function withFailed(raw: EngineerMeDay): EngineerMeDay {
+  if (failedVisits.size === 0) return raw;
+  const today = new Map<string, RequestStatus>();
+  for (const [id, entry] of failedVisits) {
+    // другой день (вкладка открыта с вечера) — номера заявок могут совпасть
+    if (entry.date && raw.date && entry.date !== raw.date) failedVisits.delete(id);
+    else today.set(id, entry.status);
+  }
+  const { day, resolved } = withFailedVisits(raw, today);
+  for (const id of resolved) failedVisits.delete(id);
+  return day;
+}
+
 export function useEngineerDay() {
   return useQuery({
     queryKey: queryKeys.engineerDay(),
-    queryFn: ({ signal }) => getMyDay(signal),
+    queryFn: async ({ signal }) => withFailed(await getMyDay(signal)),
     select: toEngineerDay,
     refetchInterval: POLL.engineer,
   });
@@ -83,7 +104,8 @@ export function useEngineerAction() {
       // идущий опрос не должен затереть ни оптимистичный статус, ни ответ действия
       await queryClient.cancelQueries({ queryKey: dayKey });
       const previous = queryClient.getQueryData<EngineerMeDay>(dayKey);
-      const status = OPTIMISTIC[body.action];
+      const status =
+        body.action === 'fail' ? statusAfterFail(body.payload?.reason) : OPTIMISTIC[body.action];
       if (previous && status && body.request_id) {
         queryClient.setQueryData(dayKey, withVisitStatus(previous, body.request_id, status));
       }
@@ -96,9 +118,16 @@ export function useEngineerAction() {
       notify(errorMessage(error), 'error');
     },
     onSuccess: (result, body, context) => {
+      if (body.action === 'fail' && body.request_id) {
+        failedVisits.set(body.request_id, {
+          status: statusAfterFail(body.payload?.reason),
+          date: context?.previous?.date ?? null,
+        });
+      }
       const day = result?.day ?? undefined;
-      if (day) queryClient.setQueryData<EngineerMeDay>(dayKey, (cached) => mergeDay(cached, day));
-      else void queryClient.invalidateQueries({ queryKey: dayKey });
+      if (day) {
+        queryClient.setQueryData<EngineerMeDay>(dayKey, (cached) => withFailed(mergeDay(cached, day)));
+      } else void queryClient.invalidateQueries({ queryKey: dayKey });
       void queryClient.invalidateQueries({ queryKey: queryKeys.engineerRoute() });
 
       if (body.action === 'complete' && body.request_id) {

@@ -415,6 +415,34 @@ export function withVisitStatus(
   return { ...raw, visits, active_request_id: activeRequestId };
 }
 
+/** Статус заявки после «Прервать» (8.2): перенос — «Переносится», иначе — «Отменяется». */
+export const statusAfterFail = (reason: unknown): RequestStatus =>
+  reason === 'client_reschedule' ? 'reschedule_pending' : 'cancel_pending';
+
+/**
+ * «Прервать» (8.2) поверх ответа бэка. Бэк меняет статус только у заявки, а `/engineers/me/day`
+ * берёт статус из точки плана — там заявка остаётся «В пути» и снова становится текущей
+ * (docs/BACKEND_REQUESTS.md). Пока бэк отдаёт `planned` / `en_route` / `in_progress`, держим статус
+ * после «Прервать». Как только он сам прислал другой статус — `resolved`, решает бэк.
+ */
+export function withFailedVisits(
+  raw: EngineerMeDay,
+  failed: ReadonlyMap<string, RequestStatus>,
+): { day: EngineerMeDay; resolved: string[] } {
+  if (failed.size === 0) return { day: raw, resolved: [] };
+  const resolved: string[] = [];
+  let day = raw;
+  for (const [requestId, status] of failed) {
+    const visit = (raw.visits ?? []).find((v) => v.request_id === requestId);
+    if (!visit || !(visit.status === 'planned' || isActiveStatus(visit.status as RequestStatus))) {
+      resolved.push(requestId);
+      continue;
+    }
+    day = withVisitStatus(day, requestId, status);
+  }
+  return { day, resolved };
+}
+
 /**
  * День из ответа действия (`EngineerActionOut.day`) поверх дня в кэше. В схеме это
  * `EngineerDayResponse` — без `date`, `plan_published`, `shift_totals`: чего в ответе нет, берём

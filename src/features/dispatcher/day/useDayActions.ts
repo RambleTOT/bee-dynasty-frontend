@@ -14,9 +14,11 @@ export const versionAppliedText = (version: number) =>
 export function useDayActions(date: string) {
   const queryClient = useQueryClient();
 
+  // «Сравнение» не сбрасываем: ключ — id плана, у новой версии он свой, а пересчёт FIFO и
+  // «диспетчера» на бэке дорогой (прогон солвера) — после «Отклонить» он не нужен
   const invalidate = () =>
     Promise.all(
-      [['days', date], ['plan'], ['scenario'], ['events'], ['calendar'], ['compare']].map((queryKey) =>
+      [['days', date], ['plan'], ['scenario'], ['events'], ['calendar']].map((queryKey) =>
         queryClient.invalidateQueries({ queryKey }),
       ),
     );

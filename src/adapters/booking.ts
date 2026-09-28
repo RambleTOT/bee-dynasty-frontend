@@ -161,7 +161,8 @@ export function normalizeOutcome(raw: unknown): BookingOutcome {
   const status = text(raw.status);
   if (status) outcome.status = status;
   const message = text(raw.message);
-  if (message) outcome.message = message;
+  // «16:00-18:00» в тексте бэка → «16:00–18:00», как в остальном интерфейсе
+  if (message) outcome.message = message.replace(/(\d{1,2}:\d{2})\s?-\s?(\d{1,2}:\d{2})/g, '$1–$2');
   const requestId = idOf(raw.request_id);
   if (requestId) outcome.requestId = requestId;
   const date = text(raw.date);

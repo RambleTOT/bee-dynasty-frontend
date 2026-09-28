@@ -359,7 +359,7 @@ describe('feed', () => {
     );
     const rows = buildFeed({ chain, model });
     expect(rows.map((r) => [r.time, r.text, r.needsDecision, r.note])).toEqual([
-      ['13:40', 'Бригада Мельников недоступен с 13:40: 2 без исполнителя', true, null],
+      ['13:40', 'Бригада Мельников недоступна с 13:40: 2 без исполнителя', true, null],
       ['12:30', 'Авария №U-0001 → Бригада Соколов, прибытие 13:25', false, 'Отклонено'],
     ]);
     expect(rows[0].action).toEqual({ label: 'Открыть', planId: 'P3' });
@@ -404,10 +404,36 @@ describe('feed: события бэка 28.09', () => {
     );
     const rows = buildFeed({ chain, model });
     expect(rows.map((r) => [r.time, r.text, r.note])).toEqual([
-      ['14:05', 'Бригада Соколов выполнил №…8184', null],
+      ['14:05', 'Бригада Соколов выполнила №…8184', null],
       ['12:34', 'Версия 2 применена. Инженеры получили обновление', null],
       ['12:30', 'Авария №U-0001 → Бригада Соколов, прибытие 13:25', 'Принято в 12:34 · версия 2'],
     ]);
+  });
+});
+
+describe('feed: «Прервать» инженера', () => {
+  const failEvent = (resultPlan: string) =>
+    makeEvent({
+      event_id: `X-${resultPlan}`,
+      event_type: 'order_cancelled',
+      plan_id: 'P1',
+      result_plan_id: resultPlan,
+      payload: { order_id: '305838184', reason: 'client_refused', source: 'engineer', event_time: '12:30' },
+      created_at: '2026-09-28T09:31:00Z',
+    });
+  const plans = (status: string) => [
+    { plan_id: 'P1', scenario_id: 'S0', kind: 'optimized', status: 'applied', created_at: '', version: 1, engineers_used: 1, total_distance_km: 1, planned_count: 1 },
+    { plan_id: 'P2', scenario_id: 'S1', kind: 'replanned', status, created_at: '', version: 0, engineers_used: 1, total_distance_km: 1, planned_count: 1 },
+  ];
+
+  it('«— требует решения» — только пока предложение ждёт решения', () => {
+    const region = makeRegion({ active_plan_id: 'P1', plan_state: 'applied', version: 1 });
+    const pending = buildFeed({ chain: resolveDayChain(region, [failEvent('P2')], plans('proposed')), model });
+    const rejected = buildFeed({ chain: resolveDayChain(region, [failEvent('P2')], plans('rejected')), model });
+    expect(pending[0]).toMatchObject({ needsDecision: true, action: { label: 'Решить', planId: 'P2' } });
+    expect(pending[0].text).toMatch(/— требует решения$/);
+    expect(rejected[0]).toMatchObject({ needsDecision: false, note: 'Отклонено' });
+    expect(rejected[0].text).not.toMatch(/требует решения/);
   });
 });
 

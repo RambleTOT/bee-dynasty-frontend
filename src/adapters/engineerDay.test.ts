@@ -10,6 +10,8 @@ import {
   shiftSummary,
   toEngineerDay,
   mergeDay,
+  statusAfterFail,
+  withFailedVisits,
   withVisitStatus,
 } from './engineerDay';
 
@@ -355,6 +357,35 @@ describe('withVisitStatus — оптимистичный статус', () => {
     const next = withVisitStatus(raw, 'A', 'done');
     expect(next.active_request_id).toBeNull();
     expect(currentVisit(toEngineerDay(next))?.id).toBe('B');
+  });
+});
+
+describe('withFailedVisits — «Прервать» поверх ответа бэка (8.2)', () => {
+  it('бэк оставил прерванную «В пути» — она «Отменяется», текущей становится следующая', () => {
+    const raw = day([visit('A', 1, 'en_route'), visit('B', 2, 'planned')], { active_request_id: 'A' });
+    const { day: next, resolved } = withFailedVisits(raw, new Map([['A', statusAfterFail('client_refused')]]));
+    expect(resolved).toEqual([]);
+    expect(next.visits?.[0].status).toBe('cancel_pending');
+    expect(next.active_request_id).toBeNull();
+    expect(currentVisit(toEngineerDay(next))?.id).toBe('B');
+  });
+
+  it('инженер уже едет к следующей — текущая она, а не прерванная', () => {
+    const raw = day([visit('A', 1, 'en_route'), visit('B', 2, 'en_route')], { active_request_id: 'A' });
+    const { day: next } = withFailedVisits(raw, new Map([['A', statusAfterFail('client_reschedule')]]));
+    expect(next.visits?.[0].status).toBe('reschedule_pending');
+    expect(currentVisit(toEngineerDay(next))?.id).toBe('B');
+  });
+
+  it('бэк сам прислал другой статус или заявки нет — решает бэк', () => {
+    const raw = day([visit('A', 1, 'cancel_pending'), visit('B', 2, 'planned')]);
+    const failed = new Map([
+      ['A', statusAfterFail('client_refused')],
+      ['C', statusAfterFail('other')],
+    ]);
+    const { day: next, resolved } = withFailedVisits(raw, failed);
+    expect(resolved).toEqual(['A', 'C']);
+    expect(next).toBe(raw);
   });
 });
 
