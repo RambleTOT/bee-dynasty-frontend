@@ -5,7 +5,7 @@ import { getPlanDiff } from '@/api/planning';
 import { queryKeys } from '@/api/queryKeys';
 import type { DayChain } from '@/adapters/dayChain';
 import type { DayModel } from '@/adapters/dayModel';
-import { changedAssignments, eventTitle } from '@/adapters/proposal';
+import { changedAssignments, eventTimeOf, eventTitle } from '@/adapters/proposal';
 import { plural, timeOfIso } from '@/lib/format';
 import { Button, DarkBanner } from '@/ui';
 
@@ -37,7 +37,8 @@ export function ProposalBanner({
     : (proposal.event_type ?? proposal.headline ?? 'событие');
   const n = diff.data ? changedAssignments(diff.data.summary) : null;
   const more = model.pendingProposals.length - 1;
-  const time = timeOfIso(proposal.created_at ?? event?.created_at);
+  // время события по часам дня, как в ленте; нет — время расчёта
+  const time = (event ? eventTimeOf(event) : null) ?? timeOfIso(proposal.created_at ?? event?.created_at);
 
   return (
     <DarkBanner

@@ -303,7 +303,7 @@ export function DayMap({
       {!hasPlan && (
         <div className={styles.topPill}>
           <MapPin size={16} aria-hidden />
-          {countOf(requestCount, PL_REQUEST)} {model.fromCsv ? 'загружены из CSV' : 'на день'} · план ещё не
+          {countOf(requestCount, PL_REQUEST)} {model.source === 'csv' ? 'загружены из CSV' : 'на день'} · план ещё не
           построен
         </div>
       )}

@@ -41,7 +41,7 @@ export function VersionsPanel({
             const current = index === 0;
             const text = version.event
               ? (textByEvent.get(version.event.event_id) ?? version.event.event_type)
-              : `План построен${model.fromCsv ? ' по CSV' : ''} · ${regionLabel(model.regionId)}`;
+              : `План построен${model.source === 'csv' ? ' по CSV' : ''} · ${regionLabel(model.regionId)}`;
             const meta = [
               version.engineersUsed != null ? countOf(version.engineersUsed, PL_BRIGADE) : null,
               version.plannedCount != null ? countOf(version.plannedCount, PL_REQUEST) : null,

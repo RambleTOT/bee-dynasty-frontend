@@ -12,6 +12,9 @@ import styles from './DayPage.module.css';
 
 const ALL = '__all__';
 
+/** Демо-день бэка: структура CSV Билайна, но адреса и координаты сгенерированы. */
+const DEMO_HINT =
+  'Демо-день стенда: заявки по структуре CSV Билайна, адреса и координаты условные. Для оценки на реальных данных — дни из CSV';
 const SYNTHETIC_HINT =
   'Координаты, длительности и состав бригад сгенерированы. Для оценки на реальных данных — дни из CSV';
 
@@ -60,7 +63,12 @@ export function DayHeader({
         <IconButton icon={ChevronRight} label="Следующий день" variant="ghost" size="sm" onClick={() => onDate(1)} />
       </div>
       <div className={styles.dayMeta}>
-        {model?.fromCsv && <Badge micro>CSV</Badge>}
+        {model?.source === 'csv' && <Badge micro>CSV</Badge>}
+        {model?.source === 'demo' && (
+          <Tooltip label={DEMO_HINT} placement="bottom">
+            <Badge micro>ДЕМО</Badge>
+          </Tooltip>
+        )}
         {model?.source === 'booking' && <Badge micro>ЗАПИСИ</Badge>}
         {model?.synthetic && (
           <Tooltip label={SYNTHETIC_HINT} placement="bottom">
