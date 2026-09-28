@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, FilePlus2, Upload } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -10,11 +10,14 @@ import {
   type ImportRegionReport,
 } from '@/adapters/importReport';
 import { importBeeline } from '@/api/data';
+import { getDay } from '@/api/days';
+import { queryKeys } from '@/api/queryKeys';
+import type { DayRegion } from '@/api/types';
 import { formatFileSize, readCsvRowCount } from '@/lib/csv';
 import { countOf, formatDateFull, formatDayMonth, PL_BRIGADE, PL_ROW } from '@/lib/format';
 import { REGION_LABEL, REGIONS, type RegionId } from '@/lib/statuses';
 import { todayMsk } from '@/lib/time';
-import { Button, Input, Modal } from '@/ui';
+import { Button, Callout, Input, Modal } from '@/ui';
 import { regionsQuery } from '../calendar/regionsQuery';
 import { FileDrop } from './FileDrop';
 import { initialImportDate, isImportDate } from './importDate';
@@ -44,6 +47,24 @@ interface ImportJob {
 interface ImportRun {
   date: string;
   reports: ImportRegionReport[];
+}
+
+/**
+ * Чем занят день региона — второй файл на него не грузим. Демо-день не мешает: календарь создаёт
+ * его на сегодня сам, а заменить его CSV должен бэк (docs/BACKEND_REQUESTS.md п. 31).
+ */
+const DAY_TAKEN: Record<string, string> = {
+  csv: 'уже загружен CSV',
+  booking: 'уже есть записи оператора',
+};
+
+/** День региона на дату (`/days` пропускает архивные), если он не даёт загрузить CSV. */
+function takenDay(
+  data: { regions: DayRegion[] } | undefined,
+  regionId: RegionId,
+): DayRegion | null {
+  const day = data?.regions.find((region) => region.region_id === regionId && region.scenario_id);
+  return day && DAY_TAKEN[day.source ?? ''] ? day : null;
 }
 
 const requestsMeta = ({ file, rows }: Picked) =>
@@ -92,6 +113,21 @@ export function ImportModal({
   const dateOk = isImportDate(date);
   useBlockStrayDrops();
 
+  // Один CSV на (регион, дату): если у региона на эту дату уже загружен CSV или есть записи
+  // оператора, второй файл не грузим — сначала старые записи дня нужно удалить.
+  const dayChecks = useQueries({
+    queries: REGIONS.map((regionId) => ({
+      queryKey: queryKeys.days(date, regionId),
+      queryFn: ({ signal }: { signal: AbortSignal }) => getDay(date, regionId, signal),
+      enabled: dateOk && !run,
+      staleTime: 0,
+    })),
+  });
+  const taken = Object.fromEntries(
+    REGIONS.map((regionId, index) => [regionId, takenDay(dayChecks[index].data, regionId)]),
+  ) as Record<RegionId, DayRegion | null>;
+  const checking = dateOk && !run && dayChecks.some((check) => check.isPending);
+
   const upload = useMutation({
     mutationFn: async ({ date, jobs }: { date: string; jobs: ImportJob[] }): Promise<ImportRun> => {
       const settled = await Promise.allSettled(
@@ -139,7 +175,7 @@ export function ImportModal({
 
   const jobs: ImportJob[] = REGIONS.flatMap((regionId) => {
     const { requests, control } = picks[regionId];
-    return requests
+    return requests && !taken[regionId]
       ? [{ regionId, requestsFile: requests.file, controlFile: control?.file ?? null }]
       : [];
   });
@@ -205,7 +241,7 @@ export function ImportModal({
             variant="primary"
             icon={Upload}
             loading={busy}
-            disabled={jobs.length === 0 || !dateOk}
+            disabled={jobs.length === 0 || !dateOk || checking}
             onClick={() => upload.mutate({ date, jobs }, { onSuccess: setRun })}
           >
             Загрузить
@@ -232,6 +268,8 @@ export function ImportModal({
             (region) => region.region_id === regionId,
           )?.engineer_count;
           const name = REGION_LABEL[regionId];
+          const day = taken[regionId];
+          const locked = busy || day !== null;
           return (
             <section key={regionId} className={styles.region} aria-label={name}>
               <div className={styles.regionHead}>
@@ -240,6 +278,12 @@ export function ImportModal({
                   <span className={styles.regionNote}>{countOf(brigades, PL_BRIGADE)}</span>
                 )}
               </div>
+              {day && (
+                <Callout tone="warning">
+                  На {formatDayMonth(date)} у региона {DAY_TAKEN[day.source ?? '']}. Второй CSV на
+                  этот день не загрузить — сначала удалите старые записи дня
+                </Callout>
+              )}
               <div className={styles.files}>
                 <FileDrop
                   label="Файл заявок (.csv)"
@@ -247,7 +291,7 @@ export function ImportModal({
                   icon={Upload}
                   inputLabel={`Файл заявок (.csv) · ${name}`}
                   picked={requests && { name: requests.file.name, meta: requestsMeta(requests) }}
-                  disabled={busy}
+                  disabled={locked}
                   onPick={(file) => pick(regionId, 'requests', file)}
                   onClear={() => setPicked(regionId, 'requests', null)}
                 />
@@ -257,7 +301,7 @@ export function ImportModal({
                   icon={FilePlus2}
                   inputLabel={`Контрольное распределение · ${name}`}
                   picked={control && { name: control.file.name, meta: controlMeta(control) }}
-                  disabled={busy}
+                  disabled={locked}
                   onPick={(file) => pick(regionId, 'control', file)}
                   onClear={() => setPicked(regionId, 'control', null)}
                 />
