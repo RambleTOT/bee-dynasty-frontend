@@ -109,6 +109,20 @@ describe('useEngineerAction', () => {
     expect(notify).toHaveBeenCalledWith('Сначала нажмите «В работе»', 'error');
   });
 
+  it('409 ILLEGAL_TRANSITION со статусом — статус заявки словами', async () => {
+    vi.mocked(postAction).mockRejectedValue(
+      new ApiError(409, 'ILLEGAL_TRANSITION', "Нельзя выполнить 'en_route' из статуса 'done'", {
+        request_id: 'A',
+        status: 'done',
+      }),
+    );
+    const { result } = setup(rawDay([visit('A', 1, 'planned')]));
+
+    act(() => result.current.action.mutate({ action: 'en_route', request_id: 'A' }));
+    await waitFor(() => expect(result.current.action.isError).toBe(true));
+    expect(notify).toHaveBeenCalledWith('Заявка уже в статусе «Выполнена». Обновили маршрут', 'error');
+  });
+
   it('COMMENT_REQUIRED — без тоста: поле подсвечивает шторка', async () => {
     vi.mocked(postAction).mockRejectedValue(
       new ApiError(422, 'COMMENT_REQUIRED', 'Опишите причину'),
@@ -157,6 +171,19 @@ describe('useEngineerAction', () => {
     act(() => result.current.action.mutate({ action: 'complete', request_id: 'A1' }));
     await waitFor(() => expect(result.current.toast).not.toBeNull());
     expect(result.current.toast?.description).toBe('следующая — ул.Артюхиной, д. 2, 1,6 км');
+  });
+
+  it('«Прервать»: бэк оставил заявку «В пути» — держим «Отменяется», текущая — следующая (8.2)', async () => {
+    const stale = rawDay([visit('F1', 1, 'en_route'), visit('F2', 2, 'planned')], 'F1');
+    vi.mocked(postAction).mockResolvedValue(response('fail', stale));
+    const { result, cached } = setup(stale);
+
+    act(() =>
+      result.current.action.mutate({ action: 'fail', request_id: 'F1', payload: { reason: 'client_refused' } }),
+    );
+    await waitFor(() => expect(result.current.action.isSuccess).toBe(true));
+    expect(cached()?.visits?.map((v) => v.status)).toEqual(['cancel_pending', 'planned']);
+    expect(cached()?.active_request_id).toBeNull();
   });
 
   it('«Прервать» — тост «Отправлено диспетчеру…»', async () => {

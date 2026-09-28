@@ -22,7 +22,7 @@ import { queryKeys } from '@/api/queryKeys';
 import type { EngineerAction, EngineerActionIn, EngineerMeDay } from '@/api/types';
 import { POLL } from '@/config';
 import { notify } from '@/lib/notify';
-import type { RequestStatus } from '@/lib/statuses';
+import { isRequestStatus, REQUEST_STATUS_LABEL, type RequestStatus } from '@/lib/statuses';
 import { doneToastText, showDoneToast } from './doneToastStore';
 
 /**
@@ -85,6 +85,20 @@ interface ActionContext {
 }
 
 /**
+ * Текст ошибки нажатия. На `ILLEGAL_TRANSITION` бэк пишет технически («Нельзя выполнить 'en_route'
+ * из статуса 'done'») — называем статус заявки словами; день после ошибки перезапрашиваем.
+ */
+function actionErrorText(error: unknown): string {
+  if (isApiError(error) && error.code === 'ILLEGAL_TRANSITION') {
+    const details = (error.details ?? {}) as { status?: unknown };
+    if (isRequestStatus(details.status)) {
+      return `Заявка уже в статусе «${REQUEST_STATUS_LABEL[details.status]}». Обновили маршрут`;
+    }
+  }
+  return errorMessage(error);
+}
+
+/**
  * Действие инженера. Тосты и тост «Заявка … выполнена» — здесь: они должны появиться, даже если
  * экран с кнопкой уже сменился. `COMMENT_REQUIRED` показывает сама шторка — подсветкой поля.
  */
@@ -115,7 +129,7 @@ export function useEngineerAction() {
       if (context?.previous) queryClient.setQueryData(dayKey, context.previous);
       void queryClient.invalidateQueries({ queryKey: dayKey });
       if (isApiError(error) && error.code === 'COMMENT_REQUIRED') return;
-      notify(errorMessage(error), 'error');
+      notify(actionErrorText(error), 'error');
     },
     onSuccess: (result, body, context) => {
       if (body.action === 'fail' && body.request_id) {

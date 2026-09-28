@@ -1,9 +1,9 @@
 /**
  * Цепочка версий дня. На бэке 28.09 версии после события живут в производных сценариях: `/days`
- * по-прежнему отдаёт первую применённую версию и не видит предложений к следующим
- * (docs/API_NOTES.md). Поэтому голову цепочки находим сами: от `active_plan_id` дня идём по событиям
- * (`plan_id` → `result_plan_id`) к применённым версиям. Если бэк начнёт отдавать голову сам,
- * цепочка просто окажется из одной версии.
+ * отдаёт первую применённую версию и не видит предложений к следующим (docs/API_NOTES.md).
+ * Поэтому голову цепочки находим сами: от `active_plan_id` дня идём по событиям
+ * (`plan_id` → `result_plan_id`) к применённым версиям. Бэк с правкой BACKEND_REQUESTS п. 3 отдаёт
+ * голову сам — тогда прежние версии дня находим назад по тем же событиям.
  */
 import type { DayRegion, EventItem, PendingProposal, PlanListItem } from '@/api/types';
 
@@ -61,12 +61,21 @@ export function resolveDayChain(
   const planStatus = new Map(plans.map((p) => [p.plan_id, p.status]));
   const planById = new Map(plans.map((p) => [p.plan_id, p]));
   const byBase = new Map<string, EventItem[]>();
+  const byResult = new Map<string, EventItem[]>();
   for (const event of events) {
     if (!event.plan_id) continue;
     const list = byBase.get(event.plan_id) ?? [];
     list.push(event);
     byBase.set(event.plan_id, list);
+    if (event.result_plan_id && event.result_plan_id !== event.plan_id) {
+      const produced = byResult.get(event.result_plan_id) ?? [];
+      produced.push(event);
+      byResult.set(event.result_plan_id, produced);
+    }
   }
+  // из событий, которые дали версию, берём причину, а не `plan_applied`
+  const causeFirst = (a: EventItem, b: EventItem) =>
+    Number(a.event_type === 'plan_applied') - Number(b.event_type === 'plan_applied') || newestFirst(a, b);
 
   const root = region.active_plan_id ?? null;
   const draft = region.draft_plan_id ?? null;
@@ -85,16 +94,31 @@ export function resolveDayChain(
             !visited.has(e.result_plan_id) &&
             LIVE_STATUSES.has(planStatus.get(e.result_plan_id) ?? ''),
         )
-        .sort((a, b) => Number(a.event_type === 'plan_applied') - Number(b.event_type === 'plan_applied') || newestFirst(a, b))[0];
+        .sort(causeFirst)[0];
       if (!next?.result_plan_id) break;
       head = next.result_plan_id;
       visited.add(head);
       chain.push({ planId: head, event: next });
     }
+    // назад: какая версия была до `active_plan_id` дня (бэк с правкой п. 3 отдаёт уже голову)
+    for (let depth = 0; depth < MAX_DEPTH; depth += 1) {
+      const first = chain[0];
+      const cause = [...(byResult.get(first.planId) ?? [])].sort(causeFirst)[0];
+      if (!cause?.plan_id || visited.has(cause.plan_id)) break;
+      visited.add(cause.plan_id);
+      first.event = cause;
+      chain.unshift({ planId: cause.plan_id, event: null });
+    }
   }
 
   const headPlanId = chain.at(-1)?.planId ?? draft;
-  const firstVersion = Math.max(1, Number(region.version) || 1);
+  // Номера — по порядку в цепочке. Первая версия из сценария дня знает свой номер (1, после
+  // повторного «Построить план» — 2); иначе считаем от номера `active_plan_id` из `/days`.
+  const first = chain[0] ? planById.get(chain[0].planId) : undefined;
+  const firstKnown =
+    first && first.scenario_id === region.scenario_id && Number(first.version) > 0 ? Number(first.version) : null;
+  const rootIndex = root ? chain.findIndex((c) => c.planId === root) : 0;
+  const firstVersion = firstKnown ?? Math.max(1, (Number(region.version) || 1) - rootIndex);
   const version = root ? firstVersion + chain.length - 1 : 0;
 
   const versions: DayVersion[] = chain

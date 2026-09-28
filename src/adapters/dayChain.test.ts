@@ -100,6 +100,48 @@ describe('resolveDayChain', () => {
     expect(chain.versions[0].event?.event_id).toBe('E1');
   });
 
+  it('бэк с правкой п. 3 отдаёт голову сам — прежние версии находим назад по событиям', () => {
+    const events = [
+      makeEvent({ event_id: 'A1', event_type: 'plan_applied', plan_id: 'P1', result_plan_id: 'P1', created_at: '2026-09-28T09:00:00Z' }),
+      makeEvent({ event_id: 'E1', plan_id: 'P1', result_plan_id: 'P2', created_at: '2026-09-28T10:00:00Z' }),
+      makeEvent({ event_id: 'A2', event_type: 'plan_applied', plan_id: 'P1', result_plan_id: 'P2', created_at: '2026-09-28T10:05:00Z' }),
+      makeEvent({ event_id: 'E2', plan_id: 'P2', scenario_id: 'S1', result_plan_id: 'P3', created_at: '2026-09-28T11:00:00Z' }),
+      makeEvent({ event_id: 'E3', plan_id: 'P3', scenario_id: 'S2', result_plan_id: 'P4', created_at: '2026-09-28T12:00:00Z' }),
+    ];
+    const plans = [
+      makePlanItem({ plan_id: 'P1', status: 'superseded', version: 1 }),
+      makePlanItem({ plan_id: 'P2', scenario_id: 'S1', status: 'superseded', version: 2 }),
+      // номер 4: третий занял отклонённое предложение (BACKEND_REQUESTS п. 20)
+      makePlanItem({ plan_id: 'P3', scenario_id: 'S2', status: 'applied', version: 4 }),
+      makePlanItem({ plan_id: 'P4', scenario_id: 'S3', status: 'proposed', version: 5 }),
+    ];
+    const chain = resolveDayChain(
+      makeRegion({ active_plan_id: 'P3', plan_state: 'applied', version: 4 }),
+      events,
+      plans,
+    );
+    expect(chain.headPlanId).toBe('P3');
+    expect(chain.version).toBe(3);
+    expect(chain.versions.map((v) => [v.planId, v.version, v.event?.event_id ?? null])).toEqual([
+      ['P3', 3, 'E2'],
+      ['P2', 2, 'E1'],
+      ['P1', 1, null],
+    ]);
+    expect(chain.pendingProposals.map((p) => p.plan_id)).toEqual(['P4']);
+    // лента — события всех версий, не только головы
+    expect(chain.events.map((e) => e.event_id)).toEqual(['E3', 'E2', 'A2', 'E1', 'A1']);
+  });
+
+  it('без событий до головы — номер из /days', () => {
+    const chain = resolveDayChain(
+      makeRegion({ active_plan_id: 'P3', plan_state: 'applied', version: 3 }),
+      [],
+      [makePlanItem({ plan_id: 'P3', scenario_id: 'S2', status: 'applied' })],
+    );
+    expect(chain.version).toBe(3);
+    expect(chain.versions.map((v) => v.version)).toEqual([3]);
+  });
+
   it('цикл в данных не зацикливает', () => {
     const events = [
       makeEvent({ event_id: 'E1', plan_id: 'P1', result_plan_id: 'P2' }),
