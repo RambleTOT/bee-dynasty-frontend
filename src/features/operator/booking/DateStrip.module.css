@@ -55,10 +55,16 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* кнопка календаря — как пилюля дня */
 .strip .calendar {
   grid-row: 2;
   grid-column: 15;
   width: 56px;
   height: 56px;
   border-radius: var(--radius-pill);
+  background: var(--bg-surface-nested);
+}
+
+.strip .calendar:hover:not(:disabled) {
+  background: var(--bg-control);
 }
