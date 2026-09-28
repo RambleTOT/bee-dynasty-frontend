@@ -608,6 +608,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/planning/{plan_id}/extend-resource/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Рассчитать добор ресурса без сохранения (DS-09)
+         * @description Считает, какие заявки закроются и что для этого нужно, версию плана не создаёт.
+         */
+        post: operations["check_extend_resource_api_v1_planning__plan_id__extend_resource_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/planning/compare": {
         parameters: {
             query?: never;
@@ -1063,7 +1083,7 @@ export interface components {
              * @description Тип события
              * @enum {string}
              */
-            type: "urgent_order_added" | "order_cancelled" | "engineer_unavailable" | "order_added" | "engineer_delayed" | "finished_early" | "transport_changed" | "order_window_changed" | "engineer_available" | "order_scope_changed" | "manual_reassign" | "extend_resource" | "shift_windows" | "urgent_request" | "request_cancelled";
+            type: "urgent_order_added" | "order_cancelled" | "engineer_unavailable" | "order_added" | "engineer_delayed" | "finished_early" | "transport_changed" | "order_window_changed" | "engineer_available" | "order_scope_changed" | "manual_reassign" | "extend_resource" | "shift_windows" | "engineer_added" | "urgent_request" | "request_cancelled";
             /**
              * Plan Id
              * @description Исходный план; иначе последний сохранённый
@@ -1103,6 +1123,13 @@ export interface components {
             engineer_id?: string | null;
             /** @description Новая заявка (для добавления/срочной) */
             request?: components["schemas"]["RequestIn"] | null;
+            /**
+             * Engineer
+             * @description Новая бригада для события `engineer_added`: `name`, `skills`, `transport`, `shift_start`, `shift_end`, `start` ({kind: office|home}), опционально `latitude`/`longitude`/`kit`/`id`.
+             */
+            engineer?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Params
              * @description Параметры события, зависят от типа: `reason`, `from`, `to`, `finish_current`, `delay_min`, `where`, `actual_end`, `transport`, `window_start`, `window_end`, `extra_min`, `required_skill`, `extend_min`, `option`, `delta_min`, `position`, `to_engineer_id`, `force`.
@@ -1310,6 +1337,8 @@ export interface components {
             duration_minutes: number;
             /** Required Transport */
             required_transport?: string | null;
+            /** District */
+            district?: string | null;
             /** Slots */
             slots?: components["schemas"]["SlotOut"][];
         };
@@ -1392,7 +1421,7 @@ export interface components {
              * Strategies
              * @description Какие стратегии сравнивать
              */
-            strategies?: ("ours" | "fifo" | "dispatcher" | "incremental")[];
+            strategies?: ("ours" | "fifo" | "dispatcher" | "incremental" | "plan")[];
             /** Solver */
             solver?: ("hybrid_v2" | "alns") | null;
             /** Seed */
@@ -1988,6 +2017,20 @@ export interface components {
             local_alternatives?: {
                 [key: string]: unknown;
             }[];
+        };
+        /**
+         * ExtendResourceCheckResponse
+         * @description Расчёт добора ресурса без сохранения версии (DS-09).
+         */
+        ExtendResourceCheckResponse: {
+            /** Closed */
+            closed?: string[];
+            /** Still Unassigned */
+            still_unassigned?: string[];
+            /** Cost */
+            cost?: {
+                [key: string]: unknown;
+            };
         };
         /**
          * ExtendResourceRequest
@@ -4596,6 +4639,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExtendResourceResponse"];
+                };
+            };
+            /** @description Объект не найден (сценарий, план или событие). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Ошибка валидации входных данных или невозможность построить план. Поле `context.errors` содержит детали. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    check_extend_resource_api_v1_planning__plan_id__extend_resource_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtendResourceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtendResourceCheckResponse"];
                 };
             };
             /** @description Объект не найден (сценарий, план или событие). */

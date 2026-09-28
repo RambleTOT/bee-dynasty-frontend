@@ -4,7 +4,7 @@ import { applyOperatorEmergency, cancelBooking, searchRequests } from './booking
 import { importBeeline } from './data';
 import { postAction } from './engineer';
 import { applyEvent } from './events';
-import { extendResource, runPlan } from './planning';
+import { checkExtendResource, extendResource, runPlan, type ExtraEngineer } from './planning';
 
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -92,9 +92,32 @@ describe('планирование', () => {
     expect(lastBody()).toEqual({ scenario_id: 'S1', seed: 42, include_baseline: true });
   });
 
-  it('рекомендация по ресурсам — только расчёт (apply: false)', async () => {
-    await extendResource('P1', ['1', '2']);
-    expect(lastBody()).toEqual({ order_ids: ['1', '2'], option: 'add_engineer', apply: false });
+  const extra: ExtraEngineer = {
+    id: 'EXTRA-1',
+    name: 'Дополнительная бригада',
+    skills: ['emergency'],
+    transport: 'car',
+    shift_start: '10:00',
+    shift_end: '22:00',
+    latitude: 55.7,
+    longitude: 37.76,
+    start_kind: 'office',
+  };
+
+  it('рекомендация по ресурсам — с бригадой-кандидатом, без применения (apply: false)', async () => {
+    await extendResource('P1', ['1', '2'], extra);
+    expect(lastBody()).toEqual({
+      order_ids: ['1', '2'],
+      option: 'add_engineer',
+      params: { engineer: extra },
+      apply: false,
+    });
+  });
+
+  it('P1-5: расчёт без сохранения — /extend-resource/check', async () => {
+    await checkExtendResource('P1', ['1'], extra);
+    expect(String(fetchMock.mock.calls.at(-1)?.[0])).toContain('/planning/P1/extend-resource/check');
+    expect(lastBody()).toEqual({ order_ids: ['1'], option: 'add_engineer', params: { engineer: extra } });
   });
 });
 

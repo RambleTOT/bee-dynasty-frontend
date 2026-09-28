@@ -1,11 +1,11 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { makeEngineer, makePlan } from '@/adapters/__fixtures__/day';
+import { makePlan } from '@/adapters/__fixtures__/day';
 import { overlayEngineers, overlayModel } from '@/adapters/__fixtures__/dayOverlays';
 import { addEngineers, getScenarioEngineers, patchEngineer } from '@/api/data';
 import { ApiError } from '@/api/errors';
 import { applyEvent } from '@/api/events';
-import { applyPlan, extendResource, runPlan } from '@/api/planning';
+import { applyPlan, checkExtendResource, extendResource, runPlan } from '@/api/planning';
 import type { ExtendResourceResponse, ReplanResult, ScenarioSummary } from '@/api/types';
 import { FEATURES } from '@/config';
 import { dismissAll } from '@/lib/notify';
@@ -23,6 +23,7 @@ vi.mock('@/api/planning', async (importOriginal) => ({
   runPlan: vi.fn(),
   applyPlan: vi.fn(),
   extendResource: vi.fn(),
+  checkExtendResource: vi.fn(),
 }));
 vi.mock('@/api/events', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api/events')>()),
@@ -31,13 +32,17 @@ vi.mock('@/api/events', async (importOriginal) => ({
 // флаг правки бэка §12 закрепляем в каждом тесте: значения по умолчанию на стенде меняются
 vi.mock('@/config', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/config')>();
-  return { ...actual, FEATURES: { ...actual.FEATURES, addEngineerAfterPublish: false } };
+  return {
+    ...actual,
+    FEATURES: { ...actual.FEATURES, addEngineerAfterPublish: false, extendResourceCheck: false },
+  };
 });
 
 const flags = FEATURES as Record<keyof typeof FEATURES, boolean>;
 
 beforeEach(() => {
   flags.addEngineerAfterPublish = false;
+  flags.extendResourceCheck = false;
   vi.mocked(getScenarioEngineers).mockResolvedValue(overlayEngineers);
 });
 
@@ -198,13 +203,8 @@ describe('DS-09 «Состав и ресурсы»', () => {
     expect(onProposal).not.toHaveBeenCalled();
   });
 
-  it('флаг addEngineerAfterPublish: POST бригады → её id из ростера → engineer_available', async () => {
+  it('флаг addEngineerAfterPublish (P1-6): новая бригада — событие engineer_added, id выдаёт бэк', async () => {
     flags.addEngineerAfterPublish = true;
-    const created = makeEngineer({ id: 'e9', name: 'Бригада Иванов', skills: ['emergency'] });
-    vi.mocked(getScenarioEngineers)
-      .mockResolvedValueOnce(overlayEngineers)
-      .mockResolvedValue([...overlayEngineers, created]);
-    vi.mocked(addEngineers).mockResolvedValue({} as ScenarioSummary);
     vi.mocked(applyEvent).mockResolvedValue({
       status: 'proposed',
       plan: { plan_id: 'P4' },
@@ -222,22 +222,27 @@ describe('DS-09 «Состав и ресурсы»', () => {
     fireEvent.click(recalc());
 
     await waitFor(() => expect(onProposal).toHaveBeenCalledWith('P4'));
-    expect(addEngineers).toHaveBeenCalledWith('S0', [
-      expect.objectContaining({ name: 'Бригада Иванов' }),
-    ]);
+    expect(addEngineers).not.toHaveBeenCalled();
     expect(applyEvent).toHaveBeenCalledWith({
-      type: 'engineer_available',
+      type: 'engineer_added',
       plan_id: 'P1',
       event_time: '14:32',
-      engineer_id: 'e9',
+      engineer: expect.objectContaining({
+        name: 'Бригада Иванов',
+        skills: ['emergency'],
+        start: { kind: 'office' },
+        latitude: 55.72,
+        longitude: 37.82,
+      }),
     });
   });
 
-  it('«Рассчитать, кого не хватает» → extend-resource → текст из cost и «Открыть предложение»', async () => {
+  it('«Рассчитать, кого не хватает» → extend-resource с бригадой-кандидатом → «Открыть предложение»', async () => {
     vi.mocked(extendResource).mockResolvedValue({
       plan: makePlan({ plan_id: 'P5', status: 'proposed' }),
       closed: ['305800007'],
-      cost: { engineers_needed: 1, skills: ['emergency'], transport: 'car' },
+      still_unassigned: [],
+      cost: { extra_engineers: 1 },
     } as unknown as ExtendResourceResponse);
     const { onProposal } = renderDrawer('applied');
     fireEvent.click(screen.getByRole('button', { name: 'Рассчитать, кого не хватает' }));
@@ -246,12 +251,37 @@ describe('DS-09 «Состав и ресурсы»', () => {
         'Чтобы назначить 1 неназначенную, не хватает +1 инженера с навыком «Аварийные работы» и на автомобиле',
       ),
     ).toBeInTheDocument();
-    expect(extendResource).toHaveBeenCalledWith('P1', ['305800007']);
+    expect(extendResource).toHaveBeenCalledWith(
+      'P1',
+      ['305800007'],
+      expect.objectContaining({ skills: ['emergency'], transport: 'car', latitude: 55.72, longitude: 37.82 }),
+    );
+    expect(checkExtendResource).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Открыть предложение' }));
     expect(onProposal).toHaveBeenCalledWith('P5');
   });
 
-  it('пустой cost — «Не удалось рассчитать добор ресурса»; до публикации плашки нет', async () => {
+  it('P1-5: расчёт без сохранения → «Добавить такую бригаду» — форма уже заполнена', async () => {
+    flags.extendResourceCheck = true;
+    flags.addEngineerAfterPublish = true;
+    vi.mocked(checkExtendResource).mockResolvedValue({
+      closed: ['305800007'],
+      still_unassigned: [],
+      cost: { extra_engineers: 1 },
+    });
+    renderDrawer('applied');
+    await waitFor(() => expect(getScenarioEngineers).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Рассчитать, кого не хватает' }));
+    await screen.findByText(/^Чтобы назначить 1 неназначенную/);
+    expect(extendResource).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Открыть предложение' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Добавить такую бригаду' }));
+    expect(screen.getByRole('checkbox', { name: 'Аварийные работы' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Локальные работы' })).not.toBeChecked();
+  });
+
+  it('ответ без closed — «Не удалось рассчитать добор ресурса», без кнопок', async () => {
     vi.mocked(extendResource).mockResolvedValue({
       plan: makePlan({ plan_id: 'P6', status: 'proposed' }),
       cost: {},

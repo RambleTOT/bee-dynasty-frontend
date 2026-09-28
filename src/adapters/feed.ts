@@ -14,6 +14,7 @@ import {
   Timer,
   TriangleAlert,
   UserCheck,
+  UserPlus,
   UserX,
   Zap,
   type LucideIcon,
@@ -25,7 +26,7 @@ import { timeOfIso } from '@/lib/format';
 import type { StatusTone } from '@/lib/statuses';
 import type { DayChain } from './dayChain';
 import type { DayModel } from './dayModel';
-import { eventTimeOf } from './proposal';
+import { addedEngineerName, eventTimeOf } from './proposal';
 
 export interface FeedRow {
   id: string;
@@ -46,6 +47,7 @@ const ICONS: Record<string, { icon: LucideIcon; tone: StatusTone }> = {
   order_cancelled: { icon: CircleX, tone: 'warning' },
   engineer_unavailable: { icon: UserX, tone: 'warning' },
   engineer_available: { icon: UserCheck, tone: 'success' },
+  engineer_added: { icon: UserPlus, tone: 'info' },
   order_added: { icon: CalendarPlus, tone: 'info' },
   plan_applied: { icon: Check, tone: 'neutral' },
   at_risk: { icon: ClockAlert, tone: 'warning' },
@@ -154,6 +156,8 @@ function textOf(
       const who = engineer(model, p.engineer_id);
       return `${who} снова ${verb(who, 'доступен', 'доступна')}`;
     }
+    case 'engineer_added':
+      return `Новая бригада — ${addedEngineerName(model, p)}`;
     case 'transport_changed':
       return `${engineer(model, p.engineer_id)} ${transportOn(String(p.transport ?? ''))}`;
     case 'order_added': {

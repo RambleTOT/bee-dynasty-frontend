@@ -71,7 +71,9 @@ export function loadYandexMaps(): Promise<YMaps> {
       return;
     }
     const script = document.createElement('script');
-    script.src = `https://api-maps.yandex.ru/2.1/?apikey=${encodeURIComponent(YANDEX_MAPS_KEY)}&lang=ru_RU`;
+    // csp=true и точная версия — режим API для сайта с Content-Security-Policy (deploy/nginx):
+    // стили через blob:, без inline-стилей и eval
+    script.src = `https://api-maps.yandex.ru/2.1.79/?apikey=${encodeURIComponent(YANDEX_MAPS_KEY)}&lang=ru_RU&csp=true`;
     script.async = true;
     script.onload = done;
     script.onerror = () => reject(new Error('Яндекс Карты не загрузились'));

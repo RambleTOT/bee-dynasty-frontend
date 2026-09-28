@@ -1,22 +1,24 @@
 /**
  * «Состав и ресурсы» (DS-09, FRONTEND_SPEC §8.2): строки ростера, черновик правок, дифф для PATCH / POST
- * до публикации, событие после публикации — по одному изменению за раз [Д], текст рекомендации из
- * `extend-resource`. Ответы ростера и `cost` в схеме нетипизированы: читаем безопасно.
+ * до публикации, событие после публикации — по одному изменению за раз [Д], бригада-кандидат и текст
+ * рекомендации из `extend-resource`. Ответы ростера и `cost` в схеме нетипизированы: читаем безопасно.
  */
 import type { DispatcherEvent } from '@/api/events';
+import type { ExtraEngineer } from '@/api/planning';
 import type {
   EngineerCreate,
   EngineerOut,
   EngineerPatch,
+  ExtendResourceCheckResponse,
   ExtendResourceResponse,
 } from '@/api/types';
 import { colorForPosition, engineerColors, type EngineerColor } from '@/lib/colors';
 import { SKILL_SHORT, TRANSPORT_SHORT, transportLabel } from '@/lib/dictionaries';
 import { transportOn } from '@/lib/explainTexts';
-import { plural } from '@/lib/format';
-import { isTransport, labelOf, SKILL_LABEL, TRANSPORTS } from '@/lib/statuses';
+import { countOf, plural, PL_REQUEST } from '@/lib/format';
+import { isSkill, isTransport, labelOf, SKILL_LABEL, TRANSPORTS } from '@/lib/statuses';
 import { toMin, windowFull } from '@/lib/time';
-import type { DayModel } from './dayModel';
+import type { DayModel, DayRequest } from './dayModel';
 import { engineerLabels } from './normalize';
 
 export interface RosterRow {
@@ -203,6 +205,29 @@ export function rosterEvent(
   return null;
 }
 
+/** P1-6: новая бригада после публикации — событие `engineer_added`, id выдаёт бэк. */
+export function engineerAddedEvent(
+  engineer: EngineerCreate,
+  planId: string,
+  eventTime: string,
+  office: LatLngLike | null,
+): DispatcherEvent {
+  return {
+    type: 'engineer_added',
+    plan_id: planId,
+    event_time: eventTime,
+    engineer: {
+      name: engineer.name,
+      skills: [...engineer.skills],
+      transport: engineer.transport,
+      shift_start: engineer.shift_start,
+      shift_end: engineer.shift_end,
+      start: { kind: 'office' },
+      ...(office ? { latitude: office[0], longitude: office[1] } : {}),
+    },
+  };
+}
+
 /** Id бригады, которую только что добавили: новая в ростере, по имени (бэк id не возвращает). */
 export function createdEngineerId(
   before: readonly string[],
@@ -217,41 +242,97 @@ export function createdEngineerId(
 
 // ---------- рекомендация «не хватает +N инженера» ----------
 
+type LatLngLike = readonly [number, number];
+
+const SKILL_ORDER = ['installation', 'local', 'emergency'] as const;
+
+/**
+ * Бригада-кандидат для расчёта добора: навыки — все, что нужны неназначенным; транспорт — автомобиль,
+ * если он нужен хоть одной (или никакой не указан); смена — самая частая в ростере; старт — офис.
+ * Собрать нельзя (нет навыков, смены или точки старта) — `null`, плашку не показываем (§8.2).
+ */
+export function extraEngineer(
+  requests: readonly Pick<DayRequest, 'raw'>[],
+  rows: readonly Pick<RosterRow, 'id' | 'shiftStart' | 'shiftEnd'>[],
+  start: LatLngLike | null,
+): ExtraEngineer | null {
+  const needed = new Set(requests.map((r) => r.raw.required_skill).filter(isSkill));
+  const skills = SKILL_ORDER.filter((skill) => needed.has(skill));
+  const shift = commonShift(rows);
+  if (skills.length === 0 || !shift || !start) return null;
+  const transports = requests
+    .map((r) => r.raw.required_transport)
+    .filter((t): t is string => typeof t === 'string' && t.length > 0);
+  const transport = transports.length === 0 || transports.includes('car') ? 'car' : transports[0];
+  const ids = new Set(rows.map((r) => r.id));
+  let n = 1;
+  while (ids.has(`EXTRA-${n}`)) n += 1;
+  return {
+    id: `EXTRA-${n}`,
+    name: 'Дополнительная бригада',
+    skills: [...skills],
+    transport,
+    shift_start: shift.start,
+    shift_end: shift.end,
+    latitude: start[0],
+    longitude: start[1],
+    start_kind: 'office',
+  };
+}
+
 export interface ResourceAdvice {
   text: string;
-  /** Предложение, которое бэк сохранил при расчёте (DS-07); расчёт не удался — `null`. */
+  tone: 'info' | 'warning';
+  /** Предложение, которое бэк без P1-5 сохраняет при расчёте (DS-07); иначе `null`. */
   proposalId: string | null;
+  /** Кандидат закрывает хотя бы одну заявку — его можно добавить в состав. */
+  helps: boolean;
 }
 
 const PL_UNASSIGNED_ACC = ['неназначенную', 'неназначенные', 'неназначенных'] as const;
-const PL_ENGINEER_GEN = ['инженера', 'инженеров', 'инженеров'] as const;
+
+const skillsText = (skills: readonly string[]) =>
+  skills.length === 0
+    ? ''
+    : ` с ${skills.length > 1 ? 'навыками' : 'навыком'} ${skills
+        .map((skill) => `«${labelOf(SKILL_LABEL, skill)}»`)
+        .join(', ')}`;
 
 /**
- * Ответ `extend-resource` (`option: add_engineer`) → плашка DS-09 из `cost` (бэк §7):
- * «Чтобы назначить 3 неназначенные, не хватает +1 инженера с навыком «Аварийные работы» и на автомобиле».
- * `cost` без `engineers_needed` — «Не удалось рассчитать добор ресурса».
+ * Ответ `extend-resource` или `extend-resource/check` с бригадой-кандидатом → плашка DS-09:
+ * «Чтобы назначить 3 неназначенные, не хватает +1 инженера с навыком «Аварийные работы» и на
+ * автомобиле; ещё 2 заявки останутся без исполнителя». `closed` пуст — кандидат не поможет.
  */
 export function resourceAdvice(
-  response: ExtendResourceResponse | null | undefined,
+  response: ExtendResourceResponse | ExtendResourceCheckResponse | null | undefined,
   requested: number,
+  candidate: Pick<ExtraEngineer, 'skills' | 'transport'>,
 ): ResourceAdvice {
-  const cost = (response?.cost ?? {}) as Record<string, unknown>;
-  const needed = Number(cost.engineers_needed);
-  if (!Number.isFinite(needed) || needed <= 0) {
-    return { text: 'Не удалось рассчитать добор ресурса', proposalId: null };
+  const closedList = Array.isArray(response?.closed) ? response.closed : null;
+  if (!response || !closedList) {
+    return { text: 'Не удалось рассчитать добор ресурса', tone: 'warning', proposalId: null, helps: false };
   }
-  const skills = (Array.isArray(cost.skills) ? cost.skills : [])
-    .filter((skill): skill is string => typeof skill === 'string' && skill.length > 0)
-    .map((skill) => `«${labelOf(SKILL_LABEL, skill)}»`);
-  const transport = typeof cost.transport === 'string' ? transportOn(cost.transport) : '';
-  const closed = Array.isArray(response?.closed) ? response.closed.length : 0;
-  const n = closed || requested;
-
-  let text = `Чтобы назначить ${n} ${plural(n, PL_UNASSIGNED_ACC)}, не хватает +${needed} ${plural(needed, PL_ENGINEER_GEN)}`;
-  if (skills.length > 0)
-    text += ` с ${skills.length > 1 ? 'навыками' : 'навыком'} ${skills.join(', ')}`;
-  if (transport) text += skills.length > 0 ? ` и ${transport}` : ` ${transport}`;
-  return { text, proposalId: response?.plan?.plan_id ?? null };
+  const proposalId = ('plan' in response ? response.plan?.plan_id : null) ?? null;
+  const closed = closedList.length;
+  const still = Array.isArray(response.still_unassigned)
+    ? response.still_unassigned.length
+    : Math.max(0, requested - closed);
+  if (closed === 0) {
+    return {
+      text: 'Даже с ещё одной бригадой эти заявки не назначить: посмотрите причины в «Неназначенных»',
+      tone: 'warning',
+      proposalId,
+      helps: false,
+    };
+  }
+  const skills = skillsText(candidate.skills);
+  const transport = transportOn(candidate.transport);
+  let text = `Чтобы назначить ${closed} ${plural(closed, PL_UNASSIGNED_ACC)}, не хватает +1 инженера${skills}`;
+  if (transport) text += skills ? ` и ${transport}` : ` ${transport}`;
+  if (still > 0) {
+    text += `; ещё ${countOf(still, PL_REQUEST)} ${plural(still, ['останется', 'останутся', 'останутся'])} без исполнителя`;
+  }
+  return { text, tone: 'info', proposalId, helps: true };
 }
 
 export interface NewEngineerErrors {

@@ -3,6 +3,7 @@ import { api } from './client';
 import type {
   BaselineResponse,
   CompareResponse,
+  ExtendResourceCheckResponse,
   ExtendResourceResponse,
   PlanDiffResponse,
   PlanListResponse,
@@ -46,8 +47,11 @@ export const rejectPlan = (planId: string) =>
 export const getPlanDiff = (planId: string, againstId: string, signal?: Signal) =>
   api.get<PlanDiffResponse>(`/planning/${planId}/diff`, { query: { against: againstId }, signal });
 
-/** `incremental` — метрики действующего плана тем же расчётом, что FIFO и диспетчер (без перезапуска). */
-export type CompareStrategy = 'ours' | 'fifo' | 'dispatcher' | 'incremental';
+/**
+ * `plan` — метрики действующего плана тем же расчётом, что FIFO и диспетчер (P1-8, флаг
+ * `comparePlanStrategy`); `incremental` на бэке 28.09 отдаёт нули.
+ */
+export type CompareStrategy = 'ours' | 'fifo' | 'dispatcher' | 'incremental' | 'plan';
 
 /**
  * Сравнение стратегий. `scenario_id` обязателен: без него бэк берёт последний загруженный сценарий
@@ -89,10 +93,38 @@ export const checkReassign = (planId: string, body: ReassignBody, signal?: Signa
 export const reassign = (planId: string, body: ReassignBody) =>
   api.post<ReplanResult>(`/planning/${planId}/reassign`, { ...body, force: body.force ?? false });
 
-/** Рекомендация «не хватает +N инженера»: только расчёт, план не меняем (`apply: false`). */
-export const extendResource = (planId: string, orderIds: string[]) =>
+/**
+ * Бригада-кандидат для «кого не хватает»: без неё бэк на `add_engineer` отвечает 422 («передайте
+ * инженера в params.engineer»). Координаты старта обязательны — точка офиса.
+ */
+export interface ExtraEngineer {
+  id: string;
+  name: string;
+  skills: string[];
+  transport: string;
+  shift_start: string;
+  shift_end: string;
+  latitude: number;
+  longitude: number;
+  start_kind: 'office';
+}
+
+/**
+ * Рекомендация «не хватает +N инженера» на бэке без P1-5: `apply: false` всё равно сохраняет
+ * предложение — его и открываем в DS-07.
+ */
+export const extendResource = (planId: string, orderIds: string[], engineer: ExtraEngineer) =>
   api.post<ExtendResourceResponse>(`/planning/${planId}/extend-resource`, {
     order_ids: orderIds,
     option: 'add_engineer',
+    params: { engineer },
     apply: false,
+  });
+
+/** P1-5: тот же расчёт без сохранения версии и события (флаг `extendResourceCheck`). */
+export const checkExtendResource = (planId: string, orderIds: string[], engineer: ExtraEngineer) =>
+  api.post<ExtendResourceCheckResponse>(`/planning/${planId}/extend-resource/check`, {
+    order_ids: orderIds,
+    option: 'add_engineer',
+    params: { engineer },
   });

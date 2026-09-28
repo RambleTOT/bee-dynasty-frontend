@@ -74,7 +74,8 @@ export function useDayData(date: string, regionId: string, clockOverride: string
 
   const plan = headPlanId ? (planQuery.data ?? null) : null;
   const model = useMemo(() => {
-    if (!region || !scenarioQuery.data) return null;
+    // пока цепочка не пришла, план дня неизвестен: модель «без плана» запустила бы лишнее сравнение
+    if (!region || !scenarioQuery.data || !chainReady) return null;
     if (headPlanId && !plan) return null;
     return buildDayModel({
       date,
@@ -84,7 +85,7 @@ export function useDayData(date: string, regionId: string, clockOverride: string
       chain,
       clockOverride,
     });
-  }, [date, region, scenarioQuery.data, plan, headPlanId, chain, clockOverride]);
+  }, [date, region, scenarioQuery.data, plan, headPlanId, chain, chainReady, clockOverride]);
 
   const loading =
     dayQuery.isPending ||

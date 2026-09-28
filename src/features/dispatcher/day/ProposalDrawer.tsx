@@ -126,10 +126,16 @@ export function ProposalDrawer({
     return owner;
   }, [basePlan]);
 
+  // новая бригада (P1-6) есть только в маршрутах предложения
+  const names = useMemo(
+    () => new Map((plan?.routes ?? []).map((r) => [r.engineer_id, r.engineer_name ?? `Бригада ${r.engineer_id}`])),
+    [plan],
+  );
   const groups = diff
     ? diffGroups(diff, {
         engineerById: model.engineerById,
         requestById: model.requestById,
+        names,
         baseEngineerOf: (id) => baseOwner.get(id) ?? null,
         newOrderOf: (engineerId) => newRoutes.byEngineer.get(engineerId) ?? [],
         requestInfo: (id) => {

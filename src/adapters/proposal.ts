@@ -50,13 +50,22 @@ export function changedAssignments(summary: DiffSummary): number {
   );
 }
 
-type Labels = Pick<DayModel, 'engineerById' | 'requestById'>;
+type Labels = Pick<DayModel, 'engineerById' | 'requestById'> & {
+  /** Имена бригад, которых ещё нет в дне: новая бригада предложения (P1-6) — из его маршрутов. */
+  names?: ReadonlyMap<string, string>;
+};
 
 const num = (id: string) => (id.length <= 6 ? id : `…${id.slice(-4)}`);
 
 function engineerName(model: Labels, id: string | null | undefined): string {
   if (!id) return '—';
-  return model.engineerById.get(id)?.label ?? `Бригада ${id}`;
+  return model.engineerById.get(id)?.label ?? model.names?.get(id) ?? `Бригада ${id}`;
+}
+
+/** Имя новой бригады из события `engineer_added`: `engineer_name`, иначе по id. */
+export function addedEngineerName(model: Labels, payload: Record<string, unknown>): string {
+  const name = typeof payload.engineer_name === 'string' ? payload.engineer_name.trim() : '';
+  return name || engineerName(model, payload.engineer_id as string | undefined);
 }
 
 /** Короткое имя события для заголовков: «Авария №U-0001», «Отмена №…8184», «Бригада Соколов недоступна». */
@@ -79,6 +88,8 @@ export function eventTitle(
       return `${engineer} ${verb(engineer, 'недоступен', 'недоступна')}`;
     case 'engineer_available':
       return `${engineer} снова ${verb(engineer, 'доступен', 'доступна')}`;
+    case 'engineer_added':
+      return `Новая бригада — ${addedEngineerName(model, p)}`;
     case 'transport_changed':
       return `${engineer}: смена транспорта`;
     case 'manual_reassign':

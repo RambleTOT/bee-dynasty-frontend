@@ -49,6 +49,7 @@ export type ReassignRequest = Schemas['ReassignRequest'];
 export type ReassignCheckResponse = Schemas['ReassignCheckResponse'];
 export type ExtendResourceRequest = Schemas['ExtendResourceRequest'];
 export type ExtendResourceResponse = Schemas['ExtendResourceResponse'];
+export type ExtendResourceCheckResponse = Schemas['ExtendResourceCheckResponse'];
 export type PlanningRunRequest = Schemas['PlanningRunRequest'];
 
 // --- события ---

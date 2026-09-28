@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import type { EngineerOut, ExtendResourceResponse } from '@/api/types';
+import type { EngineerOut, ExtendResourceCheckResponse, ExtendResourceResponse, RequestOut } from '@/api/types';
 import { makeEngineer, makePlan } from './__fixtures__/day';
 import { overlayEngineers, overlayModel } from './__fixtures__/dayOverlays';
 import {
   commonShift,
   createdEngineerId,
   EMPTY_DRAFT,
+  engineerAddedEvent,
+  extraEngineer,
   pendingLock,
   resourceAdvice,
   rosterDiff,
@@ -176,42 +178,102 @@ describe('черновик и дифф состава', () => {
 });
 
 describe('рекомендация «не хватает +N инженера» (extend-resource)', () => {
-  const response = (cost: Record<string, unknown> | undefined, closed?: string[]) =>
+  const candidate = { skills: ['emergency'], transport: 'car' };
+  const proposal = (closed?: string[], still?: string[]) =>
     ({
       plan: makePlan({ plan_id: 'P5', status: 'proposed' }),
       closed,
-      cost,
+      still_unassigned: still,
+      cost: { extra_engineers: 1, delta_km: 12.4 },
     }) as unknown as ExtendResourceResponse;
+  const check = (closed: string[], still: string[]): ExtendResourceCheckResponse => ({
+    closed,
+    still_unassigned: still,
+    cost: { extra_engineers: 1 },
+  });
 
-  it('текст из cost: навык по-русски, транспорт — «на автомобиле»; N — закрытые заявки', () => {
-    expect(
-      resourceAdvice(
-        response({ engineers_needed: 1, skills: ['emergency'], transport: 'car' }, ['a', 'b', 'c']),
-        4,
-      ),
-    ).toEqual({
-      text: 'Чтобы назначить 3 неназначенные, не хватает +1 инженера с навыком «Аварийные работы» и на автомобиле',
+  it('кандидат закрыл часть заявок: навык по-русски, «на автомобиле», остаток — без исполнителя', () => {
+    expect(resourceAdvice(proposal(['a', 'b', 'c'], ['d']), 4, candidate)).toEqual({
+      text: 'Чтобы назначить 3 неназначенные, не хватает +1 инженера с навыком «Аварийные работы» и на автомобиле; ещё 1 заявка останется без исполнителя',
+      tone: 'info',
       proposalId: 'P5',
+      helps: true,
     });
   });
 
-  it('формы слов по числу; несколько навыков; без транспорта; без навыка', () => {
+  it('расчёт без сохранения (P1-5): предложения нет; формы слов; несколько навыков; пешком', () => {
     expect(
-      resourceAdvice(response({ engineers_needed: 2, skills: ['local', 'installation'] }), 5).text,
-    ).toBe(
-      'Чтобы назначить 5 неназначенных, не хватает +2 инженеров с навыками «Локальные работы», «Подключение и дозаказ»',
-    );
-    expect(resourceAdvice(response({ engineers_needed: 1, transport: 'walk' }), 1).text).toBe(
-      'Чтобы назначить 1 неназначенную, не хватает +1 инженера пешком',
-    );
+      resourceAdvice(check(['a', 'b', 'c', 'd', 'e'], []), 5, { skills: ['installation', 'local'], transport: 'walk' }),
+    ).toEqual({
+      text: 'Чтобы назначить 5 неназначенных, не хватает +1 инженера с навыками «Подключение и дозаказ», «Локальные работы» и пешком',
+      tone: 'info',
+      proposalId: null,
+      helps: true,
+    });
+    expect(resourceAdvice(check(['a'], []), 1, candidate).text).toMatch(/^Чтобы назначить 1 неназначенную,/);
   });
 
-  it('пустой cost — «Не удалось рассчитать добор ресурса», без предложения', () => {
-    expect(resourceAdvice(response({}), 3)).toEqual({
+  it('кандидат ничего не закрыл — предупреждение, добавлять его нет смысла', () => {
+    expect(resourceAdvice(check([], ['a', 'b']), 2, candidate)).toMatchObject({ tone: 'warning', helps: false });
+  });
+
+  it('ответ без closed — «Не удалось рассчитать добор ресурса»', () => {
+    expect(resourceAdvice(proposal(undefined), 3, candidate)).toEqual({
       text: 'Не удалось рассчитать добор ресурса',
+      tone: 'warning',
       proposalId: null,
+      helps: false,
     });
-    expect(resourceAdvice(response(undefined), 3).proposalId).toBeNull();
-    expect(resourceAdvice(null, 3).text).toBe('Не удалось рассчитать добор ресурса');
+    expect(resourceAdvice(null, 3, candidate).text).toBe('Не удалось рассчитать добор ресурса');
+  });
+});
+
+describe('бригада-кандидат для добора', () => {
+  const request = (patch: Partial<RequestOut>) => ({ raw: { id: 'x', ...patch } as RequestOut });
+
+  it('навыки неназначенных, автомобиль, самая частая смена, старт — офис', () => {
+    expect(
+      extraEngineer(
+        [request({ required_skill: 'emergency', required_transport: 'car' }), request({ required_skill: 'local' })],
+        rows,
+        [55.7, 37.76],
+      ),
+    ).toMatchObject({
+      id: 'EXTRA-1',
+      skills: ['local', 'emergency'],
+      transport: 'car',
+      shift_start: commonShift(rows)?.start,
+      shift_end: commonShift(rows)?.end,
+      latitude: 55.7,
+      longitude: 37.76,
+      start_kind: 'office',
+    });
+  });
+
+  it('нет навыков, смены или точки старта — кандидата нет', () => {
+    expect(extraEngineer([request({ required_skill: 'unknown' })], rows, [55.7, 37.76])).toBeNull();
+    expect(extraEngineer([request({ required_skill: 'local' })], [], [55.7, 37.76])).toBeNull();
+    expect(extraEngineer([request({ required_skill: 'local' })], rows, null)).toBeNull();
+  });
+});
+
+describe('новая бригада после публикации (P1-6)', () => {
+  it('событие engineer_added: id выдаёт бэк, старт — офис', () => {
+    const [addition] = rosterDiff(rows, { ...EMPTY_DRAFT, additions: [newcomer] }).additions;
+    expect(engineerAddedEvent(addition, 'P1', '12:30', [55.7, 37.76])).toEqual({
+      type: 'engineer_added',
+      plan_id: 'P1',
+      event_time: '12:30',
+      engineer: {
+        name: 'Бригада Иванов',
+        skills: ['emergency'],
+        transport: 'car',
+        shift_start: '10:00',
+        shift_end: '22:00',
+        start: { kind: 'office' },
+        latitude: 55.7,
+        longitude: 37.76,
+      },
+    });
   });
 });

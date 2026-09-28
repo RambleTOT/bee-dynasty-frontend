@@ -1,7 +1,8 @@
 /**
  * «Сравнение» и DS-05: наш план / базовый FIFO / реальный диспетчер (FRONTEND_SPEC §6.3).
- * «Наш план» — сводка действующего плана: стратегия `ours` перезапускает солвер, а `incremental`
- * на бэке 28.09 отдаёт нули (docs/API_NOTES.md).
+ * «Наш план» — колонка `plan` (P1-8: действующая версия тем же расчётом, что FIFO), если бэк её
+ * посчитал; иначе сводка действующего плана: `ours` перезапускает солвер, а `incremental` на бэке
+ * 28.09 отдаёт нули (docs/API_NOTES.md).
  */
 import type { BaselineResponse, CompareColumn, CompareResponse, PlanResponse, RouteOut } from '@/api/types';
 import { formatDelta, formatInt, formatKm } from '@/lib/format';
@@ -131,6 +132,7 @@ export function buildCompare({ model, plan, compare, baseline }: CompareInput): 
   const usable = (c: CompareColumn | undefined) => (c && c.available !== false ? c : undefined);
   const fifo = usable(columns.fifo);
   const disp = usable(columns.dispatcher);
+  const own = usable(columns.plan);
   const total = plan?.summary.total_requests ?? model.requests.length;
 
   let dispatcherMissing: string | null = null;
@@ -148,17 +150,17 @@ export function buildCompare({ model, plan, compare, baseline }: CompareInput): 
     : null;
 
   // Задействовано инженеров
-  const oursEng = num(plan?.summary.engineers_used);
+  const oursEng = num(own?.engineers_used ?? plan?.summary.engineers_used);
   const fifoEng = num(fifo?.engineers_used);
   const dispEng = num(disp?.engineers_used);
 
   // Пробег
-  const oursKm = num(plan?.summary.total_distance_km);
+  const oursKm = num(own?.km_total ?? plan?.summary.total_distance_km);
   const fifoKm = num(fifo?.km_total);
   const dispKm = num(disp?.km_total);
 
   // Неназначенные: поле бэка (28.09) → базовый план → расчёт из coverage_pct
-  const oursUn = num(plan?.summary.unassigned_count);
+  const oursUn = num(own?.unassigned ?? plan?.summary.unassigned_count);
   const fifoUn = num(
     fifo?.unassigned ??
       baseline?.baseline.unassigned_count ??
@@ -171,10 +173,10 @@ export function buildCompare({ model, plan, compare, baseline }: CompareInput): 
   // visits_total = 0 при задействованных бригадах — бэк визиты не посчитал (диспетчер на демо-дне): «—»
   const columnWin = (c: CompareColumn | undefined) =>
     c && c.started_in_window != null && c.visits_total ? { n: c.started_in_window, m: c.visits_total } : null;
-  const oursWin = plan ? inWindow(plan.routes ?? []) : null;
+  const oursWin = plan ? (columnWin(own) ?? inWindow(plan.routes ?? [])) : null;
   const fifoWin = columnWin(fifo) ?? (baseline?.baseline_routes ? inWindow(baseline.baseline_routes) : null);
   const dispWin = dispatcherMissing ? null : columnWin(disp);
-  const oursLate = plan ? lateCount(plan.routes ?? []) : null;
+  const oursLate = plan ? num(own?.late ?? lateCount(plan.routes ?? [])) : null;
   const fifoLate = num(fifo?.late ?? (baseline?.baseline_routes ? lateCount(baseline.baseline_routes) : null));
   const dispLate = dispatcherMissing || !disp?.visits_total ? null : num(disp?.late ?? null);
 
@@ -260,7 +262,7 @@ export function buildCompare({ model, plan, compare, baseline }: CompareInput): 
       label: e.label,
       short: e.short,
       color: e.color,
-      ours: hasPlan && used ? (route?.distanceKm ?? null) : null,
+      ours: hasPlan && used ? (num(kmOf('plan', e.id)?.km) ?? route?.distanceKm ?? null) : null,
       fifo: num(fifoRoute ? fifoRoute.distance_km : (fifoKm?.km ?? null)),
       dispatcher: dispatcherKmKnown ? (kmOf('dispatcher', e.id)?.km ?? null) : null,
       tasksOurs: hasPlan ? (route?.taskCount ?? 0) : null,

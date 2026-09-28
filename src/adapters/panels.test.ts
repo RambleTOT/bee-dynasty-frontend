@@ -221,6 +221,29 @@ describe('compare', () => {
     expect(cmp.rows[1].dispatcher).toEqual({ value: 'нет данных', note: 'назначения не сопоставлены с бригадами' });
   });
 
+  it('P1-8: колонка plan — «Наш план» тем же расчётом, что FIFO; недоступна — сводка плана', () => {
+    const withPlan: CompareResponse = {
+      ...compare,
+      columns: {
+        ...compare.columns,
+        plan: {
+          engineers_used: 1, km_total: 40.1, coverage_pct: 100, unassigned: 0, visits_total: 1, started_in_window: 1, late: 0,
+          unassigned_urgent: 0, violations: 0, km_is_estimate: false, available: true,
+          km_by_engineer: [{ engineer_id: 'e1', km: 40.1, tasks: 1 }],
+        },
+      },
+    };
+    const byKey = Object.fromEntries(buildCompare({ model, plan, compare: withPlan, baseline }).rows.map((r) => [r.key, r]));
+    expect(byKey.km.ours).toEqual({ value: '40,1', delta: '−19,9 км (−33%)' });
+    expect(byKey.unassigned.ours.value).toBe('0');
+    const e1 = buildCompare({ model, plan, compare: withPlan, baseline }).engineers.find((e) => e.engineerId === 'e1');
+    expect(e1?.ours).toBeCloseTo(40.1);
+
+    const unavailable = { ...compare, columns: { ...compare.columns, plan: { available: false } } } as unknown as CompareResponse;
+    const fallback = Object.fromEntries(buildCompare({ model, plan, compare: unavailable, baseline }).rows.map((r) => [r.key, r]));
+    expect(fallback.km.ours.value).toBe('42,3');
+  });
+
   it('inWindow и lateCount', () => {
     const routes = [makeRoute('e1', [makePoint({ request_id: 'a', sequence: 1, start: '12:30', window_start: '10:00', window_end: '12:00' }), makePoint({ request_id: 'b', sequence: 2, start: '13:00', window_start: '12:00', window_end: '14:00', flags: ['late'] })])];
     expect(inWindow(routes)).toEqual({ n: 1, m: 2 });

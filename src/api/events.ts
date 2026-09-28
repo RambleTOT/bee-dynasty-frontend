@@ -37,7 +37,25 @@ export type DispatcherEvent =
       event_time?: string;
       engineer_id: string;
       params: { transport: string };
+    }
+  | {
+      /** P1-6: новая бригада в начатый день, id выдаёт бэк (флаг `addEngineerAfterPublish`). */
+      type: 'engineer_added';
+      plan_id: string;
+      event_time?: string;
+      engineer: NewBrigade;
     };
+
+export interface NewBrigade {
+  name: string;
+  skills: string[];
+  transport: string;
+  shift_start: string;
+  shift_end: string;
+  start: { kind: 'office' };
+  latitude?: number;
+  longitude?: number;
+}
 
 export function applyEvent(event: DispatcherEvent) {
   return api.post<ReplanResult>('/events/apply', { ...event, source: 'dispatcher', apply: false });

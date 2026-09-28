@@ -3,16 +3,17 @@
  * бригады, «Пересчитать план».
  * - До публикации: PATCH изменённых и POST новых → расчёт плана (для дня без плана — сразу с публикацией, D-25).
  * - После: по одному изменению за раз [Д] — событие `apply: false` → предложение (DS-07). Добавить бригаду
- *   после публикации — только при `FEATURES.addEngineerAfterPublish` (бэк §12).
- * - Рекомендация «не хватает +N инженера» — только по кнопке: `extend-resource` и при `apply: false`
- *   сохраняет предложение, поэтому сами его не вызываем; результат — «Открыть предложение» (DS-07).
+ *   после публикации — событие `engineer_added`, только при `FEATURES.addEngineerAfterPublish` (P1-6).
+ * - Рекомендация «не хватает +N инженера» — только по кнопке, с бригадой-кандидатом (`params.engineer`).
+ *   С P1-5 — `extend-resource/check` без сохранения, и кандидата можно добавить в состав; без P1-5
+ *   `extend-resource` при `apply: false` сохраняет предложение — «Открыть предложение» (DS-07).
  */
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Plus, RefreshCw, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { addEngineers, getScenarioEngineers, patchEngineer } from '@/api/data';
 import { errorMessage } from '@/api/errors';
-import { extendResource, runPlan } from '@/api/planning';
+import { checkExtendResource, extendResource, runPlan } from '@/api/planning';
 import { queryKeys } from '@/api/queryKeys';
 import type { ReplanResult } from '@/api/types';
 import type { DayModel } from '@/adapters/dayModel';
@@ -20,6 +21,8 @@ import {
   commonShift,
   createdEngineerId,
   EMPTY_DRAFT,
+  engineerAddedEvent,
+  extraEngineer,
   pendingLock,
   resourceAdvice,
   rosterDiff,
@@ -68,18 +71,21 @@ const transportIcon = (transport: string) =>
 
 function AddEngineerForm({
   defaultShift,
+  initial,
   onAdd,
   onCancel,
 }: {
   defaultShift: { start: string; end: string } | null;
+  /** Бригада-кандидат из рекомендации: навыки, транспорт и смена уже заполнены. */
+  initial?: Omit<NewEngineer, 'key' | 'name'> | null;
   onAdd: (engineer: Omit<NewEngineer, 'key'>) => void;
   onCancel: () => void;
 }) {
   const [name, setName] = useState('');
-  const [skills, setSkills] = useState<string[]>([]);
-  const [transport, setTransport] = useState('car');
-  const [shiftStart, setShiftStart] = useState(defaultShift?.start ?? '');
-  const [shiftEnd, setShiftEnd] = useState(defaultShift?.end ?? '');
+  const [skills, setSkills] = useState<string[]>(initial?.skills ?? []);
+  const [transport, setTransport] = useState(initial?.transport ?? 'car');
+  const [shiftStart, setShiftStart] = useState(initial?.shiftStart ?? defaultShift?.start ?? '');
+  const [shiftEnd, setShiftEnd] = useState(initial?.shiftEnd ?? defaultShift?.end ?? '');
   const [touched, setTouched] = useState(false);
   const engineer = { name, skills, transport, shiftStart, shiftEnd };
   const errors = touched ? validateNewEngineer(engineer) : {};
@@ -294,7 +300,14 @@ export function RosterDrawer({
     mutationFn: async (changes: RosterDiff): Promise<PublishedResult> => {
       const planId = model.planId as string;
       let event = rosterEvent(changes, planId, model.now);
+      if (!event && changes.additions.length === 1 && FEATURES.addEngineerAfterPublish) {
+        event = engineerAddedEvent(changes.additions[0], planId, model.now, model.office?.point ?? null);
+        const result = await actions.sendEvent.mutateAsync(event);
+        setDraft(EMPTY_DRAFT);
+        return { kind: 'event', result };
+      }
       if (!event && changes.additions.length === 1) {
+        // бэк без P1-6: бригада в сценарий, затем «снова доступен» (после публикации бэк ответит 409)
         const before = rows.map((r) => r.id);
         await addEngineers(scenarioId, changes.additions);
         setDraft(EMPTY_DRAFT);
@@ -338,14 +351,36 @@ export function RosterDrawer({
         .filter((id) => model.requestById.get(id)?.status === 'unassigned'),
     [model.unassigned, model.requestById],
   );
+  const candidate = useMemo(
+    () =>
+      extraEngineer(
+        orderIds.flatMap((id) => model.requestById.get(id) ?? []),
+        rows,
+        model.office?.point ?? null,
+      ),
+    [orderIds, model.requestById, model.office, rows],
+  );
   const advise = useMutation({
-    mutationFn: () => extendResource(model.planId as string, orderIds),
-    // предложение уже сохранено на бэке — пусть появится в баннере и ленте
-    onSuccess: () => void actions.invalidate(),
+    mutationFn: async () => {
+      const engineer = candidate as NonNullable<typeof candidate>;
+      const planId = model.planId as string;
+      return FEATURES.extendResourceCheck
+        ? checkExtendResource(planId, orderIds, engineer)
+        : extendResource(planId, orderIds, engineer);
+    },
+    // без P1-5 предложение уже сохранено на бэке — пусть появится в баннере и ленте
+    onSuccess: () => {
+      if (!FEATURES.extendResourceCheck) void actions.invalidate();
+    },
     onError: onFail,
   });
-  const advice = advise.data ? resourceAdvice(advise.data, orderIds.length) : null;
-  const showAdvice = published && Boolean(model.planId) && orderIds.length > 0;
+  const advice =
+    advise.data && candidate ? resourceAdvice(advise.data, orderIds.length, candidate) : null;
+  const showAdvice = published && Boolean(model.planId) && orderIds.length > 0 && candidate != null;
+  // кандидата из рекомендации — в форму «+ Добавить инженера» (после публикации — событие P1-6)
+  const [prefill, setPrefill] = useState<Omit<NewEngineer, 'key' | 'name'> | null>(null);
+  const canAddCandidate =
+    FEATURES.extendResourceCheck && canAdd && Boolean(advice?.helps) && candidate != null;
 
   const busy =
     saveDraft.isPending ||
@@ -417,9 +452,9 @@ export function RosterDrawer({
       {showAdvice &&
         (advice ? (
           <Callout
-            tone={advice.proposalId ? 'info' : 'warning'}
+            tone={advice.tone}
             action={
-              advice.proposalId && (
+              advice.proposalId ? (
                 <Button
                   variant="secondary"
                   size="sm"
@@ -427,6 +462,27 @@ export function RosterDrawer({
                 >
                   Открыть предложение
                 </Button>
+              ) : (
+                canAddCandidate &&
+                candidate && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={Plus}
+                    disabled={!canOpenForm}
+                    onClick={() => {
+                      setPrefill({
+                        skills: candidate.skills,
+                        transport: candidate.transport,
+                        shiftStart: candidate.shift_start,
+                        shiftEnd: candidate.shift_end,
+                      });
+                      setAdding(true);
+                    }}
+                  >
+                    Добавить такую бригаду
+                  </Button>
+                )
               )
             }
           >
@@ -526,8 +582,15 @@ export function RosterDrawer({
       {adding ? (
         <AddEngineerForm
           defaultShift={commonShift(rows)}
-          onAdd={addEngineer}
-          onCancel={() => setAdding(false)}
+          initial={prefill}
+          onAdd={(engineer) => {
+            setPrefill(null);
+            addEngineer(engineer);
+          }}
+          onCancel={() => {
+            setPrefill(null);
+            setAdding(false);
+          }}
         />
       ) : (
         canAdd && (
