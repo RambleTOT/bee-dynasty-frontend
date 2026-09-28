@@ -1,10 +1,12 @@
-import { List, Map as MapIcon, Play } from 'lucide-react';
+import { List, LogOut, Map as MapIcon, Play } from 'lucide-react';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   currentVisit,
+  hasActiveVisit,
   latestBanner,
   pageState,
+  plannedLeft,
   type EngineerBannerModel,
   type EngineerPageState,
 } from '@/adapters/engineerDay';
@@ -12,7 +14,6 @@ import { effectiveRoute } from '@/adapters/engineerRoute';
 import { useAuth } from '@/auth/useAuth';
 import { FEATURES } from '@/config';
 import { searchParam, useSearchState } from '@/hooks/useSearchState';
-import { Placeholder } from '@/pages/Placeholder';
 import { Button, SegmentedControl, type SegmentOption } from '@/ui';
 import { DayError, DaySkeleton, NoVisits, PlanNotPublished } from './DayStates';
 import { DoneToast } from './DoneToast';
@@ -26,6 +27,8 @@ import { visitPath } from './paths';
 import { PlanChangedBanner, UnavailableBanner } from './PlanChangedBanner';
 import { PreviewScreen } from './PreviewScreen';
 import { forgetStaleChanged, isSeen, markSeen, useSeenVersion } from './seen';
+import { ShiftEndConfirm } from './ShiftEndConfirm';
+import { ShiftSummary } from './ShiftSummary';
 import { TransportSheet } from './TransportSheet';
 import { UnavailableSheet } from './UnavailableSheet';
 import { useEngineerDay, useEngineerRoute, useShiftEnd } from './useEngineerDay';
@@ -70,7 +73,7 @@ function scrollToRoute() {
  * опубликован, заявок нет, E-01 до смены, E-03 / E-04 на смене, E-10 после.
  */
 export default function EngineerApp() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const query = useEngineerDay();
   const [search, setSearch] = useSearchState(engineerSearch);
   const navigate = useNavigate();
@@ -136,9 +139,14 @@ export default function EngineerApp() {
     <UnavailableBanner availableUntil={day.engineer.availableUntil} />
   ) : null;
 
-  // E-01: действия внизу экрана; «Не выйду сегодня» — когда бэк примет unavailable до смены (⏳ 8.5)
+  // Действия внизу экрана: E-01 — «Начать смену» и «Не выйду сегодня» (когда бэк примет
+  // unavailable до смены, ⏳ 8.5); E-10 — «Выйти»
   const footer =
-    state === 'preview' ? (
+    state === 'finished' ? (
+      <Button variant="secondary" size="lg" fullWidth icon={LogOut} onClick={() => void logout()}>
+        Выйти
+      </Button>
+    ) : state === 'preview' ? (
       <>
         <Button
           variant="primary"
@@ -198,7 +206,7 @@ export default function EngineerApp() {
               shiftEndPending={shiftEnd.pending}
             />
           )}
-          {state === 'finished' && <Placeholder id="E-10" title="Итоги смены" />}
+          {state === 'finished' && <ShiftSummary day={day} />}
         </>
       )}
       <DoneToast />
@@ -212,6 +220,10 @@ export default function EngineerApp() {
       {search.sheet === 'incident' && FEATURES.engineerIncident && state === 'shift' && current && (
         <IncidentSheet visit={current} engineer={day.engineer} onClose={closeSheet} />
       )}
+      {search.sheet === 'shift_end' &&
+        state === 'shift' &&
+        !hasActiveVisit(day) &&
+        plannedLeft(day) > 0 && <ShiftEndConfirm count={plannedLeft(day)} onClose={closeSheet} />}
       {search.sheet === 'unavailable' &&
         (state === 'shift' || (state === 'preview' && FEATURES.unavailableBeforeShift)) && (
           <UnavailableSheet day={day} beforeShift={state === 'preview'} onClose={closeSheet} />
