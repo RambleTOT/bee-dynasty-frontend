@@ -9,11 +9,14 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  ExternalLink,
   Layers,
+  Map as MapIcon,
   MapPin,
   Minus,
   Plus,
   TriangleAlert,
+  X,
   Zap,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -24,7 +27,11 @@ import { dayBounds, hasNonCarRoutes, routeLines, type RouteLine } from '@/adapte
 import { countOf, PL_REQUEST } from '@/lib/format';
 import { MOSCOW_CENTER, OSM_TILES, type LatLng } from '@/lib/map';
 import mapStyles from '@/lib/map.module.css';
-import { IconButton, cx } from '@/ui';
+import { yandexRouteUrl } from '@/lib/yandexMaps';
+import { YANDEX_MAPS_KEY } from '@/lib/yandexMapsApi';
+import { isTransport } from '@/lib/statuses';
+import { Button, IconButton, buttonClassName, cx } from '@/ui';
+import { YandexRouteMap } from '../../shared/YandexRouteMap';
 import { BUILDING_SVG, CHECK_SVG, ZAP_SVG } from './markerIcons';
 import styles from './DayMap.module.css';
 
@@ -102,6 +109,7 @@ export function DayMap({
   onOpenUnassigned,
 }: DayMapProps) {
   const [legendOpen, setLegendOpen] = useState(false);
+  const [yandexFor, setYandexFor] = useState<string | null>(null);
   const hasPlan = Boolean(model.plan);
   const lines = useMemo(() => {
     const current = hasPlan ? routeLines(model, geojson) : [];
@@ -193,6 +201,23 @@ export function DayMap({
   const requestCount = model.requests.length;
   const nonCar = hasPlan && hasNonCarRoutes(model);
 
+  // маршрут выбранной бригады в Яндекс Картах: на синтетике координаты условные — кнопок нет (§6.8)
+  const brigadeRoute = hasPlan && brigade && !model.coordsApprox ? model.routeByEngineer.get(brigade) : undefined;
+  const brigadeEngineer = brigade ? model.engineerById.get(brigade) : undefined;
+  const brigadeStops = (brigadeRoute?.visits ?? [])
+    .filter((v) => v.point)
+    .map((v) => ({ lat: v.point![0], lon: v.point![1], number: v.sequence, hint: `№${v.requestId}` }));
+  const brigadeStart = brigadeRoute?.start ? { lat: brigadeRoute.start[0], lon: brigadeRoute.start[1] } : null;
+  const brigadeUrl =
+    brigadeEngineer && brigadeStops.length > 0
+      ? yandexRouteUrl(
+          brigadeStart ?? { lat: brigadeStops[0].lat, lon: brigadeStops[0].lon },
+          brigadeStart ? brigadeStops : brigadeStops.slice(1),
+          isTransport(brigadeEngineer.transport) ? brigadeEngineer.transport : 'car',
+        )
+      : null;
+  const showYandex = Boolean(YANDEX_MAPS_KEY && brigade && yandexFor === brigade && brigadeStops.length > 0);
+
   return (
     <div className={styles.wrap}>
       <MapContainer
@@ -240,6 +265,40 @@ export function DayMap({
         <ZoomButtons />
       </MapContainer>
 
+      {brigadeUrl && brigadeEngineer && (
+        <div className={styles.yandexBar}>
+          <a
+            href={brigadeUrl}
+            target="_blank"
+            rel="noopener"
+            className={buttonClassName({ variant: 'secondary', size: 'sm' })}
+          >
+            <ExternalLink size={16} aria-hidden />
+            Маршрут в Яндекс Картах
+          </a>
+          {YANDEX_MAPS_KEY && !showYandex && (
+            <Button variant="secondary" size="sm" icon={MapIcon} onClick={() => setYandexFor(brigade)}>
+              Яндекс Карта
+            </Button>
+          )}
+        </div>
+      )}
+      {showYandex && brigadeEngineer && (
+        <div className={styles.yandexLayer}>
+          <YandexRouteMap
+            start={brigadeStart}
+            stops={brigadeStops}
+            transport={brigadeEngineer.transport}
+            colorVar={`--route-${brigadeEngineer.color.index}`}
+            fallback={<div className={styles.yandexFail}>Яндекс Карты не загрузились</div>}
+          />
+          <div className={styles.yandexClose}>
+            <Button variant="secondary" size="sm" icon={X} onClick={() => setYandexFor(null)}>
+              Карта дня
+            </Button>
+          </div>
+        </div>
+      )}
       {!hasPlan && (
         <div className={styles.topPill}>
           <MapPin size={16} aria-hidden />

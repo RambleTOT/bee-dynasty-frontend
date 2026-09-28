@@ -168,14 +168,15 @@ export function buildCompare({ model, plan, compare, baseline }: CompareInput): 
   const dispUn = num(disp?.unassigned ?? unassignedFromCoverage(disp, total));
 
   // Начато в окне, просрочено: поля бэка (28.09), иначе считаем по маршрутам
+  // visits_total = 0 при задействованных бригадах — бэк визиты не посчитал (диспетчер на демо-дне): «—»
   const columnWin = (c: CompareColumn | undefined) =>
-    c && c.started_in_window != null && c.visits_total != null ? { n: c.started_in_window, m: c.visits_total } : null;
+    c && c.started_in_window != null && c.visits_total ? { n: c.started_in_window, m: c.visits_total } : null;
   const oursWin = plan ? inWindow(plan.routes ?? []) : null;
   const fifoWin = columnWin(fifo) ?? (baseline?.baseline_routes ? inWindow(baseline.baseline_routes) : null);
   const dispWin = dispatcherMissing ? null : columnWin(disp);
   const oursLate = plan ? lateCount(plan.routes ?? []) : null;
   const fifoLate = num(fifo?.late ?? (baseline?.baseline_routes ? lateCount(baseline.baseline_routes) : null));
-  const dispLate = dispatcherMissing ? null : num(disp?.late ?? null);
+  const dispLate = dispatcherMissing || !disp?.visits_total ? null : num(disp?.late ?? null);
 
   const cell = (value: number | null, format: (n: number) => string = formatInt): CompareCell =>
     value == null ? EMPTY : { value: format(value) };

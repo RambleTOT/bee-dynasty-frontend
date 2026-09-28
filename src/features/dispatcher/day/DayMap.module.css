@@ -287,3 +287,36 @@
 .legendNote {
   color: var(--text-secondary);
 }
+
+/* Яндекс: ссылка на маршрут бригады и встроенная карта маршрута */
+.yandexBar {
+  position: absolute;
+  top: var(--space-4);
+  left: var(--space-4);
+  z-index: 500;
+  display: flex;
+  gap: var(--space-2);
+}
+
+.yandexLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 700;
+  background: var(--bg-surface);
+}
+
+.yandexClose {
+  position: absolute;
+  top: var(--space-4);
+  left: var(--space-4);
+  z-index: 1;
+}
+
+.yandexFail {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-secondary);
+  font: var(--font-body);
+}

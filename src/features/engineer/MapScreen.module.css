@@ -15,6 +15,12 @@
   min-height: 0;
 }
 
+/* Яндекс Карта — на всю область, как карта OSM. */
+.yandex {
+  position: absolute;
+  inset: 0;
+}
+
 /* Шторка заходит на карту на радиус скругления — под углами видна карта. */
 .withSheet .area {
   margin-bottom: calc(-1 * var(--radius-card));

@@ -7,6 +7,8 @@ interface ImportMetaEnv {
   readonly VITE_USE_MOCKS?: string;
   /** Список флагов FEATURES через запятую, которые включить (FRONTEND_SPEC §5.4). */
   readonly VITE_FEATURES?: string;
+  /** Ключ «JavaScript API и HTTP Геокодер» Яндекс Карт: встроенная карта с маршрутом. Без ключа — OSM. */
+  readonly VITE_YANDEX_MAPS_KEY?: string;
 }
 
 interface ImportMeta {

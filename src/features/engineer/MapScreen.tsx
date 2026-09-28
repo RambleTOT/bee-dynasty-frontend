@@ -8,7 +8,9 @@ import {
   type EngineerRouteModel,
 } from '@/adapters/engineerRoute';
 import { requestNo } from '@/lib/engineerLabels';
+import { YANDEX_MAPS_KEY } from '@/lib/yandexMapsApi';
 import { buttonClassName, cx, Spinner } from '@/ui';
+import { YandexRouteMap } from '../shared/YandexRouteMap';
 import { AddressText } from './VisitBits';
 import list from './VisitList.module.css';
 import styles from './MapScreen.module.css';
@@ -92,7 +94,24 @@ export function MapScreen({
             </div>
           }
         >
-          <EngineerMap route={route} />
+          {YANDEX_MAPS_KEY ? (
+            // маршрут строит Яндекс по оставшимся точкам; нет ключа или API — карта OSM
+            <YandexRouteMap
+              className={styles.yandex}
+              start={route.start}
+              stops={route.points.map((point) => ({
+                lat: point.lat,
+                lon: point.lon,
+                number: point.sequence,
+                hint: requestNo(point.requestId),
+              }))}
+              transport={linkTransport(day.engineer, route)}
+              colorVar="--engineer-route"
+              fallback={<EngineerMap route={route} />}
+            />
+          ) : (
+            <EngineerMap route={route} />
+          )}
         </Suspense>
         <div className={styles.controls}>{viewSwitch}</div>
       </div>
