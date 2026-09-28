@@ -102,6 +102,11 @@ a.title:hover {
   color: var(--st-success);
 }
 
+/* «Далее по маршруту» — цель прокрутки от баннера: не прятать под шапкой 56 px. */
+.anchor {
+  scroll-margin-top: calc(56px + var(--space-2));
+}
+
 .sectionTitle {
   padding: 0 var(--space-1);
   color: var(--text-secondary);

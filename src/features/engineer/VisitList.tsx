@@ -176,7 +176,11 @@ export function RouteList({
 }) {
   if (waiting.length === 0 && upcoming.length === 0) return null;
   return (
-    <section id="engineer-next" className={styles.stack} aria-labelledby="engineer-next-title">
+    <section
+      id="engineer-next"
+      className={cx(styles.stack, styles.anchor)}
+      aria-labelledby="engineer-next-title"
+    >
       <h2 id="engineer-next-title" className={styles.sectionTitle}>
         Далее по маршруту
       </h2>

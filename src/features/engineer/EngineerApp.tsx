@@ -1,5 +1,13 @@
+import { useNavigate } from 'react-router-dom';
+import {
+  currentVisit,
+  hasActiveVisit,
+  latestBanner,
+  pageState,
+  plannedLeft,
+  type EngineerBannerModel,
+} from '@/adapters/engineerDay';
 import { useAuth } from '@/auth/useAuth';
-import { currentVisit, hasActiveVisit, pageState, plannedLeft } from '@/adapters/engineerDay';
 import { searchParam, useSearchState } from '@/hooks/useSearchState';
 import { Placeholder } from '@/pages/Placeholder';
 import { DayError, DaySkeleton, NoVisits, PlanNotPublished } from './DayStates';
@@ -8,6 +16,9 @@ import { EngineerHeader } from './EngineerHeader';
 import { EngineerMenu } from './EngineerMenu';
 import { EngineerPage } from './EngineerPage';
 import { InterruptSheet } from './InterruptSheet';
+import { visitPath } from './paths';
+import { PlanChangedBanner, UnavailableBanner } from './PlanChangedBanner';
+import { isSeen, markSeen, useSeenVersion } from './seen';
 import { useEngineerAction, useEngineerDay } from './useEngineerDay';
 import { MyVisits } from './VisitList';
 
@@ -25,6 +36,16 @@ const engineerSearch = {
 
 type Sheet = NonNullable<ReturnType<typeof engineerSearch.sheet.parse>>;
 
+/** «Посмотреть» у баннера без заявки — к «Далее по маршруту» (§9.2 E-09). */
+function scrollToRoute() {
+  window.requestAnimationFrame(() => {
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    document
+      .getElementById('engineer-next')
+      ?.scrollIntoView?.({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  });
+}
+
 /**
  * `/engineer` — экран инженера по состоянию дня (FRONTEND_SPEC §9.1): загрузка, ошибка, план не
  * опубликован, заявок нет, E-01 до смены, E-03 / E-04 на смене, E-10 после.
@@ -34,6 +55,8 @@ export default function EngineerApp() {
   const query = useEngineerDay();
   const [search, setSearch] = useSearchState(engineerSearch);
   const shiftEnd = useEngineerAction();
+  const navigate = useNavigate();
+  useSeenVersion();
   const day = query.data;
 
   const openSheet = (sheet: Sheet) => setSearch({ sheet });
@@ -75,8 +98,26 @@ export default function EngineerApp() {
   const routeColor = day.engineer.routeColor;
   const current = currentVisit(day);
 
+  // E-09: самый свежий непросмотренный баннер; «Посмотреть» — карточка заявки или список
+  const viewBanner = (banner: EngineerBannerModel) => {
+    markSeen(banner.key);
+    if (banner.requestId && day.visits.some((visit) => visit.id === banner.requestId)) {
+      navigate(visitPath(banner.requestId));
+      return;
+    }
+    setSearch({ view: 'list', sheet: null });
+    scrollToRoute();
+  };
+  const withBanner = state === 'preview' || state === 'shift' || state === 'unavailable';
+  const banner = withBanner ? latestBanner(day.banners, isSeen) : null;
+  const bannerNode = banner ? (
+    <PlanChangedBanner banner={banner} onView={() => viewBanner(banner)} />
+  ) : state === 'unavailable' ? (
+    <UnavailableBanner availableUntil={day.engineer.availableUntil} />
+  ) : null;
+
   return (
-    <EngineerPage header={header} routeColor={routeColor}>
+    <EngineerPage header={header} banner={bannerNode} routeColor={routeColor}>
       {state === 'unpublished' && <PlanNotPublished />}
       {state === 'empty' && <NoVisits />}
       {state === 'preview' && <Placeholder id="E-01" title="Превью до начала смены" />}
