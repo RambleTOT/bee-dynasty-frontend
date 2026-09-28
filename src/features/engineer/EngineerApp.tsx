@@ -1,4 +1,4 @@
-import { Play } from 'lucide-react';
+import { List, Map as MapIcon, Play } from 'lucide-react';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -6,24 +6,29 @@ import {
   latestBanner,
   pageState,
   type EngineerBannerModel,
+  type EngineerPageState,
 } from '@/adapters/engineerDay';
+import { effectiveRoute } from '@/adapters/engineerRoute';
 import { useAuth } from '@/auth/useAuth';
 import { searchParam, useSearchState } from '@/hooks/useSearchState';
-import { Button } from '@/ui';
 import { Placeholder } from '@/pages/Placeholder';
+import { Button, SegmentedControl, type SegmentOption } from '@/ui';
 import { DayError, DaySkeleton, NoVisits, PlanNotPublished } from './DayStates';
 import { DoneToast } from './DoneToast';
 import { EngineerHeader } from './EngineerHeader';
 import { EngineerMenu } from './EngineerMenu';
 import { EngineerPage } from './EngineerPage';
 import { InterruptSheet } from './InterruptSheet';
+import { MapScreen } from './MapScreen';
 import { visitPath } from './paths';
 import { PlanChangedBanner, UnavailableBanner } from './PlanChangedBanner';
 import { PreviewScreen } from './PreviewScreen';
 import { forgetStaleChanged, isSeen, markSeen, useSeenVersion } from './seen';
 import { TransportSheet } from './TransportSheet';
-import { useEngineerDay, useShiftEnd } from './useEngineerDay';
+import { useEngineerDay, useEngineerRoute, useShiftEnd } from './useEngineerDay';
 import { MyVisits } from './VisitList';
+
+type View = 'list' | 'map';
 
 /** Вид и открытая шторка — в адресе (§4): `view=list|map`, `sheet=…` (E-02, E-06, E-07, E-08). */
 const engineerSearch = {
@@ -38,6 +43,14 @@ const engineerSearch = {
 };
 
 type Sheet = NonNullable<ReturnType<typeof engineerSearch.sheet.parse>>;
+
+const VIEW_OPTIONS: SegmentOption<View>[] = [
+  { value: 'list', label: 'Список', icon: List },
+  { value: 'map', label: 'Карта', icon: MapIcon },
+];
+
+/** Экраны с «Список / Карта»: до смены (E-01) и на смене (E-03 / E-04). */
+const ROUTE_STATES: readonly EngineerPageState[] = ['preview', 'shift', 'unavailable'];
 
 /** «Посмотреть» у баннера без заявки — к «Далее по маршруту» (§9.2 E-09). */
 function scrollToRoute() {
@@ -60,6 +73,9 @@ export default function EngineerApp() {
   const navigate = useNavigate();
   useSeenVersion();
   const day = query.data;
+  const state = day ? pageState(day) : null;
+  const mapOpen = search.view === 'map' && state !== null && ROUTE_STATES.includes(state);
+  const route = useEngineerRoute({ enabled: mapOpen, poll: true });
 
   const openSheet = (sheet: Sheet) => setSearch({ sheet });
   const closeSheet = () => setSearch({ sheet: null });
@@ -84,7 +100,7 @@ export default function EngineerApp() {
     />
   );
 
-  if (!day) {
+  if (!day || !state) {
     return (
       <EngineerPage header={header}>
         {query.isError ? (
@@ -96,7 +112,6 @@ export default function EngineerApp() {
     );
   }
 
-  const state = pageState(day);
   const routeColor = day.engineer.routeColor;
   const current = currentVisit(day);
 
@@ -110,8 +125,8 @@ export default function EngineerApp() {
     setSearch({ view: 'list', sheet: null });
     scrollToRoute();
   };
-  const withBanner = state === 'preview' || state === 'shift' || state === 'unavailable';
-  const banner = withBanner ? latestBanner(day.banners, isSeen) : null;
+  const withRoute = ROUTE_STATES.includes(state);
+  const banner = withRoute ? latestBanner(day.banners, isSeen) : null;
   const bannerNode = banner ? (
     <PlanChangedBanner banner={banner} onView={() => viewBanner(banner)} />
   ) : state === 'unavailable' ? (
@@ -132,22 +147,50 @@ export default function EngineerApp() {
       </Button>
     ) : null;
 
+  const viewSwitch = withRoute && (
+    <SegmentedControl
+      label="Вид"
+      fullWidth
+      options={VIEW_OPTIONS}
+      value={search.view}
+      onChange={(view) => setSearch({ view })}
+    />
+  );
+
   return (
-    <EngineerPage header={header} banner={bannerNode} footer={footer} routeColor={routeColor}>
-      {state === 'unpublished' && <PlanNotPublished />}
-      {state === 'empty' && <NoVisits />}
-      {state === 'preview' && <PreviewScreen day={day} />}
-      {(state === 'shift' || state === 'unavailable') && (
-        <MyVisits
+    <EngineerPage
+      header={header}
+      banner={bannerNode}
+      footer={footer}
+      fill={mapOpen}
+      routeColor={routeColor}
+    >
+      {mapOpen ? (
+        <MapScreen
           day={day}
-          limited={state === 'unavailable'}
-          onInterrupt={() => openSheet('interrupt')}
-          onIncident={() => openSheet('incident')}
-          onShiftEnd={shiftEnd.request}
-          shiftEndPending={shiftEnd.pending}
+          route={effectiveRoute(route.data, day.visits)}
+          viewSwitch={viewSwitch}
+          withSheet={state !== 'preview'}
         />
+      ) : (
+        <>
+          {viewSwitch}
+          {state === 'unpublished' && <PlanNotPublished />}
+          {state === 'empty' && <NoVisits />}
+          {state === 'preview' && <PreviewScreen day={day} />}
+          {(state === 'shift' || state === 'unavailable') && (
+            <MyVisits
+              day={day}
+              limited={state === 'unavailable'}
+              onInterrupt={() => openSheet('interrupt')}
+              onIncident={() => openSheet('incident')}
+              onShiftEnd={shiftEnd.request}
+              shiftEndPending={shiftEnd.pending}
+            />
+          )}
+          {state === 'finished' && <Placeholder id="E-10" title="Итоги смены" />}
+        </>
       )}
-      {state === 'finished' && <Placeholder id="E-10" title="Итоги смены" />}
       <DoneToast />
 
       {search.sheet === 'transport' && state === 'preview' && (
