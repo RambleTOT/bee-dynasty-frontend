@@ -3,8 +3,10 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '@/api/auth';
 import { UNAUTHORIZED_EVENT } from '@/api/client';
+import { isApiError } from '@/api/errors';
 import { queryKeys } from '@/api/queryKeys';
 import { isRole } from './roles';
+import { userFromToken } from './tokenClaims';
 import { tokenStorage } from './tokenStorage';
 import { AuthContext, type AuthContextValue, type AuthStatus } from './useAuth';
 
@@ -19,7 +21,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const me = useQuery({
     queryKey: queryKeys.me,
-    queryFn: ({ signal }) => authApi.me(signal),
+    queryFn: async ({ signal }) => {
+      try {
+        return await authApi.me(signal);
+      } catch (error) {
+        // инженеру бэк отвечает на /auth/me 403 — профиль из токена (docs/API_NOTES.md)
+        const fromToken = isApiError(error) && error.status === 403 ? userFromToken(tokenStorage.get()) : null;
+        if (fromToken) return fromToken;
+        throw error;
+      }
+    },
     enabled: token !== null,
     staleTime: Infinity,
   });
