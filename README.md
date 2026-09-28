@@ -1,110 +1,127 @@
 # Маршруты инженеров — фронтенд
 
 Внутренний веб-инструмент «Билайн Бизнес» для планирования маршрутов выездных инженеров (ЛЦТ 2026, кейс №3).
-Одно React-приложение, три роли — роль приходит с бэка после входа:
+Одно React-приложение, три роли. Роль приходит с бэка после входа:
 
-| Роль                     | Устройство                       | Раздел                                                                                 |
-| ------------------------ | -------------------------------- | -------------------------------------------------------------------------------------- |
-| Диспетчер (`dispatcher`) | десктоп от 1280 px               | `/dispatcher` — календарь заявок, день на карте и таймлайне, события, сравнение планов |
-| Оператор (`operator`)    | десктоп                          | `/operator` — запись клиентов во временные окна                                        |
-| Инженер (`engineer`)     | телефон 360–430 px, веб-страница | `/engineer` — свой маршрут и статусы заявок                                            |
+| Роль                     | Устройство          | Раздел                                                                                                                                                          |
+| ------------------------ | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Диспетчер (`dispatcher`) | десктоп от 1280 px  | `/dispatcher` — календарь заявок, загрузка CSV, день на карте и таймлайне, сравнение с FIFO и реальным диспетчером, события, предложения, версии, состав, итоги |
+| Оператор (`operator`)    | десктоп             | `/operator` — поиск и отмена заявки, запись в окно, перенос, авария                                                                                             |
+| Инженер (`engineer`)     | телефон, 360–430 px | `/engineer` — маршрут на день, статусы заявок, прерывание, карта и Яндекс Карты, итоги смены                                                                    |
 
-Бэкенд: `https://api.bee-dynasty.ru/api/v1`, Swagger — [`/docs`](https://api.bee-dynasty.ru/docs), схема — [`/openapi.json`](https://api.bee-dynasty.ru/openapi.json).
-
-> Сейчас в репозитории каркас (этап 01): вход, роли, маршруты с заглушками экранов, клиент API, моки входа, скрипт снимка API. Экраны появляются в следующих этапах.
+- Сайт: **https://bee-dynasty.ru**. Тот же сайт открывается на `:8443` и `:9443`: это отдельные origin'ы, так что три роли можно держать залогиненными одновременно.
+- Бэкенд: `https://api.bee-dynasty.ru/api/v1`, Swagger — [`/docs`](https://api.bee-dynasty.ru/docs), схема — [`/openapi.json`](https://api.bee-dynasty.ru/openapi.json). Алгоритм планирования работает на бэке, фронт только показывает результат.
 
 ## Требования
 
-- Node.js 20.19+ (версия — в `.nvmrc`: `nvm use`), npm 10+.
+- Node.js 20.19+ (версия в `.nvmrc`: `nvm use`), npm 10+.
 
-## Установка и запуск
+## Запуск
 
 ```bash
 npm i
-npm run dev          # http://localhost:5173
+npm run dev          # http://localhost:5173, /api проксируется на стенд
 ```
+
+Команды:
+
+| Команда                 | Что делает                                                                              |
+| ----------------------- | --------------------------------------------------------------------------------------- |
+| `npm run dev`           | dev-сервер; `/api` → `https://api.bee-dynasty.ru` (или `DEV_API_TARGET`)                |
+| `npm run check`         | `tsc --noEmit` (приложение и `vite.config.ts`) + `eslint .`                             |
+| `npm test`              | тесты (vitest, jsdom)                                                                   |
+| `npm run build`         | проверка типов + прод-сборка в `dist/`                                                  |
+| `npm run deploy`        | сборка и выкладка на сервер (ниже)                                                      |
+| `npm run gen:types`     | типы API из живой схемы → `src/api/schema.d.ts`                                         |
+| `npm run design:unpack` | распаковать макеты в `design/_unpacked/` (в git не попадает)                            |
+| `npm run snapshot`      | снимок ответов API в `docs/api-examples/` — **меняет данные стенда**, только по команде |
 
 ## Переменные окружения
 
-Шаблон — `.env.example`. Локальные значения — в `.env.local` (в git не попадает):
+Шаблон — `.env.example`, локальные значения — в `.env.local` (в git не попадает).
+
+| Переменная          | Для чего                                                                                 |
+| ------------------- | ---------------------------------------------------------------------------------------- |
+| `VITE_API_URL`      | база API; по умолчанию `/api/v1` (в dev — прокси Vite, в проде — прокси nginx)           |
+| `VITE_FEATURES`     | включить флаги правок бэка без правки кода, через запятую (см. «Флаги»)                  |
+| `DEV_API_TARGET`    | куда dev-сервер проксирует `/api`, например локальная копия бэка `http://127.0.0.1:8001` |
+| `VITE_USE_MOCKS`    | `true` — вход на моках MSW (только вход, для вёрстки без бэка)                           |
+| `API_URL`, `DEMO_*` | только для `npm run snapshot`                                                            |
+
+Пароли демо-учёток — **только** в `.env.local`: не в код, README, фикстуры, снимки и коммиты.
+
+## Демо-учётки
+
+Логины: `dispatcher`, `operator`, `eng-east-01`…`eng-east-12`, `eng-se-01`…, `eng-sc-01`… Пароль — у команды (гайд бэка `docs/spec/FRONTEND_AGENT_GUIDE.md`), в репозиторий его не кладём.
+
+## Демо-время (часы дня)
+
+«Сейчас» дня задаёт бэк (D-24, D-28). Во фронте часы только показываются: «Версия N · сейчас HH:MM» в шапке дня, линия «сейчас» на таймлайне, время события по умолчанию.
+
+- Перевести часы — через Swagger: `POST /api/v1/data/scenarios/{scenario_id}/clock` с телом `{"time": "12:30", "autoplay": true}`. С автопрогоном визиты плана до этого времени становятся фактами. Назад часы не переводятся (`409 CLOCK_BACKWARD`). `{"time": null}` возвращает реальное время.
+- `scenario_id` дня — из `GET /api/v1/days/{date}?region_id=east`.
+- Запасной путь без часов бэка: `?clock=HH:MM` в адресе дня диспетчера.
+
+## Флаги правок бэка
+
+`FEATURES` в `src/config.ts` (FRONTEND_SPEC §5.4). Флаг включаем, только когда правка есть на стенде. Состояние на 28.09:
+
+| Флаг                      | Правка бэка                                      | Сейчас |
+| ------------------------- | ------------------------------------------------ | ------ |
+| `dayClock`                | §1 часы дня                                      | вкл    |
+| `failOther`               | 8.3 «Другое» + комментарий при прерывании        | вкл    |
+| `emergencyByRegion`       | 9.1 авария оператора по региону                  | вкл    |
+| `cancelComment`           | 9.3 «Другое» + комментарий при отмене оператором | вкл    |
+| `engineerIncident`        | 8.4 действие «Инцидент»                          | выкл   |
+| `unavailableBeforeShift`  | 8.5 «Не выйду сегодня» до начала смены           | выкл   |
+| `addEngineerAfterPublish` | §12 добавить инженера в начатый день             | выкл   |
+
+Расхождения спеки и API и обходы на фронте — `docs/API_NOTES.md`. Ошибки бэка, найденные фронтом, — `docs/BACKEND_REQUESTS_FROM_FRONT_28-09.md`.
+
+## Выкладка
+
+Фронт живёт на сервере бэка (`185.166.196.106`): отдельный server-блок nginx для `bee-dynasty.ru`, `/api/` проксируется в контейнер бэка (один origin, CORS не нужен). Сертификат Let's Encrypt.
 
 ```bash
-cp .env.example .env.local
+npm run deploy
 ```
 
-| Переменная                                                                      | Для чего                                                                |
-| ------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `VITE_API_URL`                                                                  | база API для фронта; по умолчанию `/api/v1` (в dev — через прокси Vite) |
-| `VITE_USE_MOCKS`                                                                | `true` — вход работает на моках MSW, без бэка                           |
-| `API_URL`, `DEMO_DISPATCHER`, `DEMO_OPERATOR`, `DEMO_ENGINEER`, `DEMO_PASSWORD` | только для `npm run snapshot`                                           |
+Скрипт `scripts/deploy.sh` собирает проект, заливает `dist/` в новый релиз `/var/www/bee-dynasty/releases/<время>-<коммит>`, переключает симлинк `current` (хранит 5 последних релизов) и проверяет, что страница отдаёт 200, а `/api/v1/auth/me` без токена — 401. Нужен ключ `~/.ssh/beeline_deploy`. Откат: `ln -sfn <предыдущий релиз> /var/www/bee-dynasty/current` на сервере. Конфиг nginx — `deploy/nginx/bee-dynasty.conf`.
 
-Пароль демо-учёток пишем **только** в `.env.local`: не в код, README, фикстуры, снимки и коммиты.
+## Локальный бэк
 
-## Скрипты
-
-| Команда             | Что делает                                                      |
-| ------------------- | --------------------------------------------------------------- |
-| `npm run dev`       | dev-сервер; `/api` проксируется на `https://api.bee-dynasty.ru` |
-| `npm run build`     | проверка типов + прод-сборка в `dist/`                          |
-| `npm run preview`   | раздаёт `dist/` локально (с тем же прокси `/api`)               |
-| `npm run check`     | `tsc --noEmit` (приложение и `vite.config.ts`) + `eslint .`     |
-| `npm test`          | тесты (vitest, jsdom)                                           |
-| `npm run format`    | prettier по всему проекту (спеки и макет не трогает)   |
-| `npm run gen:types` | типы API из живой схемы → `src/api/schema.d.ts`                 |
-| `npm run snapshot`  | снимок живых ответов API → `docs/api-examples/*.json`           |
-
-**`npm run snapshot` меняет данные стенда** — на тестовой дате «сегодня + 30 дней» (Восток): загружает демо-день, строит и публикует план, создаёт событие и сразу отклоняет его предложение. Сегодняшний демо-день не трогает. Нужен `.env.local` с `DEMO_PASSWORD`. Токены и пароли в файлы снимка не пишутся. Порядок шагов — `docs/spec/FRONTEND_SPEC.md` §12.
-
-## Моки
+Изменяющие сценарии (построить план, событие → предложение → принять, запись оператора, нажатия инженера) удобно проверять на локальной копии бэка со своей SQLite, не трогая общий стенд:
 
 ```bash
-VITE_USE_MOCKS=true npm run dev
+# в репозитории бэка: uvicorn на 127.0.0.1:8001, своя база и свой DEMO_PASSWORD
+DATABASE_URL=sqlite:///./local.db DEMO_PASSWORD=<свой> uvicorn app.main:app --port 8001
+# во фронте
+DEV_API_TARGET=http://127.0.0.1:8001 npm run dev
 ```
 
-MSW (`src/mocks/`) отвечает на `/auth/login`, `/auth/me`, `/auth/logout`; остальные запросы идут на бэк как обычно.
-Учётки моков: `dispatcher`, `operator`, `eng-east-01`, пароль `demo` — только для моков, к стенду отношения не имеет.
-Истёкшую сессию можно проверить так: в DevTools заменить `localStorage.auth_token` на любое значение и обновить страницу — откроется `/login`.
-
-## Прокси и прод
-
-- В dev (`npm run dev`) и `npm run preview` запросы `/api/*` проксирует Vite (`vite.config.ts`) — CORS не нужен.
-- В проде фронт — статика из `dist/`; адрес бэка — `VITE_API_URL=https://api.bee-dynasty.ru/api/v1` при сборке (нужен CORS на бэке) либо тот же прокси `/api` на веб-сервере.
-
-## Демо-учётки стенда
-
-Логины — `dispatcher`, `operator`, `eng-east-01`…`eng-east-12`, `eng-se-01`…, `eng-sc-01`… (см. гайд бэка `docs/spec/FRONTEND_AGENT_GUIDE.md`).
-Пароль в репозиторий не кладём — он в исходном гайде бэка, у команды.
+Демо-день на сегодня: `POST /api/v1/data/load-demo?region_id=east`; CSV кейса — через «Загрузить CSV».
 
 ## Структура
 
 ```
-.nvmrc  .env.example  index.html  vite.config.ts  eslint.config.js  tsconfig*.json
-public/mockServiceWorker.js   # воркер MSW (npx msw init)
-scripts/snapshot-api.mjs      # снимок живого API
-docs/
-  ARCHITECTURE.md             # слои, где что хранится, как добавить экран и ручку
-  API_NOTES.md                # расхождения спеки и API
-  api-examples/               # снимки ответов (npm run snapshot)
-  spec/                       # ТЗ и решения — не редактируем
 src/
-  main.tsx  config.ts  vite-env.d.ts
-  app/        # App, провайдеры, роутер, RequireRole, RoleHome, ErrorBoundary, лейауты
-  api/        # клиент, ошибки, react-query, ключи, типы (schema.d.ts), ручки
-  auth/       # токен, AuthProvider, useAuth, роли
-  adapters/   # модели для экранов из ответов API (с этапа 02)
-  features/   # экраны ролей: auth, dispatcher, operator, engineer
-  pages/      # заглушки экранов, 404, лоадер
-  hooks/      # useSearchState — типизированные query-параметры
-  lib/        # time, statuses, notify
-  mocks/      # MSW
+  app/        # App, провайдеры, роутер, RequireRole, лейауты, AppBar
+  api/        # клиент, ошибки, react-query, ключи, типы (schema.d.ts), модули ручек
+  auth/       # токен, AuthProvider, роли, профиль из токена
+  adapters/   # модели экранов из ответов API: день и цепочка версий, сравнение, предложение, лента, карта, …
+  features/   # экраны ролей: auth, dispatcher (calendar, day), operator, engineer
+  hooks/      # useSearchState — фильтры и панели в адресе
+  lib/        # статусы, словари, форматы, время, цвета, карта, тексты объяснений, тосты
+  ui/         # UI-кит на токенах дизайн-системы
   styles/     # tokens.css, globals.css
-  test/       # настройка vitest
+docs/         # ARCHITECTURE, API_NOTES, ошибки бэка, spec/ (ТЗ, макет, решения)
+design/       # согласованные макеты трёх ролей
+deploy/       # nginx
+scripts/      # deploy, snapshot, распаковка макетов
 ```
 
 ## Где спеки
 
-- `docs/spec/FRONTEND_SPEC.md` (v2.2) — главное ТЗ: поведение, ручки, адаптеры, часы дня.
-- `docs/spec/DESIGN_SPEC.md`, `docs/spec/UI_KIT_tokens.md` — компоненты, палитра, токены.
-- `design/` — согласованный макет диспетчера: `dispatcher-shots/*.png`, `Dispatcher_Flow.html`, индекс `design/README.md`.
-- `docs/spec/DECISIONS.md` (D-01…D-29), `docs/spec/FRONTEND_AGENT_GUIDE.md` (гайд бэка), `docs/spec/BACKEND_FIXES_27-09.md`.
-- `samples/csv/` — CSV кейса для ручной проверки импорта (в git не попадают).
+- `docs/spec/FRONTEND_SPEC.md` (v2.6) — главное ТЗ: поведение, ручки, адаптеры, часы дня, все три роли.
+- `docs/spec/DESIGN_SPEC.md`, `docs/spec/UI_KIT_tokens.md` — компоненты, палитра, токены; `design/` — макеты.
+- `docs/spec/DECISIONS.md`, `docs/spec/FRONTEND_AGENT_GUIDE.md` (гайд бэка), `docs/spec/BACKEND_FIXES_FINAL_28-09.md`.
