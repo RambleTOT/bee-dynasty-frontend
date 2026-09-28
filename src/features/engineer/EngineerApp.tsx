@@ -1,5 +1,5 @@
 import { useAuth } from '@/auth/useAuth';
-import { hasActiveVisit, pageState, plannedLeft } from '@/adapters/engineerDay';
+import { currentVisit, hasActiveVisit, pageState, plannedLeft } from '@/adapters/engineerDay';
 import { searchParam, useSearchState } from '@/hooks/useSearchState';
 import { Placeholder } from '@/pages/Placeholder';
 import { DayError, DaySkeleton, NoVisits, PlanNotPublished } from './DayStates';
@@ -7,6 +7,7 @@ import { DoneToast } from './DoneToast';
 import { EngineerHeader } from './EngineerHeader';
 import { EngineerMenu } from './EngineerMenu';
 import { EngineerPage } from './EngineerPage';
+import { InterruptSheet } from './InterruptSheet';
 import { useEngineerAction, useEngineerDay } from './useEngineerDay';
 import { MyVisits } from './VisitList';
 
@@ -31,11 +32,12 @@ type Sheet = NonNullable<ReturnType<typeof engineerSearch.sheet.parse>>;
 export default function EngineerApp() {
   const { user } = useAuth();
   const query = useEngineerDay();
-  const [, setSearch] = useSearchState(engineerSearch);
+  const [search, setSearch] = useSearchState(engineerSearch);
   const shiftEnd = useEngineerAction();
   const day = query.data;
 
   const openSheet = (sheet: Sheet) => setSearch({ sheet });
+  const closeSheet = () => setSearch({ sheet: null });
 
   // «Завершить смену» (§9.2): без запланированных — сразу, иначе — подтверждение
   const requestShiftEnd = () => {
@@ -71,6 +73,7 @@ export default function EngineerApp() {
 
   const state = pageState(day);
   const routeColor = day.engineer.routeColor;
+  const current = currentVisit(day);
 
   return (
     <EngineerPage header={header} routeColor={routeColor}>
@@ -89,6 +92,10 @@ export default function EngineerApp() {
       )}
       {state === 'finished' && <Placeholder id="E-10" title="Итоги смены" />}
       <DoneToast />
+
+      {search.sheet === 'interrupt' && state === 'shift' && current && (
+        <InterruptSheet visit={current} dayDate={day.date} onClose={closeSheet} />
+      )}
     </EngineerPage>
   );
 }
