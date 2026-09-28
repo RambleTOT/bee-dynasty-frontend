@@ -85,9 +85,13 @@ npm run dev          # http://localhost:5173, /api проксируется на
 | `cancelComment`           | 9.3 «Другое» + комментарий при отмене оператором | вкл    |
 | `engineerIncident`        | 8.4 действие «Инцидент»                          | вкл    |
 | `unavailableBeforeShift`  | 8.5 «Не выйду сегодня» до начала смены           | вкл    |
-| `addEngineerAfterPublish` | §12 добавить инженера в начатый день             | выкл   |
+| `addEngineerAfterPublish` | P1-6 бригада в начатый день (`engineer_added`)   | выкл\* |
+| `extendResourceCheck`     | P1-5 «кого не хватает» без сохранения            | выкл\* |
+| `comparePlanStrategy`     | P1-8 «Наш план» в сравнении (стратегия `plan`)   | выкл\* |
 
-Расхождения спеки и API и обходы на фронте — `docs/API_NOTES.md`. Чего не хватает фронту от бэка (что и в каком формате) — `docs/BACKEND_REQUESTS.md`.
+\* Правки есть в коде бэка (коммит `b0c6195`), но сервис ещё не перезапущен. После перезапуска: `VITE_FEATURES=addEngineerAfterPublish,extendResourceCheck,comparePlanStrategy` в `.env.local` и `npm run deploy`.
+
+Расхождения спеки и API и обходы на фронте — `docs/API_NOTES.md`. Что нужно от бэка (запросы, где не работает алгоритм, безопасность) — `docs/BACKEND_REQUESTS.md`.
 
 ## Выкладка
 
@@ -97,7 +101,21 @@ npm run dev          # http://localhost:5173, /api проксируется на
 npm run deploy
 ```
 
-Скрипт `scripts/deploy.sh` собирает проект, заливает `dist/` в новый релиз `/var/www/bee-dynasty/releases/<время>-<коммит>`, переключает симлинк `current` (хранит 5 последних релизов) и проверяет, что страница отдаёт 200, а `/api/v1/auth/me` без токена — 401. Нужен ключ `~/.ssh/beeline_deploy`. Откат: `ln -sfn <предыдущий релиз> /var/www/bee-dynasty/current` на сервере. Конфиг nginx — `deploy/nginx/bee-dynasty.conf`.
+Скрипт `scripts/deploy.sh` собирает проект, заливает `dist/` в новый релиз `/var/www/bee-dynasty/releases/<время>-<коммит>`, переключает симлинк `current` (хранит 5 последних релизов) и проверяет, что страница отдаёт 200, а `/api/v1/auth/me` без токена — 401. Нужен ключ `~/.ssh/beeline_deploy`. Откат: `ln -sfn <предыдущий релиз> /var/www/bee-dynasty/current` на сервере.
+
+Конфиг nginx — `deploy/nginx/bee-dynasty.conf` и `bee-dynasty-proxy.conf`, выкладка — `scripts/deploy-nginx.sh`: резервная копия, `nginx -t`, при ошибке — прежний конфиг.
+
+## Защита
+
+На стороне сайта (nginx):
+
+- лимиты запросов с одного IP: API — 20/с, изменения (POST/PATCH, запускают солвер) — 60/мин, вход — 10/мин; дальше `429`;
+- лимит соединений и таймауты от медленных клиентов;
+- `DELETE` через сайт закрыт;
+- CSP и заголовки безопасности (HSTS, `X-Frame-Options`, `nosniff`);
+- скрытые файлы — `404`.
+
+Что сделать на сервере и в бэке (SSH, `ALLOW_DESTRUCTIVE`, порт 8000, лимиты API, DDoS у провайдера) — `docs/SECURITY.md`, скрипт — `deploy/security/harden-server.sh`.
 
 ## Локальный бэк
 
