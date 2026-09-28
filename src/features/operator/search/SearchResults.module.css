@@ -1,0 +1,19 @@
+.hint {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--text-secondary);
+  font: var(--font-caption);
+}
+
+/* список прокручивается внутри карточки; отступ — чтобы кольцо фокуса не обрезалось */
+.list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  margin: -4px;
+  padding: 4px;
+  overflow-y: auto;
+}

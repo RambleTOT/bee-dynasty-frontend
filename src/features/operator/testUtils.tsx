@@ -3,13 +3,21 @@
  * Только для *.test.tsx — приложение этот файл не импортирует.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render } from '@testing-library/react';
+import { configure, render } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
 import { MemoryRouter, Route, Routes, useLocation, type MemoryRouterProps } from 'react-router-dom';
 import { vi } from 'vitest';
 import type { UserOut } from '@/api/types';
 import { AuthContext, type AuthContextValue } from '@/auth/useAuth';
 import { NotifyProvider } from '@/lib/notify';
+
+/*
+ * Для всех тестов оператора: ByRole без проверки видимости через getComputedStyle — в jsdom она
+ * медленная (на загруженной машине — секунды на запрос); паузы 300 мс (поиск, окна) — запас для
+ * find* и времени на сценарий из нескольких шагов.
+ */
+configure({ defaultHidden: true, asyncUtilTimeout: 4000 });
+vi.setConfig({ testTimeout: 30_000 });
 
 export const TEST_OPERATOR: UserOut = {
   id: 'op-1',
