@@ -25,6 +25,7 @@ pages / features  →  adapters  →  api (client, schema)  →  бэк
 
 - Ответ 401 на запрос с токеном → событие `auth:unauthorized` → AuthProvider сбрасывает токен и кэш и ведёт на `/login`.
 - Опрос: интервалы — `POLL` в `config.ts`; в фоновой вкладке опрос выключен (`refetchIntervalInBackground: false`).
+- Живые обновления (WebSocket, флаг `realtime`): `realtime/` — клиент сокета, таблица «событие → какие запросы обновить и какой тост показать», провайдер в корне роутера. Пока сокет открыт, опрос редкий (`usePollInterval`). Устройство — `docs/REALTIME.md`, контракт для бэка — `docs/BACKEND_REQUESTS.md` п. 38.
 - «Сейчас» — `nowFor(clock дня)` из `lib/time.ts`; часы дня во фронте не переводим.
 
 ## Роли и маршруты

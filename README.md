@@ -88,8 +88,9 @@ npm run dev          # http://localhost:5173, /api проксируется на
 | `addEngineerAfterPublish` | P1-6 бригада в начатый день (`engineer_added`)   | вкл    |
 | `extendResourceCheck`     | P1-5 «кого не хватает» без сохранения            | вкл    |
 | `comparePlanStrategy`     | P1-8 «Наш план» в сравнении (стратегия `plan`)   | вкл    |
+| `realtime`                | п. 38 живые обновления по WebSocket              | выкл   |
 
-Расхождения спеки и API и обходы на фронте — `docs/API_NOTES.md`. Что нужно от бэка (запросы, где не работает алгоритм, безопасность) — `docs/BACKEND_REQUESTS.md`.
+Живые обновления вместо опроса — `docs/REALTIME.md`. Расхождения спеки и API и обходы на фронте — `docs/API_NOTES.md`. Что нужно от бэка (запросы, где не работает алгоритм, безопасность) — `docs/BACKEND_REQUESTS.md`.
 
 ## Выкладка
 
