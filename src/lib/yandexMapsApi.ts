@@ -54,8 +54,19 @@ export const YANDEX_MAPS_KEY: string | null = import.meta.env.VITE_YANDEX_MAPS_K
 
 let loading: Promise<YMaps> | null = null;
 
+/**
+ * Яндекс не строит маршрут: ключ не активен, кончился суточный лимит, нет сети. До перезагрузки
+ * страницы встроенную карту Яндекса не показываем — остаётся карта OSM, лимит не тратим.
+ */
+let unavailable = false;
+export const yandexMapsUnavailable = () => unavailable;
+export function markYandexMapsUnavailable() {
+  unavailable = true;
+}
+
 export function loadYandexMaps(): Promise<YMaps> {
   if (!YANDEX_MAPS_KEY) return Promise.reject(new Error('Нет ключа Яндекс Карт'));
+  if (unavailable) return Promise.reject(new Error('Яндекс Карты недоступны'));
   if (loading) return loading;
   loading = new Promise<YMaps>((resolve, reject) => {
     const done = () => {
