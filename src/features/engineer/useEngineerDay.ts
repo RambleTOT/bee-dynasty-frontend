@@ -13,7 +13,7 @@ import type { EngineerAction, EngineerActionIn, EngineerMeDay } from '@/api/type
 import { POLL } from '@/config';
 import { notify } from '@/lib/notify';
 import type { RequestStatus } from '@/lib/statuses';
-import { doneToastText, showDoneToast } from './doneToast';
+import { doneToastText, showDoneToast } from './doneToastStore';
 
 export function useEngineerDay() {
   return useQuery({

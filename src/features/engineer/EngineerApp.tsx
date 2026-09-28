@@ -3,10 +3,12 @@ import { hasActiveVisit, pageState, plannedLeft } from '@/adapters/engineerDay';
 import { searchParam, useSearchState } from '@/hooks/useSearchState';
 import { Placeholder } from '@/pages/Placeholder';
 import { DayError, DaySkeleton, NoVisits, PlanNotPublished } from './DayStates';
+import { DoneToast } from './DoneToast';
 import { EngineerHeader } from './EngineerHeader';
 import { EngineerMenu } from './EngineerMenu';
 import { EngineerPage } from './EngineerPage';
 import { useEngineerAction, useEngineerDay } from './useEngineerDay';
+import { MyVisits } from './VisitList';
 
 /** Вид и открытая шторка — в адресе (§4): `view=list|map`, `sheet=…` (E-02, E-06, E-07, E-08). */
 const engineerSearch = {
@@ -76,9 +78,17 @@ export default function EngineerApp() {
       {state === 'empty' && <NoVisits />}
       {state === 'preview' && <Placeholder id="E-01" title="Превью до начала смены" />}
       {(state === 'shift' || state === 'unavailable') && (
-        <Placeholder id="E-03" title="Мои заявки" />
+        <MyVisits
+          day={day}
+          limited={state === 'unavailable'}
+          onInterrupt={() => openSheet('interrupt')}
+          onIncident={() => openSheet('incident')}
+          onShiftEnd={requestShiftEnd}
+          shiftEndPending={shiftEnd.isPending}
+        />
       )}
       {state === 'finished' && <Placeholder id="E-10" title="Итоги смены" />}
+      <DoneToast />
     </EngineerPage>
   );
 }

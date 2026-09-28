@@ -8,7 +8,7 @@ import { createQueryClient } from '@/api/queryClient';
 import { queryKeys } from '@/api/queryKeys';
 import type { EngineerMeDay, EngineerVisit } from '@/api/types';
 import { notify } from '@/lib/notify';
-import { hideDoneToast, useDoneToast } from './doneToast';
+import { hideDoneToast, useDoneToast } from './doneToastStore';
 import { useEngineerAction } from './useEngineerDay';
 
 vi.mock('@/api/engineer', () => ({
