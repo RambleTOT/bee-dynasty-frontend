@@ -20,6 +20,7 @@ export const T = {
   card: {
     none: 'Выберите заявку слева',
     engineerNone: 'не назначен',
+    region: 'Регион',
     dateWindow: 'Дата и окно',
     type: 'Тип',
     address: 'Адрес',

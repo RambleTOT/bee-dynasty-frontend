@@ -75,21 +75,57 @@ function byDateDesc(a: BookingItem, b: BookingItem): number {
   return a.id.localeCompare(b.id);
 }
 
-/** Ответ GET /booking/requests → строки поиска, новые сверху. */
+/**
+ * Заявка поиска — номер, регион и день: номера повторяются в разных днях и регионах (запись
+ * оператора BK-0001, демо-наборы), поэтому выбор и переходы — по всем трём.
+ */
+export interface BookingRef {
+  id: string;
+  regionId?: string | null;
+  date?: string | null;
+}
+
+/** Ключ строки поиска и выбора. */
+export const bookingKey = (item: BookingRef) =>
+  `${item.id}|${item.regionId ?? ''}|${item.date ?? ''}`;
+
+/**
+ * Ответ GET /booking/requests → строки поиска, новые сверху. Одна строка на заявку дня: бэк отдаёт
+ * и архивные копии того же дня (BACKEND_REQUESTS п. 27) — оставляем первую, из самого нового дня.
+ */
 export function normalizeSearch(
   raw: readonly BookingSearchItem[] | null | undefined,
 ): BookingItem[] {
   if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
   return raw
     .filter(isObject)
     .map(normalizeSearchItem)
-    .filter((item) => item.id !== '')
+    .filter((item) => {
+      const key = bookingKey(item);
+      if (item.id === '' || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
     .sort(byDateDesc);
 }
 
-/** Заявка с этим номером (точное совпадение) — поиск по номеру ищет по префиксу. */
-export function findExact(items: readonly BookingItem[] | undefined, id: string | null) {
-  return id ? items?.find((item) => item.id === id) : undefined;
+/**
+ * Заявка с этим номером (точное совпадение — поиск по номеру ищет по префиксу), а если известны
+ * регион и день — именно в этом дне.
+ */
+export function findExact(
+  items: readonly BookingItem[] | undefined,
+  id: string | null,
+  where: { regionId?: string | null; date?: string | null } = {},
+) {
+  if (!id) return undefined;
+  return items?.find(
+    (item) =>
+      item.id === id &&
+      (!where.regionId || item.regionId === where.regionId) &&
+      (!where.date || item.date === where.date),
+  );
 }
 
 // --- окна ---

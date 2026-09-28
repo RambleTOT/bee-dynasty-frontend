@@ -78,7 +78,9 @@ describe('O-02 поиск', () => {
       '№100001',
       '№100002',
     ]);
-    expect(within(rows[0]).getByText('29.09 · окно 18–20 · Подключение')).toBeInTheDocument();
+    expect(
+      within(rows[0]).getByText('Восток · 29.09 · окно 18–20 · Подключение'),
+    ).toBeInTheDocument();
     expect(within(rows[1]).getByText('Выполнена')).toBeInTheDocument();
     expect(location()).toBe('/operator?q=%D0%A2%D0%B5%D1%81%D1%82%D0%BE%D0%B2%D0%B0%D1%8F');
   });
@@ -108,6 +110,30 @@ describe('O-02 карточка и отмена', () => {
     fireEvent.click(await screen.findByRole('button', { name: /№100001/ }));
     return screen.getByRole('heading', { name: '№100001' });
   }
+
+  it('номер повторяется в разных днях — выделена и открыта только нажатая строка', async () => {
+    const twin: BookingSearchItem = {
+      ...planned,
+      region_id: 'south_center',
+      date: '2026-09-28',
+      window: '20:00-22:00',
+      address: 'Пырьева 16',
+    };
+    vi.mocked(searchRequests).mockResolvedValue([twin, planned]);
+    renderSearch();
+    fireEvent.change(searchBox(), { target: { value: '100001' } });
+    const rows = await screen.findAllByRole('button', { name: /№100001/ });
+    expect(rows).toHaveLength(2);
+    fireEvent.click(rows[1]);
+    expect(location()).toContain('request=100001&region=south_center&date=2026-09-28');
+    const pressed = screen
+      .getAllByRole('button', { name: /№100001/ })
+      .filter((row) => row.getAttribute('aria-pressed') === 'true');
+    expect(pressed).toHaveLength(1);
+    expect(within(pressed[0]).getByText('Пырьева 16')).toBeInTheDocument();
+    expect(screen.getByText('Югоцентр')).toBeInTheDocument();
+    expect(screen.getByText('Пн, 28.09 · 20:00–22:00')).toBeInTheDocument();
+  });
 
   it('клик по строке — карточка; полей ⏳ 9.2 нет — строк нет', async () => {
     await openCard();
@@ -190,7 +216,7 @@ describe('O-02 карточка и отмена', () => {
   it('«Перенести» — на O-02.1 этой заявки', async () => {
     await openCard();
     fireEvent.click(screen.getByRole('button', { name: 'Перенести' }));
-    expect(location()).toBe('/operator/reschedule/100001');
+    expect(location()).toBe('/operator/reschedule/100001?region=east&date=2026-09-29');
   });
 
   it('✕ очищает поиск и выбор', async () => {

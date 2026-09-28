@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BookingSearchItem, BookingSlotsResponse } from '@/api/types';
 import {
+  bookingKey,
   findExact,
   isSlotFree,
   normalizeOutcome,
@@ -108,6 +109,30 @@ describe('normalizeSearch', () => {
     expect(findExact(items, '305857695')?.id).toBe('305857695');
     expect(findExact(items, '30585')).toBeUndefined();
     expect(findExact(items, null)).toBeUndefined();
+  });
+
+  it('findExact и bookingKey — номер повторяется в разных днях и регионах', () => {
+    const items = normalizeSearch([
+      { ...bare, request_id: 'BK-0001', region_id: 'south_east', date: '2026-09-28' },
+      { ...bare, request_id: 'BK-0001', region_id: 'south_center', date: '2026-09-29' },
+    ]);
+    const where = { regionId: 'south_center', date: '2026-09-29' };
+    expect(findExact(items, 'BK-0001', where)?.regionId).toBe('south_center');
+    expect(findExact(items, 'BK-0001', { regionId: 'east' })).toBeUndefined();
+    expect(new Set(items.map(bookingKey)).size).toBe(2);
+    expect(bookingKey({ id: 'BK-0001', ...where })).toBe('BK-0001|south_center|2026-09-29');
+  });
+
+  it('архивная копия того же дня — одна строка, первая из ответа (самый новый день)', () => {
+    const items = normalizeSearch([
+      { ...bare, request_id: '10211', status: 'done' },
+      { ...bare, request_id: '10211', status: 'planned' },
+      { ...bare, request_id: '10211', date: '2026-09-28', status: 'planned' },
+    ]);
+    expect(items.map((item) => [item.date, item.status])).toEqual([
+      ['2026-09-29', 'done'],
+      ['2026-09-28', 'planned'],
+    ]);
   });
 });
 

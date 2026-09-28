@@ -85,6 +85,16 @@ describe('O-02.1 перенос', () => {
     );
   });
 
+  it('номер повторяется в разных днях — берём день из адреса; регион — в сводке', async () => {
+    vi.mocked(searchRequests).mockResolvedValue([
+      { ...row, region_id: 'south_center', date: '2026-09-29', window: '14:00-16:00' },
+      row,
+    ]);
+    renderReschedule('/operator/reschedule/100001?region=east&date=2026-09-30');
+    expect(await screen.findByText('Сейчас: 30.09, 18–20')).toBeInTheDocument();
+    expect(screen.getByText('Восток')).toBeInTheDocument();
+  });
+
   it('заявки с таким номером нет — в поиск с этим номером', async () => {
     vi.mocked(searchRequests).mockResolvedValue([{ ...row, request_id: '1000011' }]);
     renderReschedule('/operator/reschedule/100001');
@@ -110,7 +120,7 @@ describe('O-02.1 перенос', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Назад' }));
     expect(location()).toBe(
-      '/operator?q=%D0%A2%D0%B5%D1%81%D1%82%D0%BE%D0%B2%D0%B0%D1%8F&request=100001',
+      '/operator?q=%D0%A2%D0%B5%D1%81%D1%82%D0%BE%D0%B2%D0%B0%D1%8F&request=100001&region=east&date=2026-09-20',
     );
   });
 
@@ -128,7 +138,8 @@ describe('O-02.1 перенос', () => {
       { new_date: '2026-09-30', new_window: '14:00-16:00' },
       { regionId: 'east', date: '2026-09-30' },
     );
-    expect(location()).toBe('/operator?request=100001');
+    // в поиск — к перенесённой заявке: её день теперь новый
+    expect(location()).toBe('/operator?request=100001&region=east&date=2026-09-30');
   });
 
   it('новый номер после переноса (⏳ 9.4) — поиск по новому номеру', async () => {
@@ -145,7 +156,7 @@ describe('O-02.1 перенос', () => {
     expect(
       await screen.findByText('Заявка №100001 перенесена на 01.10, 10–12'),
     ).toBeInTheDocument();
-    expect(location()).toBe('/operator?request=100777');
+    expect(location()).toBe('/operator?request=100777&region=east&date=2026-10-01');
   });
 
   it('SLOT_TAKEN — плашка, выбор снят', async () => {
@@ -170,6 +181,6 @@ describe('O-02.1 перенос', () => {
     fireEvent.click(await screen.findByRole('button', { name: /14–16/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Перенести на 14:00–16:00' }));
     expect(await screen.findByText('Заявка уже выполнена — перенести нельзя')).toBeInTheDocument();
-    expect(location()).toBe('/operator?request=100001');
+    expect(location()).toBe('/operator?request=100001&region=east&date=2026-09-30');
   });
 });

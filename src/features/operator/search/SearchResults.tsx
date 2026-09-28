@@ -1,5 +1,5 @@
 import { SearchX, TextSearch } from 'lucide-react';
-import type { BookingItem } from '@/adapters/booking';
+import { bookingKey, type BookingItem } from '@/adapters/booking';
 import { EmptyState, ErrorState, Skeleton } from '@/ui';
 import { T } from '../operatorTexts';
 import { ResultRow } from './ResultRow';
@@ -14,15 +14,16 @@ export const SEARCH_LIMIT = 20;
 export function SearchResults({
   state,
   items,
-  selectedId,
+  selectedKey,
   onSelect,
   onRetry,
   retrying,
 }: {
   state: SearchState;
   items: readonly BookingItem[];
-  selectedId: string | null;
-  onSelect: (id: string) => void;
+  /** `bookingKey` выбранной: номер, регион и день — номера в разных днях совпадают. */
+  selectedKey: string | null;
+  onSelect: (item: BookingItem) => void;
   onRetry: () => void;
   retrying: boolean;
 }) {
@@ -53,9 +54,9 @@ export function SearchResults({
       <div className={styles.list}>
         {items.map((item) => (
           <ResultRow
-            key={item.id}
+            key={bookingKey(item)}
             item={item}
-            selected={item.id === selectedId}
+            selected={bookingKey(item) === selectedKey}
             onSelect={onSelect}
           />
         ))}

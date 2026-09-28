@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, CalendarClock } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
+  bookingKey,
   findExact,
   isSlotFree,
   normalizeOutcome,
@@ -23,6 +24,7 @@ import {
   windowShort,
 } from '@/lib/booking';
 import { notify } from '@/lib/notify';
+import { isRegionId, REGION_LABEL } from '@/lib/statuses';
 import { todayMsk } from '@/lib/time';
 import { PageLoader } from '@/pages/PageLoader';
 import { Button, ErrorState, type InfoItem } from '@/ui';
@@ -42,13 +44,16 @@ function defaultDate(requestDate: string, days: readonly string[]): string {
 
 /**
  * O-02.1 «Перенос» (FRONTEND_SPEC §8.3.10): раскладка O-01.2 для существующей заявки. Заявка —
- * из поиска (state перехода); прямой заход — ищем по номеру, нет точного совпадения — в поиск.
+ * из поиска (state перехода); прямой заход — ищем по номеру в дне из адреса (`region`, `date`:
+ * номера повторяются в разных днях), нет точного совпадения — в поиск.
  */
 export default function ReschedulePage() {
   const { id = '' } = useParams();
+  const [params] = useSearchParams();
+  const where = { regionId: params.get('region'), date: params.get('date') };
   const location = useLocation();
   const state = location.state as RescheduleState | null;
-  const passed = state?.item?.id === id ? state.item : undefined;
+  const passed = findExact(state?.item ? [state.item] : undefined, id, where);
 
   const lookup = useQuery({
     queryKey: queryKeys.bookingSearch(id),
@@ -57,9 +62,9 @@ export default function ReschedulePage() {
     staleTime: 10_000,
     select: normalizeSearch,
   });
-  const item = passed ?? findExact(lookup.data, id);
+  const item = passed ?? findExact(lookup.data, id, where);
 
-  if (item) return <RescheduleStep key={item.id} item={item} q={state?.q} />;
+  if (item) return <RescheduleStep key={bookingKey(item)} item={item} q={state?.q} />;
   if (lookup.isError) {
     return (
       <div className={styles.center}>
@@ -105,7 +110,7 @@ function RescheduleStep({ item, q }: { item: BookingItem; q?: string }) {
     if (selected && model && !isSlotFree(model.slots, selected)) setSelected(null);
   }, [model, selected]);
 
-  const back = searchUrl(item.id, q);
+  const back = searchUrl(item, q);
 
   const reschedule = useMutation({
     mutationFn: (body: BookingRescheduleIn) =>
@@ -113,9 +118,10 @@ function RescheduleStep({ item, q }: { item: BookingItem; q?: string }) {
     onSuccess: (result, body) => {
       const outcome = normalizeOutcome(result);
       invalidateBooking(queryClient);
-      // номер мог смениться (⏳ 9.4) — тогда в поиске ищем уже по новому номеру
+      // номер мог смениться (⏳ 9.4) — тогда в поиске ищем уже по новому номеру; день — новый
       const nextId = outcome.requestId ?? item.id;
-      navigate(searchUrl(nextId, nextId === item.id ? q : undefined), { replace: true });
+      const moved = { id: nextId, regionId: item.regionId, date: outcome.date ?? body.new_date };
+      navigate(searchUrl(moved, nextId === item.id ? q : undefined), { replace: true });
       notify(
         outcome.message ??
           T.resch.ok(
@@ -151,6 +157,7 @@ function RescheduleStep({ item, q }: { item: BookingItem; q?: string }) {
 
   const type = typeFull(item.typeBk, item.typeHd);
   const rows: (InfoItem | false)[] = [
+    isRegionId(item.regionId) && { label: T.card.region, value: REGION_LABEL[item.regionId] },
     {
       label: T.resch.current,
       value: `${dateWithWeekday(item.date)} · ${windowFull(item.window)}`,

@@ -1,12 +1,18 @@
 import type { BookingItem } from '@/adapters/booking';
 import { dateShort, typeShort, windowShort } from '@/lib/booking';
+import { isRegionId, REGION_LABEL } from '@/lib/statuses';
 import { cx, StatusChip } from '@/ui';
 import { T } from '../operatorTexts';
 import styles from './ResultRow.module.css';
 
-/** «29.09 · окно 18–20 · Подключение». */
+/** «Юго-восток · 29.09 · окно 18–20 · Подключение»: номера в разных регионах и днях совпадают. */
 function metaOf(item: BookingItem): string {
-  return [dateShort(item.date), T.search.window(windowShort(item.window)), typeShort(item.typeBk)]
+  return [
+    isRegionId(item.regionId) ? REGION_LABEL[item.regionId] : null,
+    dateShort(item.date),
+    T.search.window(windowShort(item.window)),
+    typeShort(item.typeBk),
+  ]
     .filter(Boolean)
     .join(' · ');
 }
@@ -19,14 +25,14 @@ export function ResultRow({
 }: {
   item: BookingItem;
   selected: boolean;
-  onSelect: (id: string) => void;
+  onSelect: (item: BookingItem) => void;
 }) {
   return (
     <button
       type="button"
       className={cx(styles.row, selected && styles.selected)}
       aria-pressed={selected}
-      onClick={() => onSelect(item.id)}
+      onClick={() => onSelect(item)}
     >
       <span className={styles.top}>
         <span className={styles.id}>№{item.id}</span>

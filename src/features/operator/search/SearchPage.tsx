@@ -2,7 +2,7 @@ import { keepPreviousData, queryOptions, useQuery } from '@tanstack/react-query'
 import { MousePointerClick, Search, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { findExact, normalizeSearch } from '@/adapters/booking';
+import { bookingKey, findExact, normalizeSearch } from '@/adapters/booking';
 import { searchRequests } from '@/api/booking';
 import { queryKeys } from '@/api/queryKeys';
 import { searchParam, useSearchState } from '@/hooks/useSearchState';
@@ -18,9 +18,12 @@ import styles from './SearchPage.module.css';
 const MIN_QUERY = 3;
 const SEARCH_STALE_MS = 10_000;
 
+/** `request` — номер, `region` и `date` — день заявки: номера повторяются в разных днях и регионах. */
 const searchSchema = {
   q: searchParam.string(''),
   request: searchParam.string(),
+  region: searchParam.string(),
+  date: searchParam.string(),
   cancel: searchParam.enum(['1']),
 };
 
@@ -57,7 +60,10 @@ export default function SearchPage() {
   // Карточка — заявка из списка. Без строки поиска (вернулись из переноса, ссылка) — ищем по номеру.
   const requestId = search.request;
   const lookup = useQuery({ ...searchQuery(requestId ?? ''), enabled: !active && !!requestId });
-  const selected = findExact(active ? results.data : lookup.data, requestId);
+  const selected = findExact(active ? results.data : lookup.data, requestId, {
+    regionId: search.region,
+    date: search.date,
+  });
 
   const state: SearchState = !active
     ? 'short'
@@ -69,7 +75,7 @@ export default function SearchPage() {
 
   function clear() {
     setText('');
-    setSearch({ q: '', request: null, cancel: null });
+    setSearch({ q: '', request: null, region: null, date: null, cancel: null });
   }
 
   let card;
@@ -80,7 +86,7 @@ export default function SearchPage() {
         cancelOpen={search.cancel === '1'}
         onReschedule={() => {
           const back: RescheduleState = { item: selected, q };
-          navigate(rescheduleUrl(selected.id), { state: back });
+          navigate(rescheduleUrl(selected), { state: back });
         }}
         onCancelOpen={() => setSearch({ cancel: '1' })}
         onCancelClose={() => setSearch({ cancel: null })}
@@ -134,8 +140,10 @@ export default function SearchPage() {
         <SearchResults
           state={state}
           items={results.data ?? []}
-          selectedId={requestId}
-          onSelect={(id) => setSearch({ request: id, cancel: null })}
+          selectedKey={selected ? bookingKey(selected) : null}
+          onSelect={(item) =>
+            setSearch({ request: item.id, region: item.regionId, date: item.date, cancel: null })
+          }
           onRetry={() => void results.refetch()}
           retrying={results.isFetching}
         />
