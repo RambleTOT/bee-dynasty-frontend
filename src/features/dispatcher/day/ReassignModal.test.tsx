@@ -138,10 +138,11 @@ describe('DS-08 «Ручное переназначение»', () => {
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Применить' }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
+    // позицию передаём явно — ту, что нашла проверка: без неё бэк вставит заявку в начало маршрута
     expect(reassign).toHaveBeenCalledWith('P1', {
       order_id: ORDER,
       to_engineer_id: 'e2',
-      position: null,
+      position: 0,
       force: false,
     });
     expect(applyPlan).toHaveBeenCalledWith('P2');
@@ -188,7 +189,7 @@ describe('DS-08 «Ручное переназначение»', () => {
     expect(reassign).toHaveBeenCalledWith('P1', {
       order_id: ORDER,
       to_engineer_id: 'e4',
-      position: null,
+      position: 0,
       force: true,
     });
   });

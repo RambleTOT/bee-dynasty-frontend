@@ -14,6 +14,7 @@ import {
   engineersDelta,
   freeAt,
   inferPosition,
+  minPosition,
   positionOptions,
   routeStops,
   type CheckSummary,
@@ -136,10 +137,16 @@ export function ReassignModal({
   const apply = (force: boolean) => {
     if (!planId || !selectedId) return;
     setApplyError(null);
+    // Позицию передаём всегда: без неё бэк вставляет заявку в начало маршрута, перед выполненными
+    // визитами (docs/BACKEND_REQUESTS.md, п. 24). Не выбрана — та, что нашла проверка, но не
+    // раньше последней выполненной / начатой точки.
+    const stops = stopsOf(selectedId);
+    const explicit =
+      position ?? positionOf(selectedId, selectedCheck?.summary ?? null) ?? minPosition(stops);
     actions.reassign.mutate(
       {
         planId,
-        body: { order_id: requestId, to_engineer_id: selectedId, position, force },
+        body: { order_id: requestId, to_engineer_id: selectedId, position: explicit, force },
         nextVersion: model.version + 1,
       },
       {
