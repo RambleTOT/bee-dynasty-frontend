@@ -16,6 +16,8 @@ export const queryKeys = {
     ['calendar', month, filters] as const,
   days: (date: string, region = 'all') => ['days', date, region] as const,
   scenario: (id: string) => ['scenario', id] as const,
+  /** Ростер дня (DS-09): под префиксом сценария — инвалидируется вместе с ним. */
+  scenarioEngineers: (id: string) => ['scenario', id, 'engineers'] as const,
   plan: (id: string) => ['plan', id] as const,
   planList: (scenarioId: string) => ['plan', 'list', scenarioId] as const,
   planRequest: (planId: string, requestId: string) =>
