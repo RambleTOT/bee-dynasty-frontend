@@ -7,6 +7,7 @@ import tseslint from 'typescript-eslint';
 
 export default defineConfig([
   globalIgnores([
+    '.*/', // скрытые папки: локальные рабочие копии и настройки редакторов
     'dist',
     'coverage',
     'design/_unpacked',
