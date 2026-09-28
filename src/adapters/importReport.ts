@@ -1,0 +1,225 @@
+/**
+ * DS-02 шаг 2 «Отчёт импорта»: ответ `POST /data/import-beeline` → карточка региона (FRONTEND_SPEC §8.2).
+ *
+ * `import_report` в схеме — объект без полей, поэтому читаем его безопасно: любое поле может
+ * отсутствовать. Бейдж: «Готово» — замечаний нет; «Есть замечания» — любое замечание (предупреждение,
+ * пропущенные строки, нет контрольного файла; таблица финального макета, п. 9); «Ошибка» — бэк
+ * отказал (`BAD_CSV`, `ROWS_MISMATCH`, `REGION_UNKNOWN`, `DATE_HAS_BOOKINGS`…), текст — из `ApiError`.
+ */
+import { errorMessage } from '@/api/errors';
+import type { ScenarioSummary } from '@/api/types';
+import {
+  countOf,
+  formatInt,
+  plural,
+  PL_BRIGADE,
+  PL_REGION,
+  PL_REQUEST,
+  PL_ROW,
+} from '@/lib/format';
+
+/** Иконка строки: загружено, офис, транспорт, реальный диспетчер, замечание, ошибка. */
+export type ImportLineKind = 'loaded' | 'office' | 'transport' | 'dispatcher' | 'warning' | 'error';
+export type ImportTone = 'success' | 'warning' | 'danger';
+export type ImportBadge = 'ready' | 'remarks' | 'error';
+
+export interface ImportLine {
+  kind: ImportLineKind;
+  tone: ImportTone;
+  text: string;
+}
+
+export interface ImportRegionReport {
+  regionId: string;
+  badge: ImportBadge;
+  lines: ImportLine[];
+  /** Для подвала «Всего …» и «Открыть день»; `null` — регион не загрузился. */
+  loaded: { requests: number; engineers: number } | null;
+}
+
+export const IMPORT_BADGE_LABEL: Record<ImportBadge, string> = {
+  ready: 'Готово',
+  remarks: 'Есть замечания',
+  error: 'Ошибка',
+};
+
+export const IMPORT_BADGE_TONE: Record<ImportBadge, ImportTone> = {
+  ready: 'success',
+  remarks: 'warning',
+  error: 'danger',
+};
+
+/** Правило D-06: автомобиль нужен работе с кабелем, гигабитному подключению и аварии. */
+const TRANSPORT_RULE = 'кабель, гигабит, авария';
+
+const NO_CONTROL_FILE =
+  'Контрольный файл не загружен: в колонке «Реальный диспетчер» будет «нет данных»';
+
+type Json = Record<string, unknown>;
+
+const asObject = (value: unknown): Json | null =>
+  value && typeof value === 'object' && !Array.isArray(value) ? (value as Json) : null;
+
+const asCount = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.round(value) : null;
+
+const asText = (value: unknown): string =>
+  typeof value === 'string' ? value.trim() : typeof value === 'number' ? String(value) : '';
+
+const firstOf = <T>(values: unknown[], read: (value: unknown) => T | null): T | null => {
+  for (const value of values) {
+    const result = read(value);
+    if (result !== null && result !== '') return result;
+  }
+  return null;
+};
+
+interface SkippedRow {
+  row: number | null;
+  reason: string;
+}
+
+/** `rows_skipped` — список объектов (номер строки и причина); на всякий случай — числа и строки. */
+function skippedRows(value: unknown): SkippedRow[] {
+  if (!Array.isArray(value)) {
+    const count = asCount(value) ?? 0;
+    return Array.from({ length: count }, () => ({ row: null, reason: '' }));
+  }
+  return value.map((item) => {
+    if (typeof item === 'number') return { row: asCount(item), reason: '' };
+    const object = asObject(item);
+    if (!object) return { row: null, reason: asText(item) };
+    return {
+      row: firstOf([object.row, object.line, object.row_number, object.index], asCount),
+      reason: firstOf([object.reason, object.error, object.message, object.detail], asText) ?? '',
+    };
+  });
+}
+
+/** «2 строки пропущены: нет адреса (строки 14, 57)». */
+function skippedText(rows: SkippedRow[]): string {
+  const head = `${countOf(rows.length, PL_ROW)} ${plural(rows.length, ['пропущена', 'пропущены', 'пропущены'])}`;
+  const byReason = new Map<string, number[]>();
+  for (const { row, reason } of rows) {
+    const list = byReason.get(reason) ?? [];
+    if (row !== null) list.push(row);
+    byReason.set(reason, list);
+  }
+  const details = [...byReason]
+    .map(([reason, numbers]) => {
+      const where = numbers.length
+        ? `${numbers.length === 1 ? 'строка' : 'строки'} ${numbers.join(', ')}`
+        : '';
+      if (!reason) return where;
+      return where ? `${reason} (${where})` : reason;
+    })
+    .filter(Boolean);
+  return details.length ? `${head}: ${details.join('; ')}` : head;
+}
+
+/** Бэк пишет «N заявок без бригады в контрольном файле» и без контрольного файла — тогда не дублируем. */
+const isControlFileWarning = (text: string) =>
+  /без\s+бригад/iu.test(text) && /контрольн/iu.test(text);
+
+const mentionsGeocoding = (text: string) => /координат|геокод/iu.test(text);
+
+/** Отчёт региона, который загрузился. `hadControl` — был ли выбран контрольный файл. */
+export function importReportFromSummary(
+  regionId: string,
+  summary: ScenarioSummary,
+  hadControl: boolean,
+): ImportRegionReport {
+  const report = asObject(summary.import_report) ?? {};
+  const skipped = skippedRows(report.rows_skipped);
+  const loadedRows = asCount(report.rows_loaded) ?? asCount(summary.request_count) ?? 0;
+  const totalRows = asCount(report.rows_total) ?? loadedRows + skipped.length;
+
+  const lines: ImportLine[] = [
+    {
+      kind: 'loaded',
+      tone: loadedRows > 0 ? 'success' : 'warning',
+      text: `Загружено ${formatInt(loadedRows)} из ${formatInt(totalRows)} ${plural(totalRows, ['заявки', 'заявок', 'заявок'])}`,
+    },
+  ];
+
+  const office = asText(asObject(report.office)?.address);
+  if (office) lines.push({ kind: 'office', tone: 'success', text: `Офис: ${office}` });
+
+  const transport = asObject(report.required_transport);
+  if (transport) {
+    const car = asCount(transport.car) ?? 0;
+    const byRule =
+      (asCount(transport.car_by_rule) ?? 0) > 0 || /rule/i.test(asText(transport.source));
+    lines.push({
+      kind: 'transport',
+      tone: 'success',
+      text: `Автомобиль нужен ${formatInt(car)} ${plural(car, ['заявке', 'заявкам', 'заявкам'])}${byRule ? ` (заполнено правилом: ${TRANSPORT_RULE})` : ''}`,
+    });
+  }
+
+  const assigned = asCount(report.dispatcher_assignments_loaded);
+  if (hadControl && assigned !== null) {
+    lines.push({
+      kind: 'dispatcher',
+      tone: 'success',
+      text: `Назначений реального диспетчера: ${formatInt(assigned)} из ${formatInt(loadedRows)}`,
+    });
+  }
+
+  const warnings = [
+    ...new Set(
+      (Array.isArray(report.warnings) ? report.warnings : [])
+        .map(asText)
+        .filter((text) => text && (hadControl || !isControlFileWarning(text))),
+    ),
+  ];
+  const remarks = warnings.map((text): ImportLine => ({ kind: 'warning', tone: 'warning', text }));
+
+  // Адреса без координат бэк ставит у офиса — если об этом нет своего предупреждения, скажем сами.
+  const fallback = report.geocode_fallback;
+  const unplaced = Array.isArray(fallback) ? fallback.length : (asCount(fallback) ?? 0);
+  if (unplaced > 0 && !warnings.some(mentionsGeocoding)) {
+    remarks.push({
+      kind: 'warning',
+      tone: 'warning',
+      text: `${formatInt(unplaced)} ${plural(unplaced, ['адрес', 'адреса', 'адресов'])} без координат: точки поставлены у офиса`,
+    });
+  }
+  if (skipped.length)
+    remarks.push({ kind: 'warning', tone: 'warning', text: skippedText(skipped) });
+  if (!hadControl) remarks.push({ kind: 'warning', tone: 'warning', text: NO_CONTROL_FILE });
+
+  return {
+    regionId,
+    badge: remarks.length || loadedRows === 0 ? 'remarks' : 'ready',
+    lines: [...lines, ...remarks],
+    loaded: {
+      requests: asCount(summary.request_count) ?? loadedRows,
+      engineers: asCount(summary.engineer_count) ?? 0,
+    },
+  };
+}
+
+/** Регион не загрузился: та же карточка, красный бейдж «Ошибка» и текст ошибки бэка. */
+export function importReportFromError(regionId: string, error: unknown): ImportRegionReport {
+  return {
+    regionId,
+    badge: 'error',
+    lines: [{ kind: 'error', tone: 'danger', text: errorMessage(error) }],
+    loaded: null,
+  };
+}
+
+/** Подвал: «Всего 147 заявок · 2 региона · 24 бригады»; ни один регион не загрузился — `null`. */
+export function importTotals(reports: readonly ImportRegionReport[]): string | null {
+  const loaded = reports.flatMap((report) => (report.loaded ? [report.loaded] : []));
+  if (loaded.length === 0) return null;
+  const requests = loaded.reduce((sum, item) => sum + item.requests, 0);
+  const engineers = loaded.reduce((sum, item) => sum + item.engineers, 0);
+  return `Всего ${countOf(requests, PL_REQUEST)} · ${countOf(loaded.length, PL_REGION)} · ${countOf(engineers, PL_BRIGADE)}`;
+}
+
+/** Регион для «Открыть день» — первый успешно загруженный. */
+export function firstLoadedRegion(reports: readonly ImportRegionReport[]): string | null {
+  return reports.find((report) => report.loaded)?.regionId ?? null;
+}
