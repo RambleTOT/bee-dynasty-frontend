@@ -1,11 +1,10 @@
 import { Play } from 'lucide-react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   currentVisit,
-  hasActiveVisit,
   latestBanner,
   pageState,
-  plannedLeft,
   type EngineerBannerModel,
 } from '@/adapters/engineerDay';
 import { useAuth } from '@/auth/useAuth';
@@ -21,9 +20,9 @@ import { InterruptSheet } from './InterruptSheet';
 import { visitPath } from './paths';
 import { PlanChangedBanner, UnavailableBanner } from './PlanChangedBanner';
 import { PreviewScreen } from './PreviewScreen';
-import { isSeen, markSeen, useSeenVersion } from './seen';
+import { forgetStaleChanged, isSeen, markSeen, useSeenVersion } from './seen';
 import { TransportSheet } from './TransportSheet';
-import { useEngineerAction, useEngineerDay } from './useEngineerDay';
+import { useEngineerDay, useShiftEnd } from './useEngineerDay';
 import { MyVisits } from './VisitList';
 
 /** Вид и открытая шторка — в адресе (§4): `view=list|map`, `sheet=…` (E-02, E-06, E-07, E-08). */
@@ -58,20 +57,19 @@ export default function EngineerApp() {
   const { user } = useAuth();
   const query = useEngineerDay();
   const [search, setSearch] = useSearchState(engineerSearch);
-  const shiftEnd = useEngineerAction();
   const navigate = useNavigate();
   useSeenVersion();
   const day = query.data;
 
   const openSheet = (sheet: Sheet) => setSearch({ sheet });
   const closeSheet = () => setSearch({ sheet: null });
+  const shiftEnd = useShiftEnd(day, () => openSheet('shift_end'));
 
-  // «Завершить смену» (§9.2): без запланированных — сразу, иначе — подтверждение
-  const requestShiftEnd = () => {
-    if (!day || hasActiveVisit(day) || shiftEnd.isPending) return;
-    if (plannedLeft(day) === 0) shiftEnd.mutate({ action: 'shift_end' });
-    else openSheet('shift_end');
-  };
+  // флаг «Изменено» пропал из плана — забываем отметку «карточку открывали»
+  const visits = day?.visits;
+  useEffect(() => {
+    if (visits) forgetStaleChanged(visits);
+  }, [visits]);
 
   const header = (
     <EngineerHeader
@@ -80,7 +78,7 @@ export default function EngineerApp() {
         <EngineerMenu
           day={day}
           onUnavailable={() => openSheet('unavailable')}
-          onShiftEnd={requestShiftEnd}
+          onShiftEnd={shiftEnd.request}
         />
       }
     />
@@ -145,8 +143,8 @@ export default function EngineerApp() {
           limited={state === 'unavailable'}
           onInterrupt={() => openSheet('interrupt')}
           onIncident={() => openSheet('incident')}
-          onShiftEnd={requestShiftEnd}
-          shiftEndPending={shiftEnd.isPending}
+          onShiftEnd={shiftEnd.request}
+          shiftEndPending={shiftEnd.pending}
         />
       )}
       {state === 'finished' && <Placeholder id="E-10" title="Итоги смены" />}

@@ -4,7 +4,14 @@
  * ошибка — откат и тост с сообщением бэка.
  */
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { currentVisit, toEngineerDay, withVisitStatus } from '@/adapters/engineerDay';
+import {
+  currentVisit,
+  hasActiveVisit,
+  plannedLeft,
+  toEngineerDay,
+  withVisitStatus,
+  type EngineerDayModel,
+} from '@/adapters/engineerDay';
 import { toEngineerRoute } from '@/adapters/engineerRoute';
 import { getMyDay, getMyRoute, postAction } from '@/api/engineer';
 import { errorMessage, isApiError } from '@/api/errors';
@@ -112,3 +119,17 @@ export function useEngineerAction() {
 
 /** Идёт действие инженера — кнопки статуса неактивны (двойное нажатие исключено). */
 export const useActionPending = () => useIsMutating({ mutationKey: ACTION_KEY }) > 0;
+
+/**
+ * «Завершить смену» (§9.2, D-31): запланированных нет — сразу `shift_end`, иначе — подтверждение
+ * «Осталось N заявок». Пока заявка в пути или в работе — нельзя (бэк вернёт 409).
+ */
+export function useShiftEnd(day: EngineerDayModel | undefined, confirm: () => void) {
+  const action = useEngineerAction();
+  const request = () => {
+    if (!day || hasActiveVisit(day) || action.isPending) return;
+    if (plannedLeft(day) === 0) action.mutate({ action: 'shift_end' });
+    else confirm();
+  };
+  return { request, pending: action.isPending };
+}
