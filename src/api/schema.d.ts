@@ -3249,7 +3249,7 @@ export interface components {
             request_id: string;
             /**
              * Reason Code
-             * @description Машинный код причины. Возможные значения: `NO_SKILL` (нет инженера с нужным навыком), `NO_SKILL_LEVEL` (недостаточный уровень квалификации), `NO_COMPATIBLE_RESOURCE` (нет нужного транспорта/оборудования), `NO_DIRECT_FEASIBLE_SLOT` (не помещается в окно и смену), `NOT_PLANNED_IN_SEARCH_BUDGET` (не вошла в план при заданном бюджете поиска).
+             * @description Машинный код причины. Возможные значения: `NO_SKILL` (нет инженера с нужным навыком), `NO_SKILL_LEVEL` (недостаточный уровень квалификации), `NO_TRANSPORT` (нет нужного транспорта), `NO_EQUIPMENT` (нет оборудования), `NO_DIRECT_FEASIBLE_SLOT` (не помещается в окно и смену), `NO_CAPACITY` (подходящие инженеры заняты), `DISPATCHER_NOT_ASSIGNED` (нет назначения в плане диспетчера).
              * @example NO_SKILL
              */
             reason_code: string;
