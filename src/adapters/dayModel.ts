@@ -320,6 +320,14 @@ export function buildDayModel({
   });
   const requestById = new Map(dayRequests.map((r) => [r.id, r]));
 
+  // CSV-импорт пишет в dispatcher_engineer_id имя бригады, а не id (бэк 28.09) — сопоставляем по имени
+  const idByName = new Map(engineers.map((e) => [(e.name ?? '').trim().toLowerCase(), e.id]));
+  const knownIds = new Set(engineers.map((e) => e.id));
+  for (const request of dayRequests) {
+    const raw = request.dispatcherEngineerId;
+    if (raw && !knownIds.has(raw)) request.dispatcherEngineerId = idByName.get(raw.trim().toLowerCase()) ?? raw;
+  }
+
   const unassigned: DayUnassigned[] = (plan?.unassigned ?? []).map((item) => ({
     requestId: item.request_id,
     reasonCode: item.reason_code,

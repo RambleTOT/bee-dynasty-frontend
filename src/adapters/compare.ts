@@ -103,7 +103,11 @@ export function buildCompare({ model, plan, compare, baseline }: CompareInput): 
   const total = plan?.summary.total_requests ?? model.requests.length;
 
   let dispatcherMissing: string | null = null;
-  if (compare && !disp) {
+  // колонка есть, но бэк не сопоставил ни одного назначения (0 бригад и 0% охвата) — данных нет
+  const dispBroken = Boolean(disp) && disp!.engineers_used === 0 && disp!.coverage_pct === 0;
+  if (dispBroken) {
+    dispatcherMissing = 'нет данных: назначения не сопоставлены с бригадами';
+  } else if (compare && !disp) {
     dispatcherMissing = model.synthetic ? 'нет данных: синтетический набор' : 'нет данных: только для CSV-дня';
   } else if (!compare && model.synthetic) {
     dispatcherMissing = 'нет данных: синтетический набор';

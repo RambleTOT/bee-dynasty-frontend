@@ -84,6 +84,19 @@ describe('buildDayModel', () => {
     expect(model.office?.point).toEqual([55.72, 37.82]);
   });
 
+  it('dispatcher_engineer_id с именем бригады сопоставляется с id', () => {
+    const m = buildDayModel({
+      date: '2026-09-28',
+      region: makeRegion(),
+      scenario: makeScenario({
+        engineers: [makeEngineer({ id: 'E01', name: 'Бригада Горбанев' })],
+        requests: [makeRequest({ id: 'R1', dispatcher_engineer_id: 'Бригада Горбанев' })],
+      }),
+      plan: null,
+    });
+    expect(m.requestById.get('R1')?.dispatcherEngineerId).toBe('E01');
+  });
+
   it('фильтр «Тип заявки» по BK', () => {
     expect(model.typeOptions.map((o) => o.value)).toEqual(['Подключение', 'Локальная заявка', 'Глобальная проблема']);
     const connection = model.requestById.get('305838184')!;

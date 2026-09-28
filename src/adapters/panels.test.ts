@@ -204,6 +204,23 @@ describe('compare', () => {
     expect(cmp.note).toMatch(/^Нажмите «Построить план»/);
   });
 
+  it('диспетчер не сопоставлен (0 бригад, 0% охвата) — «нет данных»', () => {
+    const cmp = buildCompare({
+      model,
+      plan,
+      compare: {
+        columns: {
+          fifo: compare.columns!.fifo,
+          dispatcher: { engineers_used: 0, km_total: 0, coverage_pct: 0, unassigned_urgent: 0, violations: 0, km_is_estimate: true },
+        },
+        km_by_engineer: {},
+        notes: [],
+      },
+      baseline: null,
+    });
+    expect(cmp.rows[1].dispatcher).toEqual({ value: 'нет данных', note: 'назначения не сопоставлены с бригадами' });
+  });
+
   it('inWindow и lateCount', () => {
     const routes = [makeRoute('e1', [makePoint({ request_id: 'a', sequence: 1, start: '12:30', window_start: '10:00', window_end: '12:00' }), makePoint({ request_id: 'b', sequence: 2, start: '13:00', window_start: '12:00', window_end: '14:00', flags: ['late'] })])];
     expect(inWindow(routes)).toEqual({ n: 1, m: 2 });

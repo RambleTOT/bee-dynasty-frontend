@@ -142,7 +142,8 @@ export function importReportFromSummary(
     },
   ];
 
-  const office = asText(asObject(report.office)?.address);
+  // бэк оставляет в адресе хвост пустых колонок CSV: «…д 1с1;;;;;;»
+  const office = asText(asObject(report.office)?.address)?.replace(/[\s;,]+$/, '');
   if (office) lines.push({ kind: 'office', tone: 'success', text: `Офис: ${office}` });
 
   const transport = asObject(report.required_transport);
