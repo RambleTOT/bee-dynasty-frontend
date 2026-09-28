@@ -94,7 +94,8 @@ export function requiredTransportByRule(
 function phoneDigits(raw: string): string {
   const digits = raw.replace(/\D/g, '');
   if (!digits) return '';
-  const withCountry = digits[0] === '7' ? digits : `7${digits[0] === '8' ? digits.slice(1) : digits}`;
+  const withCountry =
+    digits[0] === '7' ? digits : `7${digits[0] === '8' ? digits.slice(1) : digits}`;
   return withCountry.slice(0, 11);
 }
 

@@ -1,0 +1,86 @@
+import { useQuery } from '@tanstack/react-query';
+import { useCallback, useMemo, useState } from 'react';
+import { getRegions } from '@/api/data';
+import { queryKeys } from '@/api/queryKeys';
+import { useAuth } from '@/auth/useAuth';
+import { regionLabel } from '@/lib/dictionaries';
+import { REGIONS } from '@/lib/statuses';
+
+/** Последний выбранный регион — на время сессии вкладки (FRONTEND_SPEC §8.3.5). */
+export const REGION_STORAGE_KEY = 'operator_region';
+
+export interface OperatorRegion {
+  id: string;
+  name: string;
+}
+
+function readStored(): string | null {
+  try {
+    return window.sessionStorage.getItem(REGION_STORAGE_KEY);
+  } catch {
+    return null; // хранилище недоступно (приватный режим) — берём первый регион
+  }
+}
+
+function writeStored(id: string) {
+  try {
+    window.sessionStorage.setItem(REGION_STORAGE_KEY, id);
+  } catch {
+    // не запомнили — не страшно
+  }
+}
+
+/** Порядок сегментов: Восток · Юго-восток · Югоцентр, незнакомые — в конце. */
+const order = (id: string) => {
+  const index = (REGIONS as readonly string[]).indexOf(id);
+  return index === -1 ? REGIONS.length : index;
+};
+
+/**
+ * Регионы оператора: только из `user.region_ids`, названия — из GET /regions (пока ответа нет —
+ * по словарю). По умолчанию — последний выбранный, иначе первый.
+ */
+export function useOperatorRegion() {
+  const { user } = useAuth();
+  const regionsQuery = useQuery({
+    queryKey: queryKeys.regions,
+    queryFn: ({ signal }) => getRegions(signal),
+    staleTime: 5 * 60_000,
+  });
+
+  const allowed = user?.region_ids;
+  const regions = useMemo<OperatorRegion[]>(() => {
+    const fromApi = regionsQuery.data ?? [];
+    const names = new Map(fromApi.map((region) => [region.region_id, region.name]));
+    // region_ids не пришли — все регионы из справочника (как подпись в AppBar) [Д]
+    const ids = allowed?.length ? allowed : fromApi.map((region) => region.region_id);
+    return [...new Set(ids)]
+      .sort((a, b) => order(a) - order(b))
+      .map((id) => ({ id, name: names.get(id) || regionLabel(id) }));
+  }, [allowed, regionsQuery.data]);
+
+  const [stored, setStored] = useState(readStored);
+  const region = regions.find((item) => item.id === stored)?.id ?? regions[0]?.id ?? null;
+
+  const setRegion = useCallback((id: string) => {
+    setStored(id);
+    writeStored(id);
+  }, []);
+
+  const nameOf = useCallback(
+    (id: string | null) =>
+      id ? (regions.find((item) => item.id === id)?.name ?? regionLabel(id)) : '',
+    [regions],
+  );
+
+  return {
+    regions,
+    region,
+    setRegion,
+    nameOf,
+    /** Регионов ещё нет: ждём GET /regions. */
+    loading: regions.length === 0 && regionsQuery.isPending,
+    failed: regions.length === 0 && regionsQuery.isError,
+    retry: regionsQuery.refetch,
+  };
+}
