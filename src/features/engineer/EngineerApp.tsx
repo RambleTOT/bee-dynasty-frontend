@@ -10,6 +10,7 @@ import {
 } from '@/adapters/engineerDay';
 import { effectiveRoute } from '@/adapters/engineerRoute';
 import { useAuth } from '@/auth/useAuth';
+import { FEATURES } from '@/config';
 import { searchParam, useSearchState } from '@/hooks/useSearchState';
 import { Placeholder } from '@/pages/Placeholder';
 import { Button, SegmentedControl, type SegmentOption } from '@/ui';
@@ -18,6 +19,7 @@ import { DoneToast } from './DoneToast';
 import { EngineerHeader } from './EngineerHeader';
 import { EngineerMenu } from './EngineerMenu';
 import { EngineerPage } from './EngineerPage';
+import { IncidentSheet } from './IncidentSheet';
 import { InterruptSheet } from './InterruptSheet';
 import { MapScreen } from './MapScreen';
 import { visitPath } from './paths';
@@ -25,6 +27,7 @@ import { PlanChangedBanner, UnavailableBanner } from './PlanChangedBanner';
 import { PreviewScreen } from './PreviewScreen';
 import { forgetStaleChanged, isSeen, markSeen, useSeenVersion } from './seen';
 import { TransportSheet } from './TransportSheet';
+import { UnavailableSheet } from './UnavailableSheet';
 import { useEngineerDay, useEngineerRoute, useShiftEnd } from './useEngineerDay';
 import { MyVisits } from './VisitList';
 
@@ -133,18 +136,25 @@ export default function EngineerApp() {
     <UnavailableBanner availableUntil={day.engineer.availableUntil} />
   ) : null;
 
-  // E-01: действия внизу экрана
+  // E-01: действия внизу экрана; «Не выйду сегодня» — когда бэк примет unavailable до смены (⏳ 8.5)
   const footer =
     state === 'preview' ? (
-      <Button
-        variant="primary"
-        size="lg"
-        fullWidth
-        icon={Play}
-        onClick={() => openSheet('transport')}
-      >
-        Начать смену
-      </Button>
+      <>
+        <Button
+          variant="primary"
+          size="lg"
+          fullWidth
+          icon={Play}
+          onClick={() => openSheet('transport')}
+        >
+          Начать смену
+        </Button>
+        {FEATURES.unavailableBeforeShift && (
+          <Button variant="danger" size="lg" fullWidth onClick={() => openSheet('unavailable')}>
+            Не выйду сегодня
+          </Button>
+        )}
+      </>
     ) : null;
 
   const viewSwitch = withRoute && (
@@ -199,6 +209,13 @@ export default function EngineerApp() {
       {search.sheet === 'interrupt' && state === 'shift' && current && (
         <InterruptSheet visit={current} dayDate={day.date} onClose={closeSheet} />
       )}
+      {search.sheet === 'incident' && FEATURES.engineerIncident && state === 'shift' && current && (
+        <IncidentSheet visit={current} engineer={day.engineer} onClose={closeSheet} />
+      )}
+      {search.sheet === 'unavailable' &&
+        (state === 'shift' || (state === 'preview' && FEATURES.unavailableBeforeShift)) && (
+          <UnavailableSheet day={day} beforeShift={state === 'preview'} onClose={closeSheet} />
+        )}
     </EngineerPage>
   );
 }

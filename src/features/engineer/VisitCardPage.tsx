@@ -11,6 +11,7 @@ import {
 } from '@/adapters/engineerDay';
 import { effectiveRoute, linkTransport, routeUrlTo } from '@/adapters/engineerRoute';
 import { useAuth } from '@/auth/useAuth';
+import { FEATURES } from '@/config';
 import { searchParam, useSearchState } from '@/hooks/useSearchState';
 import { durationLabel, requestNo, requestNoShort } from '@/lib/engineerLabels';
 import { Button, buttonClassName, EmptyState, InfoGrid, type InfoItem } from '@/ui';
@@ -19,6 +20,7 @@ import { DoneToast } from './DoneToast';
 import { EngineerHeader } from './EngineerHeader';
 import { EngineerMenu } from './EngineerMenu';
 import { EngineerPage } from './EngineerPage';
+import { IncidentSheet } from './IncidentSheet';
 import { InterruptSheet } from './InterruptSheet';
 import { ENGINEER_HOME } from './paths';
 import { changedKey, isSeen, markSeen, useSeenVersion } from './seen';
@@ -229,6 +231,16 @@ export default function VisitCardPage() {
           onSent={toList}
         />
       )}
+      {search.sheet === 'incident' &&
+        FEATURES.engineerIncident &&
+        isCurrent &&
+        state === 'shift' && (
+          <IncidentSheet
+            visit={visit}
+            engineer={day.engineer}
+            onClose={() => setSearch({ sheet: null })}
+          />
+        )}
     </EngineerPage>
   );
 }
