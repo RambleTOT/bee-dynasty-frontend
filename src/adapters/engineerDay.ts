@@ -20,6 +20,7 @@ import {
   windowShort,
 } from '@/lib/engineerLabels';
 import { timeOfIso } from '@/lib/format';
+import { isValidLatLng } from '@/lib/map';
 import {
   CLOSED_STATUSES,
   isRequestStatus,
@@ -61,6 +62,9 @@ export interface EngineerVisitModel {
   actualEnd: string | null;
   /** Оборудование ⏳ 8.8: «вид × количество» через запятую; поля нет — null. */
   equipment: string | null;
+  /** Точка заявки: в схеме визита координат нет, но бэк их отдаёт — запасной путь для карты. */
+  lat: number | null;
+  lon: number | null;
 }
 
 export type StartKind = 'office' | 'home';
@@ -141,8 +145,12 @@ function equipmentLabel(value: unknown): string | null {
   return items.length ? items.join(', ') : null;
 }
 
-function toVisit(raw: EngineerVisit & { required_skill?: unknown }): EngineerVisitModel {
+/** Поля визита, которых нет в схеме, но бэк их отдаёт или обещал (⏳ 8.6, 8.8). */
+type VisitWire = EngineerVisit & { required_skill?: unknown; lat?: unknown; lon?: unknown };
+
+function toVisit(raw: VisitWire): EngineerVisitModel {
   const address = str(raw.address);
+  const point = isValidLatLng(raw.lat, raw.lon);
   return {
     id: String(raw.request_id),
     sequence: num(raw.sequence) ?? 0,
@@ -169,6 +177,8 @@ function toVisit(raw: EngineerVisit & { required_skill?: unknown }): EngineerVis
     actualStart: time(raw.actual_start),
     actualEnd: time(raw.actual_end),
     equipment: equipmentLabel(raw.equipment),
+    lat: point ? (raw.lat as number) : null,
+    lon: point ? (raw.lon as number) : null,
   };
 }
 

@@ -1,12 +1,69 @@
 import { describe, expect, it } from 'vitest';
-import type { EngineerRoute } from '@/api/types';
+import type { EngineerMeDay, EngineerRoute, EngineerVisit } from '@/api/types';
+import { toEngineerDay } from './engineerDay';
 import {
   dayRouteUrl,
+  effectiveRoute,
   linkTransport,
   nextLegUrl,
+  routeFromVisits,
   routeUrlTo,
   toEngineerRoute,
 } from './engineerRoute';
+
+/** Визиты дня с координатами — как их отдаёт бэк (в схеме `EngineerVisit` полей lat/lon нет). */
+function visitsWithPoints() {
+  const visit = (id: string, sequence: number, status: string, lat: unknown, lon: unknown) =>
+    ({
+      request_id: id,
+      sequence,
+      status,
+      window: '14:00-16:00',
+      duration_minutes: 30,
+      leg_km: 1,
+      gigabit: false,
+      why_you: '',
+      lat,
+      lon,
+    }) as EngineerVisit;
+  const raw: EngineerMeDay = {
+    engineer: { id: 'E01', shift_status: 'on_shift' },
+    summary: {},
+    visits: [
+      visit('A', 1, 'done', 55.71, 37.78),
+      visit('B', 2, 'done', 55.705, 37.77),
+      visit('C', 3, 'cancel_pending', 55.7, 37.76),
+      visit('D', 4, 'in_progress', 55.707, 37.761),
+      visit('E', 5, 'planned', null, null),
+      visit('F', 6, 'planned', 55.713, 37.748),
+    ],
+  };
+  return toEngineerDay(raw).visits;
+}
+
+describe('маршрут по визитам — если /me/route пуст', () => {
+  it('старт — последняя выполненная, точки — текущая и оставшиеся с координатами', () => {
+    const route = routeFromVisits(visitsWithPoints());
+    expect(route.start).toEqual({ lat: 55.705, lon: 37.77 });
+    expect(route.points.map((p) => p.requestId)).toEqual(['D', 'F']);
+    expect(route.line).toEqual([
+      [55.705, 37.77],
+      [55.707, 37.761],
+      [55.713, 37.748],
+    ]);
+  });
+
+  it('ответ /me/route с точками важнее; пустой — заменяем визитами', () => {
+    const visits = visitsWithPoints();
+    const fromApi = toEngineerRoute(raw);
+    expect(effectiveRoute(fromApi, visits)).toBe(fromApi);
+    const empty = toEngineerRoute({ transport: 'walk', points: [], geometry: null });
+    const route = effectiveRoute(empty, visits);
+    expect(route.points.map((p) => p.requestId)).toEqual(['D', 'F']);
+    expect(route.transport).toBe('walk');
+    expect(effectiveRoute(undefined, visits).points).toHaveLength(2);
+  });
+});
 
 const raw: EngineerRoute = {
   transport: 'car',

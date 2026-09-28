@@ -4,6 +4,7 @@
  * Координаты проверяем: условные или пустые точки на карту и в ссылки не попадают.
  */
 import type { EngineerRoute } from '@/api/types';
+import type { EngineerVisitModel } from './engineerDay';
 import { isValidLatLng, type LatLng } from '@/lib/map';
 import { isTransport, type Transport } from '@/lib/statuses';
 import { yandexRouteUrl, type LatLon } from '@/lib/yandexMaps';
@@ -49,6 +50,44 @@ export function toEngineerRoute(raw: EngineerRoute | null | undefined): Engineer
     points,
     line,
   };
+}
+
+/** Оставшиеся точки маршрута: запланированные, в пути, в работе. */
+const REMAINING: readonly string[] = ['planned', 'en_route', 'in_progress'];
+
+/**
+ * Запасной путь: `/me/route` пуст, а у визитов дня есть координаты (бэк их отдаёт, в схеме их нет).
+ * Старт — последняя выполненная заявка (D-21; координат офиса в дне нет), точки — текущая и
+ * оставшиеся по порядку, линия — прямые отрезки.
+ */
+export function routeFromVisits(visits: readonly EngineerVisitModel[]): EngineerRouteModel {
+  const located = visits.filter(
+    (visit): visit is EngineerVisitModel & LatLon => visit.lat !== null && visit.lon !== null,
+  );
+  const done = located.filter((visit) => visit.status === 'done');
+  const last = done[done.length - 1];
+  const start = last ? { lat: last.lat, lon: last.lon } : null;
+  const points = located
+    .filter((visit) => REMAINING.includes(visit.status))
+    .map((visit) => ({
+      requestId: visit.id,
+      sequence: visit.sequence,
+      lat: visit.lat,
+      lon: visit.lon,
+    }));
+  const line = [...(start ? [start] : []), ...points].map((p): LatLng => [p.lat, p.lon]);
+  return { transport: null, start, points, line: line.length > 1 ? line : [] };
+}
+
+/** Маршрут для карты и ссылок: ответ `/me/route`, а если в нём нет точек — по визитам дня. */
+export function effectiveRoute(
+  route: EngineerRouteModel | null | undefined,
+  visits: readonly EngineerVisitModel[],
+): EngineerRouteModel {
+  if (route && route.points.length > 0) return route;
+  const fallback = routeFromVisits(visits);
+  if (fallback.points.length === 0 && route) return route;
+  return { ...fallback, transport: route?.transport ?? null };
 }
 
 /** Ссылка на маршрут в Яндекс Картах от старта через точки; без точек — null. */
