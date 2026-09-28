@@ -8,9 +8,11 @@ pages / features  →  adapters  →  api (client, schema)  →  бэк
 
 - **`api/`** — транспорт и контракты: `client.ts` (единственное место с `fetch`), `errors.ts` (`toApiError` сводит три формата ошибок бэка), модули ручек `api/<domain>.ts`, типы из `schema.d.ts`.
 - **`adapters/`** — превращают сырые ответы API в модели экранов: склейка, запасные подписи, синтетика (FRONTEND_SPEC §6). Покрываются тестами на снимках `docs/api-examples`.
-- **`features/`** — экраны и их части по ролям; **`pages/`** — служебные страницы (заглушки, 404, лоадер).
+- **`features/`** — экраны и их части по ролям; **`pages/`** — служебные страницы (404, лоадер).
 - Компоненты **не ходят в `fetch`** напрямую и **не читают сырые ответы API** — только модели из `adapters/`. ESLint запрещает `fetch` вне `api/client.ts`.
 - Общие модули: `lib/time.ts` (время Москвы, часы дня, окна), `lib/statuses.ts` (подписи статусов, флагов, справочников), `lib/notify.tsx` (уведомления), `hooks/useSearchState.ts` (query-параметры).
+- **День диспетчера:** `features/dispatcher/day/useDayData.ts` → `adapters/dayChain.ts` (цепочка версий дня по событиям и планам: действующая версия, номера, предложения к ней) → `adapters/dayModel.ts` (модель экрана). Цепочка строится и вперёд, и назад от `active_plan_id` из `/days` — работает и со старым, и с новым контрактом бэка.
+- **Правки бэка** включаются флагами `FEATURES` в `config.ts` (или `VITE_FEATURES` без правки кода); у каждого флага — запасной путь для бэка без правки. Что нужно от бэка — `docs/BACKEND_REQUESTS.md`, расхождения и обходы — `docs/API_NOTES.md`.
 
 ## Где что хранится
 
@@ -34,7 +36,7 @@ pages / features  →  adapters  →  api (client, schema)  →  бэк
 
 ## Правило модалок
 
-**Модальный экран = query-параметр, а не маршрут.** DS-02, DS-04…DS-10, O-03, шторки инженера открываются параметрами страницы: `request=<id>` (DS-04), `proposal=<plan_id>` (DS-07), `modal=import|event|reassign|roster|compare|summary` (+ `event_type`, `order`). Ссылкой на открытую модалку можно поделиться; параметры пишутся с `replace: true`, поэтому история браузера не копится.
+**Модальный экран = query-параметр, а не маршрут.** DS-02, DS-04…DS-10, O-03, шторки инженера открываются параметрами страницы: `request=<id>` (DS-04), `compare=1` (DS-05), `event=<вкладка>` и `order` (DS-06), `proposal=<plan_id>` и `against` (DS-07), `reassign=<id>` (DS-08), `roster=1` (DS-09), `summary=1` (DS-10); схема — `features/dispatcher/day/daySearch.ts`. Ссылкой на открытую модалку можно поделиться; параметры пишутся с `replace: true`, поэтому история браузера не копится.
 
 ## Как добавить новый экран
 
@@ -48,3 +50,8 @@ pages / features  →  adapters  →  api (client, schema)  →  бэк
 1. **Типы** — из `schema.d.ts` (`npm run gen:types`): алиас в `api/types.ts`. Для ответов «без схемы» — ручной тип там же, сверенный со снимком.
 2. **Функция** в `api/<domain>.ts` поверх `api.get / post / patch / postForm` из `api/client.ts`. DELETE-ручки не используем.
 3. **Ключ** в `api/queryKeys.ts`; после мутаций инвалидируем префиксы по списку FRONTEND_SPEC §5.3.
+
+## Выкладка и защита
+
+- `npm run deploy` — сборка и релиз статики на сервер (`scripts/deploy.sh`), `scripts/deploy-nginx.sh` — конфиг nginx сайта с проверкой и откатом.
+- Защита на стороне сайта — nginx (`deploy/nginx/bee-dynasty.conf`): лимиты запросов и соединений, CSP и заголовки безопасности, `DELETE` закрыт, сайт не индексируется. Новый внешний ресурс во фронте (скрипт, картинка, шрифт) нужно добавить в CSP, иначе браузер его заблокирует. Что сделать на сервере и в бэке — `docs/SECURITY.md`.
