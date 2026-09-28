@@ -76,7 +76,7 @@ describe('toApiError', () => {
   });
 
   it('{error} без code и message — запасные значения', () => {
-    expect(toApiError(500, { error: {} })).toMatchObject({ code: 'UNKNOWN', message: 'Ошибка' });
+    expect(toApiError(500, { error: {} })).toMatchObject({ code: 'UNKNOWN', message: 'Не удалось выполнить запрос. Повторите' });
   });
 });
 

@@ -43,7 +43,7 @@ export function toApiError(status: number, body: unknown): ApiError {
     return new ApiError(
       status,
       nonEmpty(error.code) ?? 'UNKNOWN',
-      nonEmpty(error.message) ?? 'Ошибка',
+      nonEmpty(error.message) ?? 'Не удалось выполнить запрос. Повторите',
       error.details,
     );
   }
