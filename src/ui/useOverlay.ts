@@ -5,9 +5,13 @@ const FOCUSABLE =
 
 let lockCount = 0;
 
+/** Открытые окна по порядку: Esc и Tab — только у верхнего (окно поверх дровера, подтверждение). */
+const stack: symbol[] = [];
+
 /**
  * Поведение модального окна: фокус внутрь при открытии и назад при закрытии, Tab по кругу,
- * Esc закрывает, прокрутка страницы под окном заблокирована.
+ * Esc закрывает, прокрутка страницы под окном заблокирована. Окна друг над другом: клавиши
+ * обрабатывает верхнее.
  */
 export function useModalBehavior(
   open: boolean,
@@ -28,8 +32,11 @@ export function useModalBehavior(
 
     lockCount += 1;
     document.body.style.overflow = 'hidden';
+    const id = Symbol('overlay');
+    stack.push(id);
 
     function onKeyDown(event: KeyboardEvent) {
+      if (stack[stack.length - 1] !== id) return;
       if (event.key === 'Escape' && onCloseRef.current) {
         event.stopPropagation();
         onCloseRef.current();
@@ -54,6 +61,7 @@ export function useModalBehavior(
 
     return () => {
       document.removeEventListener('keydown', onKeyDown);
+      stack.splice(stack.indexOf(id), 1);
       lockCount -= 1;
       if (lockCount === 0) document.body.style.overflow = '';
       previous?.focus?.({ preventScroll: true });

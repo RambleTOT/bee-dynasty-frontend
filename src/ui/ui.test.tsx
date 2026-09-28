@@ -139,6 +139,25 @@ describe('Modal', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(opener).toHaveFocus();
   });
+
+  it('окно поверх окна: Esc закрывает только верхнее', () => {
+    function Harness() {
+      const [outer, setOuter] = useState(true);
+      const [inner, setInner] = useState(true);
+      return (
+        <>
+          <Modal open={outer} onClose={() => setOuter(false)} title="Предложение" />
+          <Modal open={inner} onClose={() => setInner(false)} title="Заявка" />
+        </>
+      );
+    }
+    render(<Harness />);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Заявка' })).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Предложение' })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
 });
 
 describe('FilterPill', () => {

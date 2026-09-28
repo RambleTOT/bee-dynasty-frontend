@@ -75,6 +75,19 @@ export async function request<T>(
   return parseBody(text) as T;
 }
 
+/**
+ * Главная страница сайта без кэша — сверить номер сборки (app/useNewVersion.ts). Не API: без
+ * токена и без разбора ошибок; не вышло — `null`.
+ */
+export async function fetchSiteIndex(): Promise<string | null> {
+  try {
+    const response = await fetch('/', { cache: 'no-store', headers: { Accept: 'text/html' } });
+    return response.ok ? await response.text() : null;
+  } catch {
+    return null;
+  }
+}
+
 type Options = Pick<RequestOptions, 'query' | 'signal'>;
 
 export const api = {
