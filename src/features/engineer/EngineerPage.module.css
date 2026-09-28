@@ -22,7 +22,7 @@
   display: flex;
   flex: none;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
   height: 56px;
   padding: 0 var(--space-2) 0 var(--space-4);
   background: var(--bg-bar);
@@ -85,7 +85,7 @@
 /* E-03.3: белая карточка сверху на 4 с. */
 .doneToast {
   position: fixed;
-  top: 60px;
+  top: calc(56px + var(--space-1));
   right: var(--space-3);
   left: var(--space-3);
   z-index: 30;
