@@ -5,6 +5,8 @@ import { normalizeOutcome, slotsFromError } from '@/adapters/booking';
 import { createBooking, type SlotsQuery } from '@/api/booking';
 import { isApiError } from '@/api/errors';
 import type { BookingRequestIn, BookingSlotsResponse } from '@/api/types';
+import { FEATURES } from '@/config';
+import { searchParam, useSearchState } from '@/hooks/useSearchState';
 import { next14Days, phoneMasked, typeFull, windowFull } from '@/lib/booking';
 import { dismissAll, notify } from '@/lib/notify';
 import { TRANSPORT_LABEL } from '@/lib/statuses';
@@ -16,7 +18,9 @@ import { useDebouncedValue } from '../useDebouncedValue';
 import { useOperatorRegion } from '../useOperatorRegion';
 import { BookingSummary } from './BookingSummary';
 import { bookedText, bookingRequestBody, TECHNOLOGY_REGION } from './bookingRequest';
+import { EmergencyForm } from './EmergencyForm';
 import { RegularForm } from './RegularForm';
+import { RequestTabs } from './RequestTabs';
 import type { SlotsStatus } from './SlotGrid';
 import { SlotStep } from './SlotStep';
 import {
@@ -28,6 +32,9 @@ import {
 } from './useBookingForm';
 import { slotsKey, useSlots } from './useSlots';
 import styles from './NewRequestPage.module.css';
+
+/** Вкладка — в адресе (`tab=regular|emergency`); «Авария» — только при ⏳ 9.1. */
+const pageSearch = { tab: searchParam.enum(['regular', 'emergency'], 'regular') };
 
 type SlotsFields = Pick<
   BookingForm,
@@ -49,9 +56,14 @@ function slotsParams(region: string | null, fields: SlotsFields): SlotsQuery | n
   };
 }
 
-/** O-01 «Новая запись» → O-01.2 «Дата и окно» (FRONTEND_SPEC §8.3.7, §8.3.8). */
+/**
+ * O-01 «Новая запись» → O-01.2 «Дата и окно» (FRONTEND_SPEC §8.3.7, §8.3.8); вкладка «Авария» —
+ * §8.3.9, только при флаге `emergencyByRegion`.
+ */
 export default function NewRequestPage() {
   const queryClient = useQueryClient();
+  const [search, setSearch] = useSearchState(pageSearch);
+  const emergency = FEATURES.emergencyByRegion && search.tab === 'emergency';
   const regions = useOperatorRegion();
   const { region } = regions;
   const [form, dispatch] = useBookingForm();
@@ -69,8 +81,9 @@ export default function NewRequestPage() {
     [region, date, typeBk, typeHd, address, gigabit, transport],
   );
   const typing = useDebouncedValue(params, 300);
-  const onStepTwo = form.step === 2;
-  const activeParams = onStepTwo ? params : typing;
+  const onStepTwo = !emergency && form.step === 2;
+  // на вкладке «Авария» окна не нужны
+  const activeParams = emergency ? null : onStepTwo ? params : typing;
   const slots = useSlots(activeParams, { live: onStepTwo && !form.booked });
   const model = slots.data;
 
@@ -198,20 +211,32 @@ export default function NewRequestPage() {
       <Card className={styles.card}>
         <div className={styles.head}>
           <h2 className={styles.title}>{T.new.title}</h2>
-          <span className={styles.step}>{T.new.step1}</span>
+          {!emergency && <span className={styles.step}>{T.new.step1}</span>}
         </div>
-        <RegularForm form={form} dispatch={dispatch} regions={regions} slots={model} />
-        <div className={styles.footer}>
-          <Button
-            variant="primary"
-            size="lg"
-            icon={ArrowRight}
-            disabled={!stepOneReady(form, region)}
-            onClick={() => dispatch({ type: 'step', value: 2 })}
-          >
-            {T.new.next}
-          </Button>
-        </div>
+        {FEATURES.emergencyByRegion && (
+          <RequestTabs
+            value={emergency ? 'emergency' : 'regular'}
+            onChange={(tab) => setSearch({ tab })}
+          />
+        )}
+        {emergency ? (
+          <EmergencyForm regions={regions} />
+        ) : (
+          <>
+            <RegularForm form={form} dispatch={dispatch} regions={regions} slots={model} />
+            <div className={styles.footer}>
+              <Button
+                variant="primary"
+                size="lg"
+                icon={ArrowRight}
+                disabled={!stepOneReady(form, region)}
+                onClick={() => dispatch({ type: 'step', value: 2 })}
+              >
+                {T.new.next}
+              </Button>
+            </div>
+          </>
+        )}
       </Card>
     </div>
   );

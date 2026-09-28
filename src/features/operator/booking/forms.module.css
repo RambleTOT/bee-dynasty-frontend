@@ -1,4 +1,4 @@
-/* поля — сетка в 2 колонки, как в макете O-01 */
+/* формы O-01 (обычная заявка и авария): поля — сетка в 2 колонки, как в макете */
 .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -75,4 +75,12 @@
   background: var(--bg-surface);
   box-shadow: var(--shadow-knob);
   color: var(--text-primary);
+}
+
+/* главная кнопка — внизу справа карточки */
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: auto;
 }

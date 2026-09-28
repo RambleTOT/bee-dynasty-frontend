@@ -70,6 +70,16 @@ async function goToSlots() {
 }
 
 describe('O-01 шаг 1', () => {
+  it('флаг emergencyByRegion выключен: вкладок нет, tab=emergency — обычная форма', () => {
+    renderScreen(<NewRequestPage />, {
+      path: '/operator/new',
+      url: '/operator/new?tab=emergency',
+    });
+    expect(screen.queryByRole('tab', { name: 'Авария' })).not.toBeInTheDocument();
+    expect(screen.getByText('Шаг 1 из 2')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Выбрать дату и окно' })).toBeInTheDocument();
+  });
+
   it('регион по умолчанию, HD по BK, строка навыка из фоновых окон', async () => {
     renderNew();
     expect(screen.getByText('Шаг 1 из 2')).toBeInTheDocument();

@@ -1,7 +1,7 @@
 import { Callout, Button, cx, SegmentedControl, Skeleton } from '@/ui';
 import { T } from '../operatorTexts';
 import type { OperatorRegion } from '../useOperatorRegion';
-import styles from './RegularForm.module.css';
+import styles from './forms.module.css';
 
 /**
  * «Регион» обычной записи: SegmentedControl по регионам пользователя; один регион — просто

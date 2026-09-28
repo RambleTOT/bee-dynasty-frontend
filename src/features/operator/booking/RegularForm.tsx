@@ -16,7 +16,7 @@ import {
   type BookingForm,
   type BookingFormAction,
 } from './useBookingForm';
-import styles from './RegularForm.module.css';
+import styles from './forms.module.css';
 
 /** «Не требуется» — непустое значение списка, иначе select покажет его серым, как подсказку. */
 const TRANSPORT_NONE = 'none';
