@@ -7,6 +7,7 @@ import {
   shortId,
   typeFull,
   typeShort,
+  typeTitle,
 } from './dictionaries';
 
 describe('shortId', () => {
@@ -83,6 +84,16 @@ describe('typeShort — «Глобальная проблема» по HD', () =
     expect(typeShort('Глобальная проблема', 'emergency', 'Информация')).toBe('Информ.');
     expect(typeShort('Глобальная проблема', 'emergency')).toBe('Авария');
     expect(typeShort('Подключение', 'installation', 'Конвергенция абонента')).toBe('Подкл.');
+  });
+});
+
+describe('typeTitle — тип в карточке неназначенной', () => {
+  it('«Глобальная проблема» — «Авария» / «Информация» по HD, остальные — BK', () => {
+    expect(typeTitle('Глобальная проблема', 'Информация')).toBe('Информация');
+    expect(typeTitle('Глобальная проблема', 'Авария')).toBe('Авария');
+    expect(typeTitle('Глобальная проблема', null)).toBe('Авария');
+    expect(typeTitle('Подключение', 'Конвергенция абонента')).toBe('Подключение');
+    expect(typeTitle(null, null)).toBe('');
   });
 });
 

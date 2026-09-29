@@ -3,6 +3,7 @@ import { ArrowRightLeft, CircleCheck, Lightbulb, UserPlus } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { unassignedExplain } from '@/adapters/constraints';
 import type { DayModel } from '@/adapters/dayModel';
+import { typeTitle } from '@/lib/dictionaries';
 import { Button, cx } from '@/ui';
 import styles from './Panel.module.css';
 
@@ -65,7 +66,8 @@ export function UnassignedPanel({
                 <div className={styles.unHead}>
                   <span className={styles.unId}>№{request.id}</span>
                   <span className={styles.unKind}>
-                    {request.typeBk} · окно {request.windowShort}
+                    {typeTitle(request.raw.type_bk, request.raw.type_hd) || request.typeBk} · окно{' '}
+                    {request.windowShort}
                   </span>
                 </div>
                 <div className={cx(styles.caption, !request.hasAddress && styles.tertiary)}>

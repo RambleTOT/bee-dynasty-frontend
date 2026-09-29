@@ -121,6 +121,15 @@ const BK_SHORT: Record<string, string> = {
   [BK.emergency]: 'Авария',
 };
 
+/**
+ * Тип в карточке неназначенной (§8.2 «№… {Тип} · окно …»): BK, а «Глобальная проблема» — «Авария»
+ * или «Информация» по HD (D-37).
+ */
+export function typeTitle(typeBk: string | null | undefined, typeHd: string | null | undefined): string {
+  if (typeBk === BK.emergency) return typeHd?.trim() === HD_INFO ? HD_INFO : HD_EMERGENCY;
+  return typeBk ?? '';
+}
+
 /** Полный тип по навыку, когда нет type_bk (синтетика, §6.8). */
 const SKILL_TYPE_FULL: Record<Skill, string> = {
   emergency: 'Авария',
