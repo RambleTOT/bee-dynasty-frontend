@@ -33,7 +33,37 @@ function Errors({ errors }: { errors: readonly string[] }) {
   );
 }
 
-/** Шаг 2: какая колонка файла — какое поле заявки, контрольного распределения и бригад. */
+/** Оговорки по строкам файла: одна — строкой, несколько — списком. */
+function RowNotes({ items }: { items: readonly string[] }) {
+  if (items.length === 0) return null;
+  return (
+    <Callout tone="warning">
+      {items.length === 1 ? (
+        items[0]
+      ) : (
+        <ul className={styles.list}>
+          {items.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      )}
+    </Callout>
+  );
+}
+
+function SectionHead({ title, table }: { title: string; table: CsvTable }) {
+  return (
+    <div className={styles.sectionHead}>
+      <h3 className={styles.sectionTitle}>{title}</h3>
+      <span className={styles.sectionNote}>{tableMeta(table)}</span>
+    </div>
+  );
+}
+
+/**
+ * Шаг 2: какая колонка файла — какое поле заявки, контрольного распределения и бригад. Сверху —
+ * зачем шаг и итог (всё ли нашли), у каждого поля — зачем оно; оговорки по строкам — под таблицей.
+ */
 export function ColumnsStep({ draft, disabled }: { draft: RegionDraft; disabled: boolean }) {
   const requests = draft.files.requests?.table;
   const control = draft.files.control?.table;
@@ -44,12 +74,23 @@ export function ColumnsStep({ draft, disabled }: { draft: RegionDraft; disabled:
 
   return (
     <div className={styles.stack}>
+      <p className={styles.text}>
+        Сверяем ваш файл с полями заявки. Колонки мы узнали по названиям — проверьте их по первому
+        значению справа. Если поле попало не в ту колонку или колонку не нашли, выберите её в
+        списке.
+      </p>
+
       {requests && draft.requestMap && (
         <section className={styles.section} aria-label="Файл заявок">
-          <div className={styles.sectionHead}>
-            <h3 className={styles.sectionTitle}>Файл заявок</h3>
-            <span className={styles.sectionNote}>{tableMeta(requests)}</span>
-          </div>
+          <SectionHead title="Файл заявок" table={requests} />
+          <Errors errors={draft.requestErrors} />
+          {draft.requestErrors.length === 0 && read && (
+            <Callout tone={read.rows.length > 0 ? 'success' : 'danger'}>
+              {read.rows.length > 0
+                ? `Нужные колонки нашли — загрузим ${countOf(read.rows.length, PL_REQUEST)}`
+                : 'Ни одной заявки: ни в одной строке нет адреса'}
+            </Callout>
+          )}
           <MappingTable
             fields={REQUEST_FIELDS}
             mapping={draft.requestMap}
@@ -57,48 +98,27 @@ export function ColumnsStep({ draft, disabled }: { draft: RegionDraft; disabled:
             disabled={disabled}
             onChange={draft.setRequestMap}
           />
-          <Errors errors={draft.requestErrors} />
-          {draft.requestErrors.length === 0 && read && (
-            <>
-              <Callout tone={read.rows.length > 0 ? 'success' : 'danger'}>
-                {read.rows.length > 0
-                  ? `Загрузим ${countOf(read.rows.length, PL_REQUEST)}`
-                  : 'Ни одной заявки: в каждой строке нет адреса'}
-              </Callout>
-              {(skipped.length > 0 || notes.length > 0) && (
-                <Callout tone="warning">
-                  <ul className={styles.list}>
-                    {skipped.map(({ text, lines }) => (
-                      <li key={`skip:${text}`}>
-                        Не загрузим — {text}: {linesText(lines)}
-                      </li>
-                    ))}
-                    {notes.map(({ text, lines }) => (
-                      <li key={`note:${text}`}>
-                        {text[0].toUpperCase() + text.slice(1)}: {linesText(lines)}
-                      </li>
-                    ))}
-                  </ul>
-                </Callout>
-              )}
-            </>
+          {draft.requestErrors.length === 0 && (
+            <RowNotes
+              items={[
+                ...skipped.map(({ text, lines }) => `Не загрузим — ${text}: ${linesText(lines)}`),
+                ...notes.map(
+                  ({ text, lines }) =>
+                    `${text[0].toUpperCase()}${text.slice(1)}: ${linesText(lines)}`,
+                ),
+              ]}
+            />
           )}
         </section>
       )}
 
       {control && draft.controlMap && (
         <section className={styles.section} aria-label="Контрольное распределение">
-          <div className={styles.sectionHead}>
-            <h3 className={styles.sectionTitle}>Контрольное распределение</h3>
-            <span className={styles.sectionNote}>{tableMeta(control)}</span>
-          </div>
-          <MappingTable
-            fields={CONTROL_FIELDS}
-            mapping={draft.controlMap}
-            table={control}
-            disabled={disabled}
-            onChange={draft.setControlMap}
-          />
+          <SectionHead title="Контрольное распределение" table={control} />
+          <p className={styles.text}>
+            Из него берём только бригаду у каждой заявки: по ней соберём состав бригад и сравним
+            план с реальным диспетчером.
+          </p>
           {typeof controlRead === 'string' && <Errors errors={[controlRead]} />}
           {controlRead && typeof controlRead !== 'string' && read && (
             <Callout tone={controlRead.matched === read.rows.length ? 'success' : 'warning'}>
@@ -109,22 +129,20 @@ export function ColumnsStep({ draft, disabled }: { draft: RegionDraft; disabled:
                 : 'сопоставили по порядку строк'}
             </Callout>
           )}
+          <MappingTable
+            fields={CONTROL_FIELDS}
+            mapping={draft.controlMap}
+            table={control}
+            disabled={disabled}
+            onChange={draft.setControlMap}
+          />
         </section>
       )}
 
       {roster && draft.rosterMap && (
         <section className={styles.section} aria-label="Файл бригад">
-          <div className={styles.sectionHead}>
-            <h3 className={styles.sectionTitle}>Бригады</h3>
-            <span className={styles.sectionNote}>{tableMeta(roster)}</span>
-          </div>
-          <MappingTable
-            fields={ROSTER_FIELDS}
-            mapping={draft.rosterMap}
-            table={roster}
-            disabled={disabled}
-            onChange={draft.setRosterMap}
-          />
+          <SectionHead title="Бригады" table={roster} />
+          <p className={styles.text}>Имена, навыки, транспорт и смены бригад участка.</p>
           <Errors errors={draft.rosterErrors} />
           {draft.rosterErrors.length === 0 && (
             <Callout tone={draft.rosterFileRows.length > 0 ? 'success' : 'danger'}>
@@ -133,6 +151,13 @@ export function ColumnsStep({ draft, disabled }: { draft: RegionDraft; disabled:
                 : 'В файле нет ни одной бригады с именем'}
             </Callout>
           )}
+          <MappingTable
+            fields={ROSTER_FIELDS}
+            mapping={draft.rosterMap}
+            table={roster}
+            disabled={disabled}
+            onChange={draft.setRosterMap}
+          />
         </section>
       )}
     </div>

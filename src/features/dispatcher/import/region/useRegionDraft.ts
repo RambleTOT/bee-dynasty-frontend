@@ -49,7 +49,7 @@ export type WizardStep = 'files' | 'columns' | 'norms' | 'roster' | 'points';
 export const STEPS: readonly WizardStep[] = ['files', 'columns', 'norms', 'roster', 'points'];
 export const STEP_TITLE: Record<WizardStep, string> = {
   files: 'участок и файлы',
-  columns: 'колонки',
+  columns: 'колонки файла',
   norms: 'нормативы',
   roster: 'бригады',
   points: 'точки заявок',

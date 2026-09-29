@@ -62,11 +62,11 @@
   padding-left: 18px;
 }
 
-/* сопоставление колонок */
+/* сопоставление колонок: поле и зачем оно, колонка файла, первое значение */
 .mapping {
   display: grid;
-  grid-template-columns: 190px minmax(0, 240px) minmax(0, 1fr);
-  gap: 6px var(--space-3);
+  grid-template-columns: 220px minmax(0, 220px) minmax(0, 1fr);
+  gap: 8px var(--space-3);
   align-items: center;
 }
 
@@ -76,7 +76,16 @@
 }
 
 .fieldLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
   font: var(--font-body);
+}
+
+.fieldHint {
+  color: var(--text-secondary);
+  font: var(--font-caption);
 }
 
 .required {

@@ -198,13 +198,21 @@ describe('«Другой участок» (§14)', () => {
     next();
 
     // шаг 2: колонки угаданы по названиям, окно — одной колонкой, бригады — по номеру заявки
-    expect(await subtitle('2 из 5 · колонки')).toBeInTheDocument();
+    expect(await subtitle('2 из 5 · колонки файла')).toBeInTheDocument();
     const requests = screen.getByRole('region', { name: 'Файл заявок' });
     expect(within(requests).getByText('UTF-8 · разделитель «,» · 4 строки')).toBeInTheDocument();
     expect(
       within(requests).getByRole('combobox', { name: 'Окно одной колонкой' }),
     ).toHaveDisplayValue('Интервал');
-    expect(within(requests).getByText('Загрузим 4 заявки')).toBeInTheDocument();
+    expect(
+      within(requests).getByText('Нужные колонки нашли — загрузим 4 заявки'),
+    ).toBeInTheDocument();
+    // необязательные поля без колонки свёрнуты, неиспользуемых колонок файла нет
+    expect(within(requests).queryByRole('combobox', { name: 'Район' })).not.toBeInTheDocument();
+    fireEvent.click(
+      within(requests).getByRole('button', { name: 'Ещё 6 полей — если они есть в файле' }),
+    );
+    expect(within(requests).getByRole('combobox', { name: 'Район' })).toBeInTheDocument();
     expect(within(requests).getByText('Окна нет — весь день смены: строка 5')).toBeInTheDocument();
     expect(
       screen.getByText('Бригада есть у 4 из 4 заявок: сопоставили по номеру заявки'),

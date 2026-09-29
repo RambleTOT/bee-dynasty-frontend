@@ -9,9 +9,13 @@ import type { CsvTable } from './csvTable';
 export interface FieldDef<F extends string = string> {
   key: F;
   label: string;
+  /** Зачем поле: «по нему найдём точку на карте». */
+  hint?: string;
   /** Названия колонок в нижнем регистре: сначала точное совпадение, потом — начало названия. */
   names: readonly string[];
   required?: boolean;
+  /** Необязательное поле «если есть в файле»: без колонки — свёрнуто. */
+  extra?: boolean;
 }
 
 /** Поле → номер колонки файла; `null` — колонки нет. */
@@ -45,10 +49,11 @@ const ID_NAMES = [
 ];
 
 export const REQUEST_FIELDS: readonly FieldDef<RequestField>[] = [
-  { key: 'id', label: 'Номер заявки', names: ID_NAMES },
+  { key: 'id', label: 'Номер заявки', hint: 'нет — пронумеруем сами', names: ID_NAMES },
   {
     key: 'typeBk',
     label: 'Тип заявки',
+    hint: 'по нему — нормативы на шаге 3',
     required: true,
     names: [
       'тип заявки bk',
@@ -61,10 +66,17 @@ export const REQUEST_FIELDS: readonly FieldDef<RequestField>[] = [
       'type',
     ],
   },
-  { key: 'typeHd', label: 'Подтип (HD)', names: ['тип заявки hd', 'подтип', 'type_hd', 'hd'] },
+  {
+    key: 'typeHd',
+    label: 'Подтип (HD)',
+    hint: 'уточнение типа, как в выгрузке Билайна',
+    extra: true,
+    names: ['тип заявки hd', 'подтип', 'type_hd', 'hd'],
+  },
   {
     key: 'start',
     label: 'Начало окна',
+    hint: 'окно визита, обещанное клиенту',
     names: ['начало', 'начало окна', 'окно с', 'время с', 'с', 'window_start', 'start'],
   },
   {
@@ -87,33 +99,49 @@ export const REQUEST_FIELDS: readonly FieldDef<RequestField>[] = [
   {
     key: 'window',
     label: 'Окно одной колонкой',
+    hint: 'если в ячейке «10:00–12:00»',
     names: ['окно', 'интервал', 'время визита', 'слот', 'window'],
   },
   {
     key: 'address',
     label: 'Адрес',
+    hint: 'по нему найдём точку на карте',
     required: true,
     names: ['адрес', 'адрес клиента', 'адрес объекта', 'адрес заявки', 'address'],
   },
-  { key: 'district', label: 'Район', names: ['район', 'округ', 'district'] },
+  {
+    key: 'district',
+    label: 'Район',
+    hint: 'подпись в карточке заявки',
+    extra: true,
+    names: ['район', 'округ', 'district'],
+  },
   {
     key: 'gigabit',
     label: 'Гигабитное подключение',
+    hint: '«Да» — по правилу нужен автомобиль',
+    extra: true,
     names: ['гигабитное подключение', 'гигабит', 'gigabit'],
   },
   {
     key: 'technology',
     label: 'Технология подключения',
+    hint: 'FMC, FTTB',
+    extra: true,
     names: ['подключение', 'технология', 'technology'],
   },
   {
     key: 'transport',
     label: 'Требуемый транспорт',
+    hint: 'нет — по правилу: кабель, гигабит, авария',
+    extra: true,
     names: ['требуемый транспорт', 'транспорт', 'required_transport'],
   },
   {
     key: 'duration',
     label: 'Длительность, мин',
+    hint: 'нет — по нормативу участка',
+    extra: true,
     names: [
       'длительность',
       'длительность, мин',
@@ -124,17 +152,29 @@ export const REQUEST_FIELDS: readonly FieldDef<RequestField>[] = [
       'duration',
     ],
   },
-  { key: 'lat', label: 'Широта', names: ['широта', 'latitude', 'lat'] },
-  { key: 'lon', label: 'Долгота', names: ['долгота', 'longitude', 'lon', 'lng'] },
+  {
+    key: 'lat',
+    label: 'Широта',
+    hint: 'есть с долготой — адрес не ищем',
+    extra: true,
+    names: ['широта', 'latitude', 'lat'],
+  },
+  { key: 'lon', label: 'Долгота', extra: true, names: ['долгота', 'longitude', 'lon', 'lng'] },
 ];
 
 export type ControlField = 'id' | 'brigade';
 
 export const CONTROL_FIELDS: readonly FieldDef<ControlField>[] = [
-  { key: 'id', label: 'Номер заявки', names: ID_NAMES },
+  {
+    key: 'id',
+    label: 'Номер заявки',
+    hint: 'по нему находим заявку; нет — по порядку строк',
+    names: ID_NAMES,
+  },
   {
     key: 'brigade',
     label: 'Бригада',
+    hint: 'кто выполнял заявку у реального диспетчера',
     required: true,
     names: [
       'бригада',
@@ -161,12 +201,19 @@ export const ROSTER_FIELDS: readonly FieldDef<RosterField>[] = [
   {
     key: 'skills',
     label: 'Навыки',
+    hint: 'нет — все три навыка',
     names: ['навыки', 'навык', 'квалификация', 'компетенции', 'skills'],
   },
-  { key: 'transport', label: 'Транспорт', names: ['транспорт', 'transport'] },
+  {
+    key: 'transport',
+    label: 'Транспорт',
+    hint: 'нет — автомобиль',
+    names: ['транспорт', 'transport'],
+  },
   {
     key: 'shiftStart',
     label: 'Начало смены',
+    hint: 'нет — по окнам заявок',
     names: ['начало смены', 'смена с', 'начало', 'с', 'shift_start'],
   },
   {
