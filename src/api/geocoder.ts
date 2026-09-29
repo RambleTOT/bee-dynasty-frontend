@@ -7,6 +7,13 @@ import { fetchExternalJson } from './client';
 
 export const addressSuggestEnabled = ADDRESS_SUGGEST.url !== null;
 
+/**
+ * Названия — на языке местности (для России — по-русски). Без параметра Photon отвечает на языке
+ * браузера: в английском браузере офис сохранялся как «Moscow, Shabolovka Street», а улицы из
+ * файла не совпадали с найденными.
+ */
+const LANG = 'default';
+
 /** Подсказки по набранному тексту: Москва и область, ближе к центру — выше. */
 export function suggestAddresses(query: string, signal?: AbortSignal): Promise<unknown> {
   if (!ADDRESS_SUGGEST.url) return Promise.resolve(null);
@@ -16,6 +23,7 @@ export function suggestAddresses(query: string, signal?: AbortSignal): Promise<u
     lon: String(ADDRESS_SUGGEST.center.lon),
     bbox: ADDRESS_SUGGEST.bbox,
     limit: String(ADDRESS_SUGGEST.limit),
+    lang: LANG,
   });
   return fetchExternalJson(`${ADDRESS_SUGGEST.url}/api/?${params}`, signal);
 }
@@ -23,7 +31,12 @@ export function suggestAddresses(query: string, signal?: AbortSignal): Promise<u
 /** Адрес точки на карте. */
 export function reverseAddress(lat: number, lon: number, signal?: AbortSignal): Promise<unknown> {
   if (!ADDRESS_SUGGEST.url) return Promise.resolve(null);
-  const params = new URLSearchParams({ lat: String(lat), lon: String(lon), limit: '1' });
+  const params = new URLSearchParams({
+    lat: String(lat),
+    lon: String(lon),
+    limit: '1',
+    lang: LANG,
+  });
   return fetchExternalJson(`${ADDRESS_SUGGEST.url}/reverse?${params}`, signal);
 }
 
@@ -37,7 +50,7 @@ export function geocodeAddress(
   signal?: AbortSignal,
 ): Promise<unknown> {
   if (!ADDRESS_SUGGEST.url) return Promise.resolve(null);
-  const params = new URLSearchParams({ q: query, limit: '3' });
+  const params = new URLSearchParams({ q: query, limit: '3', lang: LANG });
   if (near) {
     params.set('lat', String(near.lat));
     params.set('lon', String(near.lon));
