@@ -54,7 +54,10 @@ describe('O-01 вкладка «Авария»', () => {
     expect(
       screen.getByText('Аварию распределит диспетчер — дата и окно не нужны'),
     ).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Тип заявки HD' })).toHaveValue('Авария');
+    // D-37: у аварии HD только «Авария», поле только для чтения
+    const hd = screen.getByRole('textbox', { name: 'Тип заявки HD' });
+    expect(hd).toHaveValue('Авария');
+    expect(hd).toHaveAttribute('readonly');
     expect(screen.getByRole('combobox', { name: 'Требуемый транспорт' })).toHaveValue('car');
     expect(screen.getByRole('button', { name: 'Передать диспетчеру' })).toBeDisabled();
     expect(getSlots).not.toHaveBeenCalled();

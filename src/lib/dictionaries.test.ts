@@ -3,6 +3,7 @@ import {
   engineerLabel,
   engineerShort,
   HD_BY_BK,
+  isEmergency,
   shortId,
   typeFull,
   typeShort,
@@ -54,6 +55,34 @@ describe('типы заявки', () => {
 
   it('HD по BK, первая строка — самая частая', () => {
     expect(HD_BY_BK['Подключение'][0]).toBe('Конвергенция абонента');
-    expect(HD_BY_BK['Глобальная проблема']).toEqual(['Авария', 'Информация']);
+    expect(HD_BY_BK['Глобальная проблема']).toEqual(['Информация']);
   });
 });
+
+describe('isEmergency — авария по HD (D-37, ответ №80)', () => {
+  it('есть HD — только HD «Авария»', () => {
+    expect(isEmergency({ type_bk: 'Глобальная проблема', type_hd: 'Авария', required_skill: 'emergency' })).toBe(true);
+    expect(isEmergency({ type_bk: 'Глобальная проблема', type_hd: ' Информация ', required_skill: 'emergency' })).toBe(false);
+  });
+  it('нет HD, есть BK — BK «Глобальная проблема»', () => {
+    expect(isEmergency({ type_bk: 'Глобальная проблема', type_hd: '', required_skill: 'emergency' })).toBe(true);
+    expect(isEmergency({ type_bk: 'Подключение', type_hd: null, required_skill: 'emergency' })).toBe(false);
+  });
+  it('нет ни BK, ни HD (синтетика) — навык «Аварийные работы»', () => {
+    expect(isEmergency({ required_skill: 'emergency' })).toBe(true);
+    expect(isEmergency({ required_skill: 'local' })).toBe(false);
+  });
+  it('HD другого типа — не авария, даже с навыком «Аварийные работы»', () => {
+    expect(isEmergency({ type_bk: 'Локальная заявка', type_hd: 'Нет линка', required_skill: 'emergency' })).toBe(false);
+  });
+});
+
+describe('typeShort — «Глобальная проблема» по HD', () => {
+  it('«Авария» и «Информ.»; остальные — как раньше', () => {
+    expect(typeShort('Глобальная проблема', 'emergency', 'Авария')).toBe('Авария');
+    expect(typeShort('Глобальная проблема', 'emergency', 'Информация')).toBe('Информ.');
+    expect(typeShort('Глобальная проблема', 'emergency')).toBe('Авария');
+    expect(typeShort('Подключение', 'installation', 'Конвергенция абонента')).toBe('Подкл.');
+  });
+});
+

@@ -17,6 +17,7 @@ import {
   urgentEvent,
   urgentIdFor,
 } from '@/adapters/proposal';
+import { HD_EMERGENCY } from '@/lib/dictionaries';
 import { countOf, PL_REQUEST } from '@/lib/format';
 import { notify } from '@/lib/notify';
 import { REGION_LABEL, REGIONS, isRequestStatus, REQUEST_STATUS_LABEL } from '@/lib/statuses';
@@ -28,10 +29,6 @@ import styles from './Overlays.module.css';
 
 const TIME = /^([01]?\d|2[0-3]):[0-5]\d$/;
 const CLOSED = new Set(['done', 'cancelled', 'rescheduled']);
-const HD_OPTIONS = [
-  { value: 'Авария', label: 'Авария' },
-  { value: 'Информация', label: 'Информация' },
-];
 
 function matchRequest(request: DayRequest, query: string): boolean {
   const q = query.trim().toLowerCase().replace(/^№/, '');
@@ -63,7 +60,6 @@ export function EventModal({
   // адрес из подсказки или с карты — с координатами: срочная без координат ломает день (BACKEND_REQUESTS п. 46)
   const [addressPoint, setAddressPoint] = useState<AddressSuggestion | null>(null);
   const [locating, setLocating] = useState(false);
-  const [typeHd, setTypeHd] = useState<'Авария' | 'Информация'>('Авария');
   const [transport, setTransport] = useState('car');
   const [query, setQuery] = useState('');
   const [picked, setPicked] = useState<string | null>(orderId);
@@ -130,7 +126,7 @@ export function EventModal({
           planId: model.planId,
           eventTime,
           address,
-          typeHd,
+          typeHd: HD_EMERGENCY,
           transport: transport || null,
           shiftEnd: maxShiftEnd(model),
           point: pointOf(address.trim()) ?? found,
@@ -272,13 +268,8 @@ export function EventModal({
             hint="Начните вводить — подскажем адрес, или отметьте точку на карте"
           />
           <div className={styles.grid2}>
-            <Select
-              label="Тип заявки HD"
-              tone="filled"
-              value={typeHd}
-              options={HD_OPTIONS}
-              onChange={(value) => setTypeHd(value as 'Авария' | 'Информация')}
-            />
+            {/* срочная — всегда авария: «Информацию» оператор записывает обычной заявкой (D-37) */}
+            <Input label="Тип заявки HD" tone="filled" value={HD_EMERGENCY} readOnly />
             <Select
               label="Требуемый транспорт"
               tone="filled"

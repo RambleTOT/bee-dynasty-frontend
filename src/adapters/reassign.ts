@@ -121,6 +121,8 @@ export interface CheckSummary {
   lateIds: string[];
   /** Сдвиг визитов новой бригады, мин (`shifted_visits`) — для черновика на таймлайне. */
   shifted: { orderId: string; deltaMin: number }[];
+  /** `engineer_idle_today` бэка (§13.2): бригада сегодня не работает; нет поля — `null`. */
+  idleToday: boolean | null;
 }
 
 const LABEL_ORDER: readonly ConstraintLabel[] = ['Квалификация', 'Время', 'Ресурс'];
@@ -234,6 +236,8 @@ function lateIdsOf(list: unknown): string[] {
  */
 export function summarizeCheck(response: ReassignCheckResponse, request: DayRequest): CheckSummary {
   const newStart = str(response.new_start) || null;
+  // поля ещё нет в схеме (§13.2) — читаем безопасно
+  const idle = (response as unknown as Record<string, unknown>).engineer_idle_today;
   const failed = new Map<ConstraintLabel, string[]>();
   for (const [key, value] of Object.entries(isObject(response.checks) ? response.checks : {})) {
     const check = readCheck(value);
@@ -264,6 +268,7 @@ export function summarizeCheck(response: ReassignCheckResponse, request: DayRequ
     deltaKm: Number.isFinite(deltaKm) ? deltaKm : 0,
     lateIds: lateIdsOf(response.late_visits),
     shifted: shiftedOf(response.shifted_visits),
+    idleToday: typeof idle === 'boolean' ? idle : null,
   };
 }
 
@@ -465,4 +470,15 @@ export function consequenceChips(
     `Пробег ${formatDelta(summary.deltaKm, 'km')}`,
     `Инженеров ${formatDelta(engineers, 'count')}`,
   ];
+}
+
+/**
+ * Бригада сегодня не работает (D-38, §13.2): вызов «с выходного» — эскалация, решает диспетчер.
+ * Бэк прислал `engineer_idle_today` — берём его, иначе — у бригады нет заявок в текущем плане.
+ */
+export function idleToday(
+  engineer: Pick<DayEngineer, 'used'>,
+  summary: Pick<CheckSummary, 'idleToday'> | null,
+): boolean {
+  return summary?.idleToday ?? !engineer.used;
 }

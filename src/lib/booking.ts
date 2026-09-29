@@ -3,7 +3,7 @@
  * Окно — строка бэка '14:00-16:00', дата — 'YYYY-MM-DD'. Незнакомый формат показываем как есть.
  */
 import { isValid, parseISO } from 'date-fns';
-import { BK, HD_BY_BK } from './dictionaries';
+import { BK, HD_BY_BK, HD_INFO } from './dictionaries';
 import { formatDateShort, formatDateWithWeekday, formatWeekdayShort } from './format';
 import type { Transport } from './statuses';
 import { parseWindow } from './time';
@@ -54,9 +54,13 @@ const TYPE_SHORT: Record<string, string> = {
   [BK.extra]: 'Дозаказ',
 };
 
-/** Тип в строке результата поиска: «Подключение», «Локальная», «Авария», «Дозаказ». */
-export function typeShort(typeBk: string | null | undefined): string {
+/**
+ * Тип в строке результата поиска: «Подключение», «Локальная», «Авария», «Дозаказ»;
+ * «Глобальная проблема» с HD «Информация» — «Информация» (D-37).
+ */
+export function typeShort(typeBk: string | null | undefined, typeHd?: string | null): string {
   if (!typeBk) return '';
+  if (typeBk === BK.emergency && typeHd?.trim() === HD_INFO) return HD_INFO;
   return TYPE_SHORT[typeBk] ?? typeBk;
 }
 

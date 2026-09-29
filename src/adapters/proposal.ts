@@ -325,7 +325,8 @@ export interface UrgentForm {
   planId: string;
   eventTime: string;
   address: string;
-  typeHd: 'Авария' | 'Информация';
+  /** Срочная — всегда HD «Авария» (D-37). */
+  typeHd: 'Авария';
   transport: string | null;
   /** Максимальный конец смены бригад региона на смене — конец окна аварии (не '22:00'). */
   shiftEnd: string;

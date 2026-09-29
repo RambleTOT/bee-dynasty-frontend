@@ -85,7 +85,7 @@ export function requestLabels(request: Pick<RequestOut, 'id' | 'type_bk' | 'type
   return {
     shortId: shortId(request.id),
     number: `№${request.id}`,
-    typeShort: typeShort(request.type_bk, request.required_skill),
+    typeShort: typeShort(request.type_bk, request.required_skill, request.type_hd),
     typeFull: typeFull(request.type_bk, request.type_hd, request.required_skill),
     typeBk: request.type_bk || typeFull(null, null, request.required_skill),
     hasAddress: address.length > 0,

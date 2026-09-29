@@ -123,6 +123,10 @@ describe('DS-08 «Ручное переназначение»', () => {
     expect(candidate('Мельников')).toHaveTextContent('Подходит');
     expect(candidate('Перов')).toHaveTextContent('пешком · 0,1 км');
     expect(candidate('Перов')).toHaveTextContent('Нет авто');
+    // D-38: у бригады без заявок в текущем плане — «Не работает сегодня», выбрать можно
+    expect(candidate('Перов')).toHaveTextContent('Не работает сегодня');
+    expect(candidate('Перов')).toHaveTextContent('вызов с выходного — решение диспетчера');
+    expect(candidate('Мельников')).not.toHaveTextContent('Не работает сегодня');
     expect(candidate('Попов')).toHaveTextContent('Нет навыка');
     // проверка — только у прошедших фильтр на фронте
     expect(checkReassign).toHaveBeenCalledTimes(1);

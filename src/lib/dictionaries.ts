@@ -53,8 +53,32 @@ export const BK = {
   extra: 'Дозаказ',
 } as const;
 
-/** BK обычной записи оператора (без «Глобальной проблемы» — это авария). */
-export const BK_REGULAR: readonly string[] = [BK.connection, BK.local, BK.extra];
+/** HD аварии: по ответу кейсодержателя №80 аварию определяет поле HD (D-37). */
+export const HD_EMERGENCY = 'Авария';
+/** HD «Информация» у BK «Глобальная проблема» — обычная заявка, не авария (D-37). */
+export const HD_INFO = 'Информация';
+
+/**
+ * Авария (D-37, ответ №80): есть HD — только HD «Авария»; нет HD, но есть BK — BK «Глобальная
+ * проблема»; нет ни BK, ни HD (синтетика) — навык «Аварийные работы».
+ */
+export function isEmergency(request: {
+  type_hd?: string | null;
+  type_bk?: string | null;
+  required_skill?: string | null;
+}): boolean {
+  const hd = request.type_hd?.trim();
+  if (hd) return hd === HD_EMERGENCY;
+  const bk = request.type_bk?.trim();
+  if (bk) return bk === BK.emergency;
+  return request.required_skill === 'emergency';
+}
+
+/**
+ * BK обычной записи оператора. «Глобальная проблема» — только с HD «Информация»: аварию (HD
+ * «Авария») оператор передаёт вкладкой «Авария» (D-37).
+ */
+export const BK_REGULAR: readonly string[] = [BK.connection, BK.local, BK.extra, BK.emergency];
 
 /** HD по BK, первая строка — самая частая. */
 export const HD_BY_BK: Record<string, readonly string[]> = {
@@ -82,10 +106,14 @@ export const HD_BY_BK: Record<string, readonly string[]> = {
     'Заказ подключения/Дозаказ оборудования',
     'Конвергенция абонента',
   ],
-  [BK.emergency]: ['Авария', 'Информация'],
+  // в обычной записи — только «Информация»; «Авария» — вкладка «Авария» (D-37)
+  [BK.emergency]: [HD_INFO],
 };
 
-/** Короткий тип для таймлайна и тултипов диспетчера (§8.2): «Подкл.», «Лок.», «Дозак.», «Авария». */
+/**
+ * Короткий тип для таймлайна и тултипов диспетчера (§8.2): «Подкл.», «Лок.», «Дозак.», «Авария»;
+ * «Глобальная проблема» с HD «Информация» — «Информ.» (D-37).
+ */
 const BK_SHORT: Record<string, string> = {
   [BK.connection]: 'Подкл.',
   [BK.local]: 'Лок.',
@@ -100,7 +128,12 @@ const SKILL_TYPE_FULL: Record<Skill, string> = {
   local: 'Локальные работы',
 };
 
-export function typeShort(typeBk: string | null | undefined, skill: string | null | undefined) {
+export function typeShort(
+  typeBk: string | null | undefined,
+  skill: string | null | undefined,
+  typeHd?: string | null,
+) {
+  if (typeBk === BK.emergency && typeHd?.trim() === HD_INFO) return 'Информ.';
   if (typeBk) return BK_SHORT[typeBk] ?? typeBk;
   return labelOf(SKILL_SHORT, skill);
 }

@@ -66,9 +66,32 @@ describe('buildDayModel', () => {
     expect(done).toMatchObject({ status: 'done', flags: ['changed'], engineerId: 'e1', windowShort: '18–20' });
   });
 
-  it('авария: красный маркер по навыку, чип «Срочная» по приоритету', () => {
-    expect(model.requestById.get('305830001')).toMatchObject({ emergency: true, urgent: true });
+  it('авария: красный маркер по HD «Авария», чип «Срочная» по приоритету', () => {
+    expect(model.requestById.get('305830001')).toMatchObject({ emergency: true, urgent: true, typeShort: 'Авария' });
     expect(model.requestById.get('305830001')?.flags).toContain('urgent');
+  });
+
+  it('«Глобальная проблема» + HD «Информация» — не авария (D-37): без молнии, «Информ.»; «Срочная» — как у бэка', () => {
+    const info = buildDayModel({
+      date: '2026-09-28',
+      region: makeRegion({ active_plan_id: 'P1', plan_state: 'applied', version: 1 }),
+      scenario: makeScenario({
+        engineers: scenario.engineers,
+        requests: [
+          makeRequest({
+            id: '305830003',
+            type_bk: 'Глобальная проблема',
+            type_hd: 'Информация',
+            required_skill: 'emergency',
+            priority: 'urgent',
+            status: 'planned',
+          }),
+        ],
+      }),
+      plan: makePlan({ plan_id: 'P1', routes: [makeRoute('e1', [makePoint({ request_id: '305830003', sequence: 1 })])] }),
+    });
+    // пока бэк не сделал 13.1, «Срочная» у «Информации» остаётся — фронт её не прячет
+    expect(info.requestById.get('305830003')).toMatchObject({ emergency: false, urgent: true, typeShort: 'Информ.' });
   });
 
   it('неназначенная по плану получает статус «Не назначена»', () => {

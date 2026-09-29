@@ -5,10 +5,10 @@ import { lookupOf, type AddressSuggestion } from '@/adapters/address';
 import { applyOperatorEmergency } from '@/api/booking';
 import { errorMessage, isApiError } from '@/api/errors';
 import { suggestAddresses } from '@/api/geocoder';
-import { BK, HD_BY_BK, TRANSPORT_ICON } from '@/lib/dictionaries';
+import { HD_EMERGENCY, TRANSPORT_ICON } from '@/lib/dictionaries';
 import { notify } from '@/lib/notify';
 import { TRANSPORT_LABEL, TRANSPORTS, isTransport, type Transport } from '@/lib/statuses';
-import { Button, Callout, Select, Textarea } from '@/ui';
+import { Button, Callout, Input, Select, Textarea } from '@/ui';
 import { AddressInput } from '../../shared/AddressInput';
 import { invalidateBooking, mutationErrorText } from '../bookingCache';
 import { T } from '../operatorTexts';
@@ -16,9 +16,6 @@ import { emergencyInput, type EmergencyInput } from './emergency';
 import type { RegionPicker } from './RegularForm';
 import styles from './forms.module.css';
 
-/** HD аварии: «Авария» (по умолчанию) · «Информация». */
-const EMERGENCY_HD = HD_BY_BK[BK.emergency];
-const HD_OPTIONS = EMERGENCY_HD.map((hd) => ({ value: hd, label: hd }));
 const TRANSPORT_OPTIONS = TRANSPORTS.map((transport) => ({
   value: transport,
   label: TRANSPORT_LABEL[transport],
@@ -30,7 +27,6 @@ const TRANSPORT_OPTIONS = TRANSPORTS.map((transport) => ({
  */
 export function EmergencyForm({ regions }: { regions: RegionPicker }) {
   const queryClient = useQueryClient();
-  const [typeHd, setTypeHd] = useState<string>(EMERGENCY_HD[0]);
   const [address, setAddress] = useState('');
   // адрес из подсказки или с карты — с координатами
   const [picked, setPicked] = useState<AddressSuggestion | null>(null);
@@ -45,7 +41,6 @@ export function EmergencyForm({ regions }: { regions: RegionPicker }) {
     onSuccess: () => {
       notify(T.crash.ok, 'success');
       // форма очищается, регион остаётся
-      setTypeHd(EMERGENCY_HD[0]);
       setAddress('');
       setPicked(null);
       setTransport('car');
@@ -80,7 +75,7 @@ export function EmergencyForm({ regions }: { regions: RegionPicker }) {
       }
       if (lookup.status === 'found') point = { lat: lookup.suggestion.lat, lon: lookup.suggestion.lon };
     }
-    send.mutate(emergencyInput({ region, typeHd, address, transport, comment, point }));
+    send.mutate(emergencyInput({ region, typeHd: HD_EMERGENCY, address, transport, comment, point }));
   }
 
   // правка полей убирает устаревшую ошибку
@@ -103,13 +98,8 @@ export function EmergencyForm({ regions }: { regions: RegionPicker }) {
           disabled={regions.regions.length === 0}
           onChange={edited(regions.setRegion)}
         />
-        <Select
-          label={T.new.typeHd}
-          icon={Zap}
-          options={HD_OPTIONS}
-          value={typeHd}
-          onChange={edited(setTypeHd)}
-        />
+        {/* авария — только HD «Авария»; «Информацию» записывают обычной заявкой (D-37) */}
+        <Input label={T.new.typeHd} icon={Zap} value={HD_EMERGENCY} readOnly />
         <AddressInput
           fieldClassName={styles.wide}
           label={T.new.address}

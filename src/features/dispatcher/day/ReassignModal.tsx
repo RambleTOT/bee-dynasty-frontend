@@ -16,6 +16,7 @@ import {
   consequenceChips,
   engineersDelta,
   freeAt,
+  idleToday,
   inferPosition,
   minPosition,
   positionOptions,
@@ -226,6 +227,7 @@ export function ReassignModal({
             const selected = id === selectedId;
             const candidateSummary = state?.summary ?? null;
             const badge = candidateBadge(candidate, request, candidateSummary);
+            const idle = idleToday(candidate.engineer, candidateSummary);
             const info = candidateInfo(
               candidate,
               candidateSummary
@@ -271,7 +273,16 @@ export function ReassignModal({
                   aria-hidden
                 />
                 <span className={styles.name}>{candidate.engineer.label}</span>
-                {info && <span className={styles.info}>{info}</span>}
+                {(idle || info) && (
+                  <span className={styles.info}>
+                    {[idle ? 'вызов с выходного — решение диспетчера' : null, info].filter(Boolean).join(' · ')}
+                  </span>
+                )}
+                {idle && (
+                  <ToneChip tone="neutral" size="sm">
+                    Не работает сегодня
+                  </ToneChip>
+                )}
                 {mark}
               </button>
             );

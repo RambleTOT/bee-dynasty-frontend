@@ -14,7 +14,7 @@ import type {
   ScenarioOut,
 } from '@/api/types';
 import { engineerColors, type EngineerColor } from '@/lib/colors';
-import { BK, skillLabel, transportLabel } from '@/lib/dictionaries';
+import { BK, isEmergency, skillLabel, transportLabel } from '@/lib/dictionaries';
 import { isValidLatLng, type LatLng } from '@/lib/map';
 import {
   isRequestStatus,
@@ -99,7 +99,7 @@ export interface DayRequest {
   status: RequestStatus | string;
   flags: Flag[];
   urgent: boolean;
-  /** Аварийные работы: красный маркер с молнией (§6.8 — по навыку, а не по «Срочная»). */
+  /** Авария: красный маркер с молнией и красный блок — по HD «Авария» (D-37, `isEmergency`). */
   emergency: boolean;
   point: LatLng | null;
   engineerId: string | null;
@@ -311,7 +311,7 @@ export function buildDayModel({
       status: isRequestStatus(status) ? status : status || 'unassigned',
       flags: urgent && !flags.includes('urgent') ? ['urgent', ...flags] : flags,
       urgent,
-      emergency: request.required_skill === 'emergency',
+      emergency: isEmergency(request),
       point:
         visit?.point ??
         (isValidLatLng(request.latitude, request.longitude)

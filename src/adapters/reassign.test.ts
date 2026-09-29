@@ -17,6 +17,7 @@ import {
   consequenceChips,
   engineersDelta,
   freeAt,
+  idleToday,
   haversineKm,
   inferPosition,
   minPosition,
@@ -382,3 +383,14 @@ describe('чипы-последствия', () => {
     ]);
   });
 });
+
+describe('idleToday — бригада сегодня не работает (D-38)', () => {
+  it('ответ бэка `engineer_idle_today` важнее; без него — нет заявок в текущем плане', () => {
+    expect(idleToday({ used: false }, null)).toBe(true);
+    expect(idleToday({ used: true }, null)).toBe(false);
+    expect(idleToday({ used: false }, { idleToday: false })).toBe(false);
+    expect(idleToday({ used: true }, { idleToday: true })).toBe(true);
+    expect(idleToday({ used: false }, { idleToday: null })).toBe(true);
+  });
+});
+

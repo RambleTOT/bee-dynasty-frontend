@@ -11,7 +11,7 @@ function metaOf(item: BookingItem): string {
     isRegionId(item.regionId) ? REGION_LABEL[item.regionId] : null,
     dateShort(item.date),
     T.search.window(windowShort(item.window)),
-    typeShort(item.typeBk),
+    typeShort(item.typeBk, item.typeHd),
   ]
     .filter(Boolean)
     .join(' · ');
