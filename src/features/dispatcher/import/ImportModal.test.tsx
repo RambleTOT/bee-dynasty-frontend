@@ -132,6 +132,8 @@ describe('DS-02 Загрузка CSV · шаг 1', () => {
       within(regionCard('Восток')).getByText('Нужен для сравнения с реальным диспетчером'),
     ).toBeInTheDocument();
     expect(uploadButton()).toBeDisabled();
+    // «Другой участок» — только с §14 (FEATURES.anyRegion)
+    expect(screen.queryByRole('region', { name: 'Другой участок' })).not.toBeInTheDocument();
   });
 
   it('выбранный файл: имя, строки на клиенте и размер; ✕ убирает', async () => {

@@ -170,6 +170,59 @@ describe('importReportFromSummary', () => {
   });
 });
 
+describe('свой участок (§14)', () => {
+  const extra = { created: true, name: 'Север', rosterSource: 'Из контрольного файла', normTypes: 5 };
+
+  it('участок создан, точки из загрузки, бригады и нормативы — строками отчёта', () => {
+    const report = importReportFromSummary(
+      'r-1',
+      summary(
+        { ...FULL, rows_total: 40, rows_loaded: 40, coords_from_file: 36, geocoded: 2, geocode_fallback: ['а', 'б'] },
+        { requests: 40, engineers: 9 },
+      ),
+      true,
+      extra,
+    );
+    expect(report.lines.map((line) => [line.kind, line.text])).toEqual([
+      ['loaded', 'Загружено 40 из 40 заявок'],
+      ['region', 'Участок «Север» создан'],
+      ['office', 'Офис: г. Москва, ул. Офисная, д. 1'],
+      ['points', 'Точки заявок: 36 — по координатам загрузки, 2 — нашёл геокодер бэка, 2 — у офиса'],
+      ['roster', '9 бригад — из контрольного файла'],
+      ['norms', 'Нормативы участка: 5 типов заявок'],
+      ['transport', 'Автомобиль нужен 7 заявкам (заполнено правилом: кабель, гигабит, авария)'],
+      ['dispatcher', 'Назначений реального диспетчера: 64 из 40'],
+      ['warning', '2 адреса без координат: точки поставлены у офиса'],
+    ]);
+    expect(report.badge).toBe('remarks');
+  });
+
+  it('обновлённый участок; типы без норматива — замечание', () => {
+    const report = importReportFromSummary(
+      'r-1',
+      summary({ ...FULL, coords_from_file: 66, unknown_types: [{ type_bk: 'Ремонт ТВ', count: 4 }, 'Прочее'] }),
+      true,
+      { ...extra, created: false, normTypes: 1 },
+    );
+    expect(report.lines.find((line) => line.kind === 'region')?.text).toBe(
+      'Участок «Север»: офис, нормативы и бригады обновлены',
+    );
+    expect(report.lines.find((line) => line.kind === 'norms')?.text).toBe(
+      'Нормативы участка: 1 тип заявок',
+    );
+    expect(report.lines.at(-1)).toEqual({
+      kind: 'warning',
+      tone: 'warning',
+      text: 'Нет норматива — взяты локальные работы, 30 мин: Ремонт ТВ (4), Прочее',
+    });
+  });
+
+  it('участок кейса: строк §14 нет', () => {
+    const report = importReportFromSummary('east', summary(FULL), true);
+    expect(report.lines.map((line) => line.kind)).toEqual(['loaded', 'office', 'transport', 'dispatcher']);
+  });
+});
+
 describe('importReportFromError', () => {
   it('ошибка бэка → «Ошибка» и текст из ApiError', () => {
     const error = new ApiError(

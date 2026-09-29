@@ -6,7 +6,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { DayModel } from '@/adapters/dayModel';
 import { formatDayTitle } from '@/lib/format';
-import { REQUEST_STATUS_LABEL, REQUEST_STATUSES, REGION_LABEL, REGIONS } from '@/lib/statuses';
+import { useRegions } from '@/hooks/useRegions';
+import { REQUEST_STATUS_LABEL, REQUEST_STATUSES } from '@/lib/statuses';
 import { Badge, FilterPill, IconButton, Tooltip } from '@/ui';
 import styles from './DayPage.module.css';
 
@@ -43,6 +44,7 @@ export function DayHeader({
   onType: (type: string | null) => void;
   actions: ReactNode;
 }) {
+  const { regions } = useRegions();
   const presentStatuses = new Set(model?.requests.map((r) => r.status) ?? []);
   if (status) presentStatuses.add(status);
   const statusOptions = [
@@ -82,7 +84,7 @@ export function DayHeader({
           label="Регион"
           value={regionId}
           allValue={ALL}
-          options={REGIONS.map((r) => ({ value: r as string, label: REGION_LABEL[r] }))}
+          options={regions.map((region) => ({ value: region.id, label: region.name }))}
           onChange={onRegion}
         />
         <FilterPill

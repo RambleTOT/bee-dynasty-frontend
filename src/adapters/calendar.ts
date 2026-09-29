@@ -9,12 +9,12 @@
  * - Дней без заявок бэк не присылает — такой день пустой («—»).
  */
 import type { CalendarDay, CalendarResponse } from '@/api/types';
+import { regionLabel } from '@/lib/dictionaries';
 import { countOf, formatDayTitle, formatInt, plural, PL_REGION, PL_REQUEST } from '@/lib/format';
 import {
   CALENDAR_BAR_STATUSES,
   FLAG_LABEL,
   isRequestStatus,
-  REGION_LABEL,
   REGIONS,
   REQUEST_STATUS_LABEL,
   REQUEST_STATUS_TONE,
@@ -257,7 +257,7 @@ export function buildCalendarMonth(
   const totals = totalsByDate(combined, countByStatus);
   const byRegion = (regions ?? []).map((r) => ({
     regionId: r.regionId,
-    label: r.regionId in REGION_LABEL ? REGION_LABEL[r.regionId as keyof typeof REGION_LABEL] : r.regionId,
+    label: regionLabel(r.regionId),
     totals: totalsByDate(r.response, countByStatus),
   }));
   const regionRows = (date: string): CalendarRegionRow[] =>

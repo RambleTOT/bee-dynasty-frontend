@@ -1,31 +1,45 @@
 /**
  * CSV выгрузок Билайна на клиенте (DS-02, FRONTEND_SPEC §8.2): сколько в файле строк заявок и его размер.
  * Файлы кейса — Windows-1251, разделитель «;», переводы строк CRLF; в конце — пустые строки вида «;;;;»
- * и строка «Адрес Офиса». Читаем и UTF-8 (с BOM и без), и разделитель «,».
+ * и строка «Адрес Офиса». Читаем и UTF-8 (с BOM и без), и разделители «,» и табуляцию (файлы других
+ * участков, §14).
  */
 
-export type CsvDelimiter = ';' | ',';
+export type CsvDelimiter = ';' | ',' | '\t';
+export type CsvEncoding = 'utf-8' | 'windows-1251';
 
 const hasUtf8Bom = (bytes: Uint8Array) =>
   bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
 
-/** Байты файла → текст: UTF-8 (BOM срезаем); если байты — не UTF-8, то Windows-1251. */
-export function decodeCsv(data: ArrayBuffer | Uint8Array): string {
+/** Байты файла → текст и кодировка: UTF-8 (BOM срезаем); если байты — не UTF-8, то Windows-1251. */
+export function decodeCsvText(data: ArrayBuffer | Uint8Array): {
+  text: string;
+  encoding: CsvEncoding;
+} {
   const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
   const body = hasUtf8Bom(bytes) ? bytes.subarray(3) : bytes;
   try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(body);
+    return { text: new TextDecoder('utf-8', { fatal: true }).decode(body), encoding: 'utf-8' };
   } catch {
-    return new TextDecoder('windows-1251').decode(body);
+    return { text: new TextDecoder('windows-1251').decode(body), encoding: 'windows-1251' };
   }
 }
 
+/** Байты файла → текст (см. `decodeCsvText`). */
+export const decodeCsv = (data: ArrayBuffer | Uint8Array): string => decodeCsvText(data).text;
+
 const occurrences = (text: string, char: string) => text.split(char).length - 1;
 
-/** Разделитель — по первой непустой строке (заголовку): «;», если запятых в ней не больше. */
+/**
+ * Разделитель — по первой непустой строке (заголовку): табуляция, если её больше всего; иначе «;»,
+ * если запятых не больше.
+ */
 export function detectDelimiter(text: string): CsvDelimiter {
   const header = text.split(/\r\n|\n|\r/).find((line) => line.trim() !== '') ?? '';
-  return occurrences(header, ',') > occurrences(header, ';') ? ',' : ';';
+  const semicolons = occurrences(header, ';');
+  const commas = occurrences(header, ',');
+  if (occurrences(header, '\t') > Math.max(semicolons, commas)) return '\t';
+  return commas > semicolons ? ',' : ';';
 }
 
 /**
@@ -71,16 +85,17 @@ export function parseCsv(
   return records;
 }
 
-const isBlank = (record: readonly string[]) => record.every((cell) => cell.trim() === '');
+export const isBlankRecord = (record: readonly string[]) =>
+  record.every((cell) => cell.trim() === '');
 
 /** Служебная строка выгрузки с адресом офиса — не заявка. */
 const OFFICE_ROW = /^адрес\s+офиса/iu;
-const isOfficeRow = (record: readonly string[]) =>
+export const isOfficeRow = (record: readonly string[]) =>
   OFFICE_ROW.test(record.find((cell) => cell.trim() !== '')?.trim() ?? '');
 
 /** Строк заявок в файле: без заголовка, пустых строк (в том числе «;;;;») и строки «Адрес Офиса». */
 export function countCsvRows(text: string): number {
-  const records = parseCsv(text).filter((record) => !isBlank(record));
+  const records = parseCsv(text).filter((record) => !isBlankRecord(record));
   return records.slice(1).filter((record) => !isOfficeRow(record)).length;
 }
 
@@ -106,4 +121,9 @@ function readBytes(file: Blob): Promise<ArrayBuffer> {
 /** Сколько строк заявок в выбранном файле — считаем на клиенте, до загрузки. */
 export async function readCsvRowCount(file: Blob): Promise<number> {
   return countCsvRows(decodeCsv(await readBytes(file)));
+}
+
+/** Текст файла и его кодировка. */
+export async function readCsvText(file: Blob): Promise<{ text: string; encoding: CsvEncoding }> {
+  return decodeCsvText(await readBytes(file));
 }

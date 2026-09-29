@@ -2,17 +2,18 @@
  * DS-01: фильтры и открытая модалка — в адресе (FRONTEND_SPEC §4):
  * `month=2026-09`, `region=all|east|south_east|south_center`, `status`, `type` — по одному значению (D-27),
  * `modal=import` — DS-02, `date=YYYY-MM-DD` — день, на который загружаем CSV (с пустого дня DS-03).
+ * Свой участок (§14, `FEATURES.anyRegion`) — `region=<id с бэка>`.
  */
 import type { MenuOption } from '@/ui';
+import { FEATURES } from '@/config';
 import { searchParam, type SearchParamDef } from '@/hooks/useSearchState';
 import { BK } from '@/lib/dictionaries';
+import { isRegionSlug } from '@/lib/regions';
 import {
   isRegionId,
-  REGION_LABEL,
   REGIONS,
   REQUEST_STATUS_LABEL,
   REQUEST_STATUSES,
-  type RegionId,
   type RequestStatus,
 } from '@/lib/statuses';
 
@@ -31,8 +32,15 @@ const dateParam: SearchParamDef<string | null> = {
   serialize: (value) => value,
 };
 
-export const REGION_FILTERS = ['all', ...REGIONS] as const;
-export type RegionFilter = (typeof REGION_FILTERS)[number];
+/** `all` или id участка. */
+export type RegionFilter = string;
+
+/** Участок кейса; с §14 — любой id участка; мусор — «Все регионы». */
+const regionParam: SearchParamDef<RegionFilter> = {
+  parse: (raw) =>
+    raw !== null && (isRegionId(raw) || (FEATURES.anyRegion && isRegionSlug(raw))) ? raw : 'all',
+  serialize: (value) => (value === 'all' ? null : value),
+};
 
 /** Тип заявки в адресе — ключ справочника BK: `type=connection` → `type_bk=Подключение`. */
 export type BkKey = keyof typeof BK;
@@ -40,7 +48,7 @@ export const BK_KEYS = Object.keys(BK) as BkKey[];
 
 export const calendarSearch = {
   month: monthParam,
-  region: searchParam.enum(REGION_FILTERS, 'all'),
+  region: regionParam,
   status: searchParam.enum(REQUEST_STATUSES),
   type: searchParam.enum(BK_KEYS),
   modal: searchParam.enum(['import']),
@@ -50,10 +58,15 @@ export const calendarSearch = {
 /** «Без фильтра» в пилюлях «Статус» и «Тип заявки». */
 export const ALL = 'all';
 
-export const REGION_OPTIONS: readonly MenuOption<RegionFilter>[] = [
-  { value: 'all', label: 'Все регионы' },
-  ...REGIONS.map((region) => ({ value: region, label: REGION_LABEL[region] })),
-];
+/** «Все регионы» и участки — из hooks/useRegions.ts (участки кейса; с §14 — и свои). */
+export function regionOptions(
+  regions: readonly { id: string; name: string }[],
+): readonly MenuOption<RegionFilter>[] {
+  return [
+    { value: 'all', label: 'Все регионы' },
+    ...regions.map((region) => ({ value: region.id, label: region.name })),
+  ];
+}
 
 export const STATUS_OPTIONS: readonly MenuOption<RequestStatus | typeof ALL>[] = [
   { value: ALL, label: 'Все статусы' },
@@ -74,7 +87,6 @@ export function dayPath(
   region: RegionFilter,
   userRegions: readonly string[] | undefined,
 ): string {
-  const dayRegion: RegionId =
-    region !== 'all' ? region : (userRegions?.find(isRegionId) ?? REGIONS[0]);
+  const dayRegion = region !== 'all' ? region : (userRegions?.find(isRegionId) ?? REGIONS[0]);
   return `/dispatcher/day/${date}?region=${dayRegion}`;
 }

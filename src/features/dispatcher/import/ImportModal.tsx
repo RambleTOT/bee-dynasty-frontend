@@ -1,5 +1,5 @@
-import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, FilePlus2, Upload } from 'lucide-react';
+import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, ArrowRight, FilePlus2, MapPinPlus, Upload } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -12,15 +12,17 @@ import {
 import { importBeeline } from '@/api/data';
 import { getDay } from '@/api/days';
 import { queryKeys } from '@/api/queryKeys';
-import type { DayRegion } from '@/api/types';
+import { FEATURES } from '@/config';
+import { useRegions, type RegionItem } from '@/hooks/useRegions';
 import { formatFileSize, readCsvRowCount } from '@/lib/csv';
 import { countOf, formatDateFull, formatDayMonth, PL_BRIGADE, PL_ROW } from '@/lib/format';
 import { REGION_LABEL, REGIONS, type RegionId } from '@/lib/statuses';
 import { todayMsk } from '@/lib/time';
 import { Button, Callout, Input, Modal } from '@/ui';
-import { regionsQuery } from '../calendar/regionsQuery';
+import { dayConflict, type DayConflict } from './dayConflict';
 import { FileDrop } from './FileDrop';
 import { initialImportDate, isImportDate } from './importDate';
+import { RegionWizard } from './region/RegionWizard';
 import { ReportCard } from './ReportCard';
 import styles from './ImportModal.module.css';
 
@@ -47,23 +49,6 @@ interface ImportJob {
 interface ImportRun {
   date: string;
   reports: ImportRegionReport[];
-}
-
-/**
- * Что уже есть у региона на дату. CSV — новый файл его заменит: бэк отправит прежний CSV-день в
- * архив (перед загрузкой — предупреждение и подтверждение). Записи оператора — CSV бэк не примет
- * (`DATE_HAS_BOOKINGS`). Демо-день не мешает: календарь создаёт его на сегодня сам.
- */
-type DayConflict = 'replace' | 'blocked';
-
-function dayConflict(
-  data: { regions: DayRegion[] } | undefined,
-  regionId: RegionId,
-): DayConflict | null {
-  const day = data?.regions.find((region) => region.region_id === regionId && region.scenario_id);
-  if (day?.source === 'csv') return 'replace';
-  if (day?.source === 'booking') return 'blocked';
-  return null;
 }
 
 const requestsMeta = ({ file, rows }: Picked) =>
@@ -105,7 +90,10 @@ export function ImportModal({
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const regions = useQuery(regionsQuery);
+  const { regions: regionList, query: regions } = useRegions();
+  const customRegions = regionList.filter((region) => !region.builtin);
+  // «Другой участок» (§14): открыт мастер — для нового участка (`region: null`) или своего
+  const [wizard, setWizard] = useState<{ region: RegionItem | null } | null>(null);
   const [picks, setPicks] = useState<Picks>(NO_PICKS);
   const [run, setRun] = useState<ImportRun | null>(null);
   const [date, setDate] = useState(() => initialImportDate(initialDate));
@@ -186,6 +174,22 @@ export function ImportModal({
 
   const busy = upload.isPending;
   const replacing = jobs.filter((job) => conflicts[job.regionId] === 'replace');
+
+  if (wizard && !run) {
+    return (
+      <RegionWizard
+        date={date}
+        region={wizard.region}
+        regions={regionList}
+        onBack={() => setWizard(null)}
+        onClose={onClose}
+        onDone={(result) => {
+          setWizard(null);
+          setRun(result);
+        }}
+      />
+    );
+  }
 
   if (run) {
     const totals = importTotals(run.reports);
@@ -355,7 +359,69 @@ export function ImportModal({
             </section>
           );
         })}
+        {FEATURES.anyRegion && (
+          <>
+            {customRegions.map((region) => (
+              <CustomRegionCard
+                key={region.id}
+                region={region}
+                disabled={busy || !dateOk}
+                onOpen={() => setWizard({ region })}
+              />
+            ))}
+            <section className={styles.region} aria-label="Другой участок">
+              <div className={styles.regionHead}>
+                <h3 className={styles.regionName}>Другой участок</h3>
+              </div>
+              <p className={styles.regionText}>
+                Файл участка не из списка: свой офис, бригады и нормативы, любые колонки
+              </p>
+              <div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={MapPinPlus}
+                  disabled={busy || !dateOk}
+                  onClick={() => setWizard({ region: null })}
+                >
+                  Настроить загрузку
+                </Button>
+              </div>
+            </section>
+          </>
+        )}
       </div>
     </Modal>
+  );
+}
+
+/** Свой участок (§14) в шаге 1: файлы грузим через мастер — колонки, нормативы и бригады участка. */
+function CustomRegionCard({
+  region,
+  disabled,
+  onOpen,
+}: {
+  region: RegionItem;
+  disabled: boolean;
+  onOpen: () => void;
+}) {
+  const brigades = region.info?.engineer_count;
+  return (
+    <section className={styles.region} aria-label={region.name}>
+      <div className={styles.regionHead}>
+        <h3 className={styles.regionName}>{region.name}</h3>
+        <span className={styles.regionNote}>
+          {brigades ? `${countOf(brigades, PL_BRIGADE)} · ` : ''}свой участок
+        </span>
+      </div>
+      {region.info?.office.address && (
+        <p className={styles.regionText}>Офис: {region.info.office.address}</p>
+      )}
+      <div>
+        <Button variant="secondary" size="sm" icon={Upload} disabled={disabled} onClick={onOpen}>
+          Загрузить файл участка
+        </Button>
+      </div>
+    </section>
   );
 }

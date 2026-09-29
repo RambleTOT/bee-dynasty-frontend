@@ -11,6 +11,7 @@ import {
   type Skill,
   type Transport,
 } from './statuses';
+import { knownRegionName } from './regions';
 
 export const SKILL_SHORT: Record<Skill, string> = {
   local: 'Лок.',
@@ -43,7 +44,9 @@ export const skillLabel = (skill: string | null | undefined, display?: string | 
   display || labelOf(SKILL_LABEL, skill);
 export const transportLabel = (transport: string | null | undefined, display?: string | null) =>
   display || labelOf(TRANSPORT_LABEL, transport);
-export const regionLabel = (region: string | null | undefined) => labelOf(REGION_LABEL, region);
+/** Название участка: с бэка (свои участки, §14), иначе справочник; незнакомый — как есть. */
+export const regionLabel = (region: string | null | undefined) =>
+  knownRegionName(region) ?? labelOf(REGION_LABEL, region);
 
 /** Типы заявки BK — строки из выданных CSV (§8.3.7). */
 export const BK = {

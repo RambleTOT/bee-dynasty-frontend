@@ -20,7 +20,9 @@ import {
 import { HD_EMERGENCY } from '@/lib/dictionaries';
 import { countOf, PL_REQUEST } from '@/lib/format';
 import { notify } from '@/lib/notify';
-import { REGION_LABEL, REGIONS, isRequestStatus, REQUEST_STATUS_LABEL } from '@/lib/statuses';
+import { useRegions } from '@/hooks/useRegions';
+import { regionLabel } from '@/lib/dictionaries';
+import { isRequestStatus, REQUEST_STATUS_LABEL } from '@/lib/statuses';
 import { Button, Callout, Input, Modal, RadioCards, SegmentedControl, Select, Textarea, cx } from '@/ui';
 import { AddressInput } from '../../shared/AddressInput';
 import type { EventTab } from './daySearch';
@@ -55,6 +57,7 @@ export function EventModal({
   onClose: () => void;
   onProposal: (planId: string, event: DispatcherEvent) => void;
 }) {
+  const { regions } = useRegions();
   const [time, setTime] = useState(model.now);
   const [address, setAddress] = useState('');
   // адрес из подсказки или с карты — с координатами: срочная без координат ломает день (BACKEND_REQUESTS п. 46)
@@ -187,7 +190,7 @@ export function EventModal({
       label="Регион"
       tone="filled"
       value={model.regionId}
-      options={REGIONS.map((r) => ({ value: r as string, label: REGION_LABEL[r] }))}
+      options={regions.map((region) => ({ value: region.id, label: region.name }))}
       onChange={onRegion}
     />
   );
@@ -245,7 +248,7 @@ export function EventModal({
       />
       {!published && (
         <Callout tone="warning">
-          В регионе «{REGION_LABEL[model.regionId as keyof typeof REGION_LABEL] ?? model.regionId}» план на этот день не
+          В регионе «{regionLabel(model.regionId)}» план на этот день не
           опубликован — события появятся после публикации.
         </Callout>
       )}

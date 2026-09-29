@@ -12,6 +12,8 @@ export interface CalendarKeyFilters {
 export const queryKeys = {
   me: ['me'] as const,
   regions: ['regions'] as const,
+  /** Ростер своего участка (§14): под префиксом участков — инвалидируется вместе со списком. */
+  regionRoster: (regionId: string) => ['regions', regionId, 'roster'] as const,
   calendar: (month: string, filters: CalendarKeyFilters = {}) =>
     ['calendar', month, filters] as const,
   days: (date: string, region = 'all') => ['days', date, region] as const,

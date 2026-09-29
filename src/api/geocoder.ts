@@ -26,3 +26,21 @@ export function reverseAddress(lat: number, lon: number, signal?: AbortSignal): 
   const params = new URLSearchParams({ lat: String(lat), lon: String(lon), limit: '1' });
   return fetchExternalJson(`${ADDRESS_SUGGEST.url}/reverse?${params}`, signal);
 }
+
+/**
+ * Точка по адресу заявки (загрузка другого участка, §14): три варианта, ближе к офису — выше.
+ * Выбор варианта — adapters/address.ts `geocodeHit`.
+ */
+export function geocodeAddress(
+  query: string,
+  near: { lat: number; lon: number } | null,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  if (!ADDRESS_SUGGEST.url) return Promise.resolve(null);
+  const params = new URLSearchParams({ q: query, limit: '3' });
+  if (near) {
+    params.set('lat', String(near.lat));
+    params.set('lon', String(near.lon));
+  }
+  return fetchExternalJson(`${ADDRESS_SUGGEST.url}/api/?${params}`, signal);
+}

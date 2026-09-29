@@ -19,6 +19,49 @@ export type Role = 'dispatcher' | 'operator' | 'engineer';
 // --- справочники и данные дня ---
 export type RegionOut = Schemas['RegionOut'];
 export type OfficeOut = Schemas['OfficeOut'];
+
+/** Норматив участка (§14): тип заявки BK → навык и длительность работ без дороги, мин. */
+export interface RegionNormType {
+  type_bk: string;
+  skill: string;
+  duration_minutes: number;
+}
+
+export interface RegionNorms {
+  types: RegionNormType[];
+}
+
+/**
+ * Участок из `GET /regions` с полями §14 (свои участки, `FEATURES.anyRegion`). До правки бэка их нет:
+ * читаем через `?.`, участок без `builtin` — участок кейса.
+ */
+export type RegionInfo = RegionOut & {
+  builtin?: boolean;
+  norms?: RegionNorms | null;
+  created_at?: string | null;
+};
+
+/** `POST /regions` (§14): новый участок — название, офис с координатами, нормативы. */
+export interface RegionCreate {
+  name: string;
+  office: OfficeOut;
+  norms?: RegionNorms;
+}
+
+export type RegionPatch = Partial<RegionCreate>;
+
+/** Бригада ростера участка (`GET|PUT /regions/{id}/roster`, §14) — форма `EngineerIn` бэка. */
+export interface RosterEngineer {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  shift_start: string;
+  shift_end: string;
+  skills: string[];
+  transport: string;
+  available?: boolean;
+}
 export type ScenarioOut = Schemas['ScenarioOut'];
 export type ScenarioSummary = Schemas['ScenarioSummary'];
 export type RequestOut = Schemas['RequestOut'];

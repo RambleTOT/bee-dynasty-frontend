@@ -84,3 +84,126 @@ export function lookupOf(response: unknown): AddressLookup {
   const [first] = parseSuggestions(response);
   return first ? { status: 'found', suggestion: first } : { status: 'none' };
 }
+
+// --- точки заявок другого участка (§14, `FEATURES.anyRegion`) ---
+
+/** Квартира, офис, подъезд — геокодер по ним промахивается: «кв. 47» уводит на другой конец города. */
+const ROOM_PART = /^(?:кв|квартира|оф|офис|пом|помещение|комн|комната|подъезд|под|эт|этаж)(?![а-яё])/iu;
+
+/** Сокращение улицы в начале слова (`\b` с кириллицей не работает). */
+const abbr = (source: string) => new RegExp(`(?<![а-яё])${source}\\s*`, 'giu');
+
+const STREET_ABBR: [RegExp, string][] = [
+  [abbr('ул\\.'), 'улица '],
+  [abbr('пр-кт\\.?'), 'проспект '],
+  [abbr('просп\\.'), 'проспект '],
+  [abbr('б-р\\.?'), 'бульвар '],
+  [abbr('проезд\\.'), 'проезд '],
+  [abbr('пер\\.'), 'переулок '],
+  [abbr('ш\\.'), 'шоссе '],
+  [abbr('наб\\.'), 'набережная '],
+  [abbr('пл\\.'), 'площадь '],
+  [abbr('туп\\.'), 'тупик '],
+  [abbr('мкр\\.?'), 'микрорайон '],
+];
+
+/**
+ * Адрес из файла → запрос геокодеру: без квартиры и «д.», сокращения улиц полностью, «Город Москва»
+ * → «Москва». «Город Москва, б-р.Чонгарский, д. 1 к 4, кв. 314» → «Москва, бульвар Чонгарский, 1 к4».
+ */
+export function geocodeQuery(address: string): string {
+  return address
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => part && !ROOM_PART.test(part))
+    .map((part) => {
+      let text = part.replace(/^(?:г\.?\s*)?город\s+/iu, '').replace(/^г\.\s*/iu, '');
+      for (const [abbr, full] of STREET_ABBR) text = text.replace(abbr, full);
+      return text
+        .replace(/^(?:д\.?|дом)\s*(?=\d)/iu, '')
+        .replace(/\s(?:к\.?|корп\.?|корпус)\s*(\d+)/giu, ' к$1')
+        .replace(/\s(?:стр\.?|строение)\s*(\d+)/giu, ' с$1')
+        .replace(/\s+/g, ' ')
+        .trim();
+    })
+    .filter(Boolean)
+    .join(', ');
+}
+
+/** Слова, которые названия улицы не задают: города, типы улиц, «дом». */
+const COMMON_WORDS = new Set([
+  'москва', 'город', 'область', 'московская', 'район', 'поселение', 'улица', 'проспект', 'бульвар',
+  'проезд', 'переулок', 'шоссе', 'набережная', 'площадь', 'тупик', 'микрорайон', 'деревня', 'поселок',
+  'посёлок', 'село', 'квартал', 'корпус', 'строение', 'владение',
+]);
+
+const STREET_TYPE =
+  /(?<![а-яё])(?:улица|проспект|бульвар|проезд|переулок|шоссе|набережная|площадь|тупик|микрорайон)(?![а-яё])/iu;
+
+/**
+ * Значимые слова улицы: «Москва, бульвар Чонгарский, 1 к4» → [«чонга»]. Часть с типом улицы, иначе
+ * вторая часть (первая — обычно город: по ней совпадёт любая улица города).
+ */
+function nameStems(query: string): string[] {
+  const parts = query.split(',').map((part) => part.trim());
+  const street = parts.find((part) => STREET_TYPE.test(part)) ?? parts[1] ?? parts[0] ?? '';
+  const words = street.toLowerCase().replace(/ё/g, 'е').match(/[а-яa-z]{4,}/gu) ?? [];
+  return [...new Set(words.filter((word) => !COMMON_WORDS.has(word)).map((word) => word.slice(0, 5)))];
+}
+
+export type GeocodePrecision = 'house' | 'street';
+
+export interface GeocodeHit {
+  lat: number;
+  lon: number;
+  precision: GeocodePrecision;
+  /** Что нашёл геокодер: «Чонгарский бульвар, 1 к4». */
+  label: string;
+}
+
+/** Дальше этого от офиса — чужой город, не заявка участка. */
+const MAX_OFFICE_KM = 100;
+
+function distanceKm(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
+  const rad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * rad;
+  const dLon = (b.lon - a.lon) * rad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(h));
+}
+
+/**
+ * Ответ Photon на `geocodeQuery` → точка. Берём первый вариант, у которого улица совпадает со словами
+ * адреса: дом — точно, улица — «по улице». Остальное (город, район, чужая улица, дальше 100 км от
+ * офиса) — не нашли.
+ */
+export function geocodeHit(
+  response: unknown,
+  query: string,
+  office: { lat: number; lon: number } | null,
+): GeocodeHit | null {
+  if (!isObject(response) || !Array.isArray(response.features)) return null;
+  const stems = nameStems(query);
+  if (stems.length === 0) return null;
+  for (const feature of response.features) {
+    if (!isObject(feature) || !isObject(feature.properties) || !isObject(feature.geometry)) continue;
+    const coords = feature.geometry.coordinates;
+    if (!Array.isArray(coords) || coords.length < 2) continue;
+    const [lon, lat] = coords.map(Number);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    if (office && distanceKm(office, { lat, lon }) > MAX_OFFICE_KM) continue;
+    const p = feature.properties;
+    const street = text(p.street) ?? (p.type === 'street' ? text(p.name) : null);
+    if (!street) continue;
+    const found = street.toLowerCase().replace(/ё/g, 'е');
+    if (!stems.some((stem) => found.includes(stem))) continue;
+    const house = text(p.housenumber);
+    return {
+      lat,
+      lon,
+      precision: house ? 'house' : 'street',
+      label: unique([street, house]).join(', '),
+    };
+  }
+  return null;
+}

@@ -4,26 +4,35 @@ import type {
   EngineerCreate,
   EngineerOut,
   EngineerPatch,
-  RegionOut,
+  RegionInfo,
   ScenarioOut,
   ScenarioSummary,
 } from './types';
 
 type Signal = AbortSignal | undefined;
 
-export const getRegions = (signal?: Signal) => api.get<RegionOut[]>('/regions', { signal });
+export const getRegions = (signal?: Signal) => api.get<RegionInfo[]>('/regions', { signal });
 
 export interface ImportFiles {
   requestsFile: File;
   controlFile?: File | null;
+  /** Ростер (`engineers_file`, формат бэка — adapters/regionRoster.ts), только для своего участка. */
+  engineersFile?: File | null;
   regionId: string;
   date: string;
 }
 
-export function importBeeline({ requestsFile, controlFile, regionId, date }: ImportFiles) {
+export function importBeeline({
+  requestsFile,
+  controlFile,
+  engineersFile,
+  regionId,
+  date,
+}: ImportFiles) {
   const form = new FormData();
   form.append('requests_file', requestsFile);
   if (controlFile) form.append('control_file', controlFile);
+  if (engineersFile) form.append('engineers_file', engineersFile);
   form.append('region_id', regionId);
   form.append('date', date);
   return api.postForm<ScenarioSummary>('/data/import-beeline', form);

@@ -1,7 +1,7 @@
 import { CalendarClock } from 'lucide-react';
 import { bookingKey, type BookingItem } from '@/adapters/booking';
 import { dateWithWeekday, typeFull, windowFull } from '@/lib/booking';
-import { isRegionId, REGION_LABEL } from '@/lib/statuses';
+import { knownRegionName } from '@/lib/regions';
 import { Button, InfoGrid, StatusChip, type InfoItem } from '@/ui';
 import { T } from '../operatorTexts';
 import { CancelBlock } from './CancelBlock';
@@ -10,8 +10,9 @@ import styles from './RequestCard.module.css';
 /** Поля карточки: чего нет в ответе (⏳ 9.2), не выводим. */
 function infoItems(item: BookingItem): (InfoItem | false)[] {
   const type = typeFull(item.typeBk, item.typeHd);
+  const region = knownRegionName(item.regionId);
   return [
-    isRegionId(item.regionId) && { label: T.card.region, value: REGION_LABEL[item.regionId] },
+    region !== null && { label: T.card.region, value: region },
     {
       label: T.card.dateWindow,
       value: `${dateWithWeekday(item.date)} · ${windowFull(item.window)}`,

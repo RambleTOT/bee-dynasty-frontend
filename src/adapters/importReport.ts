@@ -18,8 +18,21 @@ import {
   PL_ROW,
 } from '@/lib/format';
 
-/** Иконка строки: загружено, офис, транспорт, реальный диспетчер, замечание, ошибка. */
-export type ImportLineKind = 'loaded' | 'office' | 'transport' | 'dispatcher' | 'warning' | 'error';
+/**
+ * Иконка строки: загружено, участок (§14), офис, точки (§14), бригады (§14), нормативы (§14),
+ * транспорт, реальный диспетчер, замечание, ошибка.
+ */
+export type ImportLineKind =
+  | 'loaded'
+  | 'region'
+  | 'office'
+  | 'points'
+  | 'roster'
+  | 'norms'
+  | 'transport'
+  | 'dispatcher'
+  | 'warning'
+  | 'error';
 export type ImportTone = 'success' | 'warning' | 'danger';
 export type ImportBadge = 'ready' | 'remarks' | 'error';
 
@@ -123,11 +136,38 @@ const isControlFileWarning = (text: string) =>
 
 const mentionsGeocoding = (text: string) => /координат|геокод/iu.test(text);
 
-/** Отчёт региона, который загрузился. `hadControl` — был ли выбран контрольный файл. */
+/** Загрузка своего участка (§14): что сделал мастер «Другой участок» до импорта. */
+export interface RegionImportExtra {
+  /** Участок создан этой загрузкой; иначе — обновлены его название, офис, нормативы и бригады. */
+  created: boolean;
+  name: string;
+  /** Откуда состав: «из контрольного файла», «по правилу»… */
+  rosterSource: string;
+  /** Типов заявок в нормативах участка. */
+  normTypes: number;
+}
+
+/** `unknown_types` отчёта (§14): типы, для которых бэк взял норматив по умолчанию. */
+function unknownTypes(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const object = asObject(item);
+    const name = object ? asText(object.type_bk) : asText(item);
+    if (!name) return [];
+    const count = object ? asCount(object.count) : null;
+    return [count ? `${name} (${formatInt(count)})` : name];
+  });
+}
+
+/**
+ * Отчёт региона, который загрузился. `hadControl` — был ли выбран контрольный файл; `extra` —
+ * загрузка своего участка (§14).
+ */
 export function importReportFromSummary(
   regionId: string,
   summary: ScenarioSummary,
   hadControl: boolean,
+  extra?: RegionImportExtra,
 ): ImportRegionReport {
   const report = asObject(summary.import_report) ?? {};
   const skipped = skippedRows(report.rows_skipped);
@@ -142,9 +182,53 @@ export function importReportFromSummary(
     },
   ];
 
+  if (extra) {
+    lines.push({
+      kind: 'region',
+      tone: 'success',
+      text: extra.created
+        ? `Участок «${extra.name}» создан`
+        : `Участок «${extra.name}»: офис, нормативы и бригады обновлены`,
+    });
+  }
+
   // бэк оставляет в адресе хвост пустых колонок CSV: «…д 1с1;;;;;;»
   const office = asText(asObject(report.office)?.address)?.replace(/[\s;,]+$/, '');
   if (office) lines.push({ kind: 'office', tone: 'success', text: `Офис: ${office}` });
+
+  // Адреса без координат бэк ставит у офиса — если об этом нет своего предупреждения, скажем сами.
+  const fallback = report.geocode_fallback;
+  const unplaced = Array.isArray(fallback) ? fallback.length : (asCount(fallback) ?? 0);
+
+  // §14: точки из загрузки (найдены на клиенте или были в файле), геокодер бэка, офис
+  const fromFile = asCount(report.coords_from_file);
+  if (fromFile !== null) {
+    const byServer = asCount(report.geocoded) ?? 0;
+    const parts = [`${formatInt(fromFile)} — по координатам загрузки`];
+    if (byServer > 0) parts.push(`${formatInt(byServer)} — нашёл геокодер бэка`);
+    if (unplaced > 0) parts.push(`${formatInt(unplaced)} — у офиса`);
+    lines.push({
+      kind: 'points',
+      tone: unplaced > 0 ? 'warning' : 'success',
+      text: `Точки заявок: ${parts.join(', ')}`,
+    });
+  }
+
+  if (extra) {
+    const engineers = asCount(summary.engineer_count);
+    if (engineers !== null) {
+      lines.push({
+        kind: 'roster',
+        tone: 'success',
+        text: `${countOf(engineers, PL_BRIGADE)} — ${extra.rosterSource.toLowerCase()}`,
+      });
+    }
+    lines.push({
+      kind: 'norms',
+      tone: 'success',
+      text: `Нормативы участка: ${formatInt(extra.normTypes)} ${plural(extra.normTypes, ['тип', 'типа', 'типов'])} заявок`,
+    });
+  }
 
   const transport = asObject(report.required_transport);
   if (transport) {
@@ -176,9 +260,15 @@ export function importReportFromSummary(
   ];
   const remarks = warnings.map((text): ImportLine => ({ kind: 'warning', tone: 'warning', text }));
 
-  // Адреса без координат бэк ставит у офиса — если об этом нет своего предупреждения, скажем сами.
-  const fallback = report.geocode_fallback;
-  const unplaced = Array.isArray(fallback) ? fallback.length : (asCount(fallback) ?? 0);
+  const unknown = unknownTypes(report.unknown_types);
+  if (unknown.length) {
+    remarks.push({
+      kind: 'warning',
+      tone: 'warning',
+      text: `Нет норматива — взяты локальные работы, 30 мин: ${unknown.join(', ')}`,
+    });
+  }
+
   if (unplaced > 0 && !warnings.some(mentionsGeocoding)) {
     remarks.push({
       kind: 'warning',

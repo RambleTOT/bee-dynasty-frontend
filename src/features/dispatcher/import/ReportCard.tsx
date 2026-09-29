@@ -3,8 +3,12 @@ import {
   Car,
   CircleAlert,
   CircleCheck,
+  Clock3,
+  MapPin,
+  MapPinPlus,
   TriangleAlert,
   Users,
+  UsersRound,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -20,7 +24,11 @@ import styles from './ImportModal.module.css';
 
 const LINE_ICON: Record<ImportLineKind, LucideIcon> = {
   loaded: CircleCheck,
+  region: MapPinPlus,
   office: Building2,
+  points: MapPin,
+  roster: UsersRound,
+  norms: Clock3,
   transport: Car,
   dispatcher: Users,
   warning: TriangleAlert,

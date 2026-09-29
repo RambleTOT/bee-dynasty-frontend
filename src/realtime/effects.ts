@@ -10,7 +10,7 @@ import type { QueryKey } from '@tanstack/react-query';
 import type { Role } from '@/api/types';
 import { formatDateShort } from '@/lib/format';
 import type { NotifyKind } from '@/lib/notify';
-import { isRegionId, REGION_LABEL } from '@/lib/statuses';
+import { knownRegionName } from '@/lib/regions';
 import type { RealtimeEvent } from './protocol';
 
 export interface RealtimeNotice {
@@ -89,7 +89,7 @@ function keysFor(event: RealtimeEvent): QueryKey[] {
 }
 
 function place(event: RealtimeEvent): string | undefined {
-  const region = event.regionId && isRegionId(event.regionId) ? REGION_LABEL[event.regionId] : null;
+  const region = knownRegionName(event.regionId);
   const parts = [region, event.date ? formatDateShort(event.date) : null].filter(Boolean);
   return parts.length ? parts.join(' · ') : undefined;
 }

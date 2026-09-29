@@ -1,6 +1,6 @@
 import type { BookingItem } from '@/adapters/booking';
 import { dateShort, typeShort, windowShort } from '@/lib/booking';
-import { isRegionId, REGION_LABEL } from '@/lib/statuses';
+import { knownRegionName } from '@/lib/regions';
 import { cx, StatusChip } from '@/ui';
 import { T } from '../operatorTexts';
 import styles from './ResultRow.module.css';
@@ -8,7 +8,7 @@ import styles from './ResultRow.module.css';
 /** «Юго-восток · 29.09 · окно 18–20 · Подключение»: номера в разных регионах и днях совпадают. */
 function metaOf(item: BookingItem): string {
   return [
-    isRegionId(item.regionId) ? REGION_LABEL[item.regionId] : null,
+    knownRegionName(item.regionId),
     dateShort(item.date),
     T.search.window(windowShort(item.window)),
     typeShort(item.typeBk, item.typeHd),

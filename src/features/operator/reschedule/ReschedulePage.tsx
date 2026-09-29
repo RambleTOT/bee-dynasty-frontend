@@ -17,7 +17,7 @@ import { queryKeys } from '@/api/queryKeys';
 import type { BookingRescheduleIn, BookingSlotsResponse } from '@/api/types';
 import { dateShort, dateWithWeekday, typeFull, windowFull, windowShort } from '@/lib/booking';
 import { notify } from '@/lib/notify';
-import { isRegionId, REGION_LABEL } from '@/lib/statuses';
+import { knownRegionName } from '@/lib/regions';
 import { addDays, todayMsk } from '@/lib/time';
 import { PageLoader } from '@/pages/PageLoader';
 import { Button, ErrorState, type InfoItem } from '@/ui';
@@ -150,8 +150,9 @@ function RescheduleStep({ item, q }: { item: BookingItem; q?: string }) {
   });
 
   const type = typeFull(item.typeBk, item.typeHd);
+  const region = knownRegionName(item.regionId);
   const rows: (InfoItem | false)[] = [
-    isRegionId(item.regionId) && { label: T.card.region, value: REGION_LABEL[item.regionId] },
+    region !== null && { label: T.card.region, value: region },
     {
       label: T.resch.current,
       value: `${dateWithWeekday(item.date)} · ${windowFull(item.window)}`,

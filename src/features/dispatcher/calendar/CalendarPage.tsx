@@ -12,11 +12,11 @@ import { isApiError } from '@/api/errors';
 import { queryKeys } from '@/api/queryKeys';
 import { useAuth } from '@/auth/useAuth';
 import { POLL } from '@/config';
+import { useRegions } from '@/hooks/useRegions';
 import { useSearchState } from '@/hooks/useSearchState';
 import { usePollInterval } from '@/realtime/useRealtime';
 import { BK } from '@/lib/dictionaries';
 import { formatMonthTitle } from '@/lib/format';
-import { REGIONS } from '@/lib/statuses';
 import { addMonths, monthGrid, monthOf, todayMsk } from '@/lib/time';
 import { Button, cx, ErrorState, FilterPill, IconButton } from '@/ui';
 import { ImportModal } from '../import/ImportModal';
@@ -24,12 +24,11 @@ import {
   ALL,
   calendarSearch,
   dayPath,
-  REGION_OPTIONS,
+  regionOptions,
   STATUS_OPTIONS,
   TYPE_OPTIONS,
 } from './calendarSearch';
 import { MonthGrid, SkeletonGrid, WeekdayHeader } from './MonthGrid';
-import { regionsQuery } from './regionsQuery';
 import styles from './CalendarPage.module.css';
 import tones from './tones.module.css';
 
@@ -68,25 +67,28 @@ export default function CalendarPage() {
   });
   const allRegions = region === 'all';
   const calendar = useQuery({ ...calendarOptions(region), enabled: !allRegions });
+  const { regions } = useRegions();
+  const regionIds = regions.map((item) => item.id);
   const perRegion = useQueries({
-    queries: REGIONS.map((regionId) => ({ ...calendarOptions(regionId), enabled: allRegions })),
+    queries: regionIds.map((regionId) => ({ ...calendarOptions(regionId), enabled: allRegions })),
   });
-  const regions = useQuery(regionsQuery);
 
   const perRegionData = perRegion.map((q) => q.data);
+  // список участков с §14 растёт после ответа /regions: в зависимостях — отметки ответов, а не массив
+  const perRegionStamp = `${regionIds.join(',')}|${perRegion.map((q) => q.dataUpdatedAt).join(',')}`;
   const model = useMemo(() => {
     const countByStatus = status !== null;
     if (allRegions) {
       if (!perRegionData.every(Boolean)) return null;
       return buildCalendarMonth(month, null, today, {
         countByStatus,
-        regions: REGIONS.map((regionId, index) => ({ regionId, response: perRegionData[index] })),
+        regions: regionIds.map((regionId, index) => ({ regionId, response: perRegionData[index] })),
       });
     }
     return calendar.data ? buildCalendarMonth(month, calendar.data, today, { countByStatus }) : null;
-    // perRegionData — новый массив на каждую отрисовку; ответы стабильны, сравниваем их
+    // perRegionData — новый массив на каждую отрисовку; ответы стабильны, сравниваем их отметки
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allRegions, calendar.data, month, today, status, ...perRegionData]);
+  }, [allRegions, calendar.data, month, today, status, perRegionStamp]);
 
   const userRegions = user?.region_ids;
   const dayHref = useCallback(
@@ -136,7 +138,7 @@ export default function CalendarPage() {
         <span className={styles.spacer} />
         {model && (
           <span className={styles.summary}>
-            {calendarSummary(model.total, summaryRegionCount(region, regions.data))}
+            {calendarSummary(model.total, summaryRegionCount(region, regions))}
           </span>
         )}
       </div>
@@ -144,7 +146,7 @@ export default function CalendarPage() {
       <div className={styles.toolbar}>
         <FilterPill
           label="Регион"
-          options={REGION_OPTIONS}
+          options={regionOptions(regions)}
           value={region}
           allValue="all"
           onChange={(value) => setSearch({ region: value })}

@@ -16,7 +16,7 @@ export interface RequestOptions {
 }
 
 /** DELETE-ручки не используем (правила проекта), поэтому такого метода нет. */
-export type HttpMethod = 'GET' | 'POST' | 'PATCH';
+export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT';
 
 /** URL = API_URL + path + query. `undefined` и `null` пропускаем, массивы — через запятую. */
 export function buildUrl(path: string, query?: QueryParams): string {
@@ -116,6 +116,8 @@ export const api = {
     request<T>('POST', path, { ...options, json }),
   patch: <T>(path: string, json?: unknown, options?: Options) =>
     request<T>('PATCH', path, { ...options, json }),
+  put: <T>(path: string, json?: unknown, options?: Options) =>
+    request<T>('PUT', path, { ...options, json }),
   postForm: <T>(path: string, form: FormData, options?: Options) =>
     request<T>('POST', path, { ...options, form }),
 };

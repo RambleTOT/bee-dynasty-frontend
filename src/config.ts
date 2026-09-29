@@ -61,6 +61,9 @@ const FEATURE_DEFAULTS = {
   realtime: false,
   // п. 47: поле time («сейчас» дня) в reassign/check и reassign — у бэка ещё нет
   reassignTime: false,
+  // §14 (docs/spec/BACKEND_ANY_REGION.md): свои участки — POST/PATCH /regions, ростер участка,
+  // колонки «Навык», «Длительность», «Широта», «Долгота» в import-beeline — у бэка ещё нет
+  anyRegion: false,
 };
 
 export type FeatureFlag = keyof typeof FEATURE_DEFAULTS;

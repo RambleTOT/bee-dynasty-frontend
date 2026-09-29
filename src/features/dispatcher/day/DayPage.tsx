@@ -12,7 +12,10 @@ import { useAuth } from '@/auth/useAuth';
 import { useSearchState } from '@/hooks/useSearchState';
 import { countOf, formatDayTitle, PL_REQUEST } from '@/lib/format';
 import { notify } from '@/lib/notify';
-import { isRegionId, REGION_LABEL, REGIONS, type RegionId } from '@/lib/statuses';
+import { FEATURES } from '@/config';
+import { regionLabel } from '@/lib/dictionaries';
+import { isRegionSlug } from '@/lib/regions';
+import { isRegionId, REGIONS, type RegionId } from '@/lib/statuses';
 import { addDays, todayMsk } from '@/lib/time';
 import {
   ActionMenu,
@@ -65,7 +68,10 @@ export default function DayPage() {
   const [search, setSearch] = useSearchState(daySearch);
 
   const date = params.date && YMD.test(params.date) ? params.date : todayMsk();
-  const regionId: RegionId = search.region && isRegionId(search.region) ? search.region : defaultRegion(user?.region_ids);
+  // участок кейса; с §14 — любой id участка (свои участки заводит диспетчер)
+  const knownRegion =
+    search.region && (isRegionId(search.region) || (FEATURES.anyRegion && isRegionSlug(search.region)));
+  const regionId: string = knownRegion && search.region ? search.region : defaultRegion(user?.region_ids);
   const clock = search.clock && CLOCK.test(search.clock) ? search.clock.padStart(5, '0') : null;
 
   // регион — всегда в адресе: ссылку на день можно отправить коллеге
@@ -265,7 +271,7 @@ export default function DayPage() {
       <div className={styles.center}>
         <EmptyState
           icon={CalendarX2}
-          title={`На ${formatDayTitle(date).toLowerCase()} в регионе «${REGION_LABEL[regionId]}» заявок нет`}
+          title={`На ${formatDayTitle(date).toLowerCase()} в регионе «${regionLabel(regionId)}» заявок нет`}
           action={
             <Button variant="secondary" icon={Upload} onClick={() => navigate(`/dispatcher?modal=import&date=${date}`)}>
               Загрузить CSV

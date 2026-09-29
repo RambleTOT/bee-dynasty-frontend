@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
-import { getRegions } from '@/api/data';
-import { queryKeys } from '@/api/queryKeys';
 import { useAuth } from '@/auth/useAuth';
+import { FEATURES } from '@/config';
+import { regionsQuery as regionsQueryOptions } from '@/hooks/useRegions';
 import { regionLabel } from '@/lib/dictionaries';
+import { isBuiltinRegion } from '@/lib/regions';
 import { REGIONS } from '@/lib/statuses';
 
 /** Последний выбранный регион — на время сессии вкладки (FRONTEND_SPEC §8.3.5). */
@@ -38,15 +39,12 @@ const order = (id: string) => {
 
 /**
  * Регионы оператора: только из `user.region_ids`, названия — из GET /regions (пока ответа нет —
- * по словарю). По умолчанию — последний выбранный, иначе первый.
+ * по словарю). Свои участки (§14) открыты всем операторам: в токене их нет. По умолчанию — последний
+ * выбранный, иначе первый.
  */
 export function useOperatorRegion() {
   const { user } = useAuth();
-  const regionsQuery = useQuery({
-    queryKey: queryKeys.regions,
-    queryFn: ({ signal }) => getRegions(signal),
-    staleTime: 5 * 60_000,
-  });
+  const regionsQuery = useQuery(regionsQueryOptions);
 
   const allowed = user?.region_ids;
   const regions = useMemo<OperatorRegion[]>(() => {
@@ -54,7 +52,10 @@ export function useOperatorRegion() {
     const names = new Map(fromApi.map((region) => [region.region_id, region.name]));
     // region_ids не пришли — все регионы из справочника (как подпись в AppBar) [Д]
     const ids = allowed?.length ? allowed : fromApi.map((region) => region.region_id);
-    return [...new Set(ids)]
+    const custom = FEATURES.anyRegion
+      ? fromApi.map((region) => region.region_id).filter((id) => !isBuiltinRegion(id))
+      : [];
+    return [...new Set([...ids, ...custom])]
       .sort((a, b) => order(a) - order(b))
       .map((id) => ({ id, name: names.get(id) || regionLabel(id) }));
   }, [allowed, regionsQuery.data]);
