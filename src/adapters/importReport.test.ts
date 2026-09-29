@@ -217,8 +217,12 @@ describe('свой участок (§14)', () => {
     });
   });
 
-  it('участок кейса: строк §14 нет', () => {
-    const report = importReportFromSummary('east', summary(FULL), true);
+  it('участок кейса: строк §14 нет, даже если бэк прислал поля §14', () => {
+    const report = importReportFromSummary(
+      'east',
+      summary({ ...FULL, coords_from_file: 0, geocoded: 66, unknown_types: [] }),
+      true,
+    );
     expect(report.lines.map((line) => line.kind)).toEqual(['loaded', 'office', 'transport', 'dispatcher']);
   });
 });

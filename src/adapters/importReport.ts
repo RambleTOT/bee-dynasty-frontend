@@ -200,9 +200,10 @@ export function importReportFromSummary(
   const fallback = report.geocode_fallback;
   const unplaced = Array.isArray(fallback) ? fallback.length : (asCount(fallback) ?? 0);
 
-  // §14: точки из загрузки (найдены на клиенте или были в файле), геокодер бэка, офис
+  // §14, только свой участок: точки из загрузки (найдены на клиенте или были в файле), геокодер
+  // бэка, офис. У участков кейса бэк тоже шлёт `coords_from_file: 0` — строку не показываем.
   const fromFile = asCount(report.coords_from_file);
-  if (fromFile !== null) {
+  if (extra && fromFile !== null) {
     const byServer = asCount(report.geocoded) ?? 0;
     const parts = [`${formatInt(fromFile)} — по координатам загрузки`];
     if (byServer > 0) parts.push(`${formatInt(byServer)} — нашёл геокодер бэка`);
