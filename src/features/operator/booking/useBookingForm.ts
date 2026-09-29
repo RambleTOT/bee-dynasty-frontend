@@ -121,13 +121,20 @@ export function useBookingForm() {
 export const transportByRule = (form: BookingForm) =>
   !form.transportTouched && form.transport === 'car';
 
-/** Шаг 1 заполнен: регион, адрес от 5 символов, BK, HD; телефон пустой или полный. */
-export function stepOneReady(form: BookingForm, region: string | null): boolean {
+/**
+ * Шаг 1 заполнен: регион, адрес от 5 символов, BK, HD; телефон пустой или полный. У своего участка
+ * (§14) — тип из его нормативов (`types`), HD не нужен: подтипов у таких типов нет.
+ */
+export function stepOneReady(
+  form: BookingForm,
+  region: string | null,
+  types: readonly string[] | null = null,
+): boolean {
+  const typeReady = types ? types.includes(form.typeBk) : Boolean(form.typeBk) && Boolean(form.typeHd);
   return (
     Boolean(region) &&
     form.address.trim().length >= MIN_ADDRESS &&
-    Boolean(form.typeBk) &&
-    Boolean(form.typeHd) &&
+    typeReady &&
     phoneValid(form.contact)
   );
 }

@@ -205,9 +205,7 @@ describe('«Другой участок» (§14)', () => {
       within(requests).getByRole('combobox', { name: 'Окно одной колонкой' }),
     ).toHaveDisplayValue('Интервал');
     expect(within(requests).getByText('Загрузим 4 заявки')).toBeInTheDocument();
-    expect(
-      within(requests).getByText('Окно не распознано — весь день смены: строка 5'),
-    ).toBeInTheDocument();
+    expect(within(requests).getByText('Окна нет — весь день смены: строка 5')).toBeInTheDocument();
     expect(
       screen.getByText('Бригада есть у 4 из 4 заявок: сопоставили по номеру заявки'),
     ).toBeInTheDocument();

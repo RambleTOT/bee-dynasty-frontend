@@ -13,6 +13,8 @@ export const REGION_STORAGE_KEY = 'operator_region';
 export interface OperatorRegion {
   id: string;
   name: string;
+  /** Свой участок (§14): типы заявок из его нормативов; `null` — типы Билайна. */
+  types: readonly string[] | null;
 }
 
 function readStored(): string | null {
@@ -50,6 +52,17 @@ export function useOperatorRegion() {
   const regions = useMemo<OperatorRegion[]>(() => {
     const fromApi = regionsQuery.data ?? [];
     const names = new Map(fromApi.map((region) => [region.region_id, region.name]));
+    const types = new Map(
+      fromApi.map((region) => [
+        region.region_id,
+        FEATURES.anyRegion && !isBuiltinRegion(region.region_id) && region.norms?.types.length
+          ? // аварии — вкладкой «Авария», как у участков кейса
+            region.norms.types
+              .filter((type) => type.skill !== 'emergency')
+              .map((type) => type.type_bk)
+          : null,
+      ]),
+    );
     // region_ids не пришли — все регионы из справочника (как подпись в AppBar) [Д]
     const ids = allowed?.length ? allowed : fromApi.map((region) => region.region_id);
     const custom = FEATURES.anyRegion
@@ -57,7 +70,7 @@ export function useOperatorRegion() {
       : [];
     return [...new Set([...ids, ...custom])]
       .sort((a, b) => order(a) - order(b))
-      .map((id) => ({ id, name: names.get(id) || regionLabel(id) }));
+      .map((id) => ({ id, name: names.get(id) || regionLabel(id), types: types.get(id) ?? null }));
   }, [allowed, regionsQuery.data]);
 
   const [stored, setStored] = useState(readStored);

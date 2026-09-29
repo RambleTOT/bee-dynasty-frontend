@@ -148,4 +148,14 @@ describe('useBookingForm', () => {
     f.dispatch({ type: 'address', value: 'ул.' });
     expect(stepOneReady(f.form, 'east')).toBe(false);
   });
+
+  it('свой участок (§14): тип — из нормативов участка, HD не нужен', () => {
+    const f = renderForm();
+    f.dispatch({ type: 'address', value: 'Химки, ул. Кирова, 24' });
+    f.dispatch({ type: 'typeBk', value: 'Ремонт ТВ' });
+    expect(f.form.typeHd).toBe('');
+    expect(stepOneReady(f.form, 'east')).toBe(false);
+    expect(stepOneReady(f.form, 'r-himki', ['Ремонт ТВ'])).toBe(true);
+    expect(stepOneReady(f.form, 'r-himki', ['Подключение'])).toBe(false);
+  });
 });

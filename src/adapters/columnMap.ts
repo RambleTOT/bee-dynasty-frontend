@@ -433,7 +433,11 @@ export function readRequests(table: CsvTable, mapping: Mapping<RequestField>): R
     if (!start && mapping.start !== null) start = parseClock(cell('start'));
     if (!end && mapping.end !== null) end = parseClock(cell('end'));
     if (!start || !end || start >= end) {
-      notes.push({ line, text: 'окно не распознано — весь день смены' });
+      const empty = !cell('window') && !cell('start') && !cell('end');
+      notes.push({
+        line,
+        text: empty ? 'окна нет — весь день смены' : 'окно не распознано — весь день смены',
+      });
       start = null;
       end = null;
     }

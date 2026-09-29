@@ -60,20 +60,24 @@ export function RosterStep({ draft, disabled }: { draft: RegionDraft; disabled: 
       key: 'name',
       title: 'Бригада',
       render: (row) => (
-        <Input
-          size="sm"
-          tone="white"
-          aria-label="Имя бригады"
-          value={row.name}
-          disabled={disabled}
-          onChange={(event) => update(row.key, { name: event.target.value })}
-        />
+        <div className={styles.nameCell}>
+          <Input
+            size="sm"
+            aria-label="Имя бригады"
+            value={row.name}
+            disabled={disabled}
+            onChange={(event) => update(row.key, { name: event.target.value })}
+          />
+          <span className={styles.shiftCaption}>
+            Смена {row.shiftStart}–{row.shiftEnd}
+          </span>
+        </div>
       ),
     },
     {
       key: 'skills',
       title: 'Навыки',
-      width: 250,
+      width: 262,
       render: (row) => (
         <div className={styles.skills} role="group" aria-label={`Навыки · ${row.name}`}>
           {SKILLS.map((skill) => (
@@ -98,11 +102,10 @@ export function RosterStep({ draft, disabled }: { draft: RegionDraft; disabled: 
     {
       key: 'transport',
       title: 'Транспорт',
-      width: 170,
+      width: 164,
       render: (row) => (
         <Select
           size="sm"
-          tone="white"
           aria-label={`Транспорт · ${row.name}`}
           options={TRANSPORT_OPTIONS}
           value={row.transport}
@@ -112,15 +115,9 @@ export function RosterStep({ draft, disabled }: { draft: RegionDraft; disabled: 
       ),
     },
     {
-      key: 'shift',
-      title: 'Смена',
-      width: 96,
-      render: (row) => `${row.shiftStart}–${row.shiftEnd}`,
-    },
-    {
       key: 'remove',
       title: '',
-      width: 40,
+      width: 52,
       render: (row) => (
         <IconButton
           icon={Trash2}

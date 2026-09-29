@@ -51,7 +51,12 @@ export function RegularForm({
 }) {
   // ошибку телефона показываем, когда оператор ушёл из поля
   const [contactLeft, setContactLeft] = useState(false);
-  const hdOptions = (HD_BY_BK[form.typeBk] ?? []).map((hd) => ({ value: hd, label: hd }));
+  // свой участок (§14): типы — из его нормативов, подтипов у них нет
+  const regionTypes = regions.regions.find((item) => item.id === regions.region)?.types ?? null;
+  const bkOptions = regionTypes ? regionTypes.map((bk) => ({ value: bk, label: bk })) : BK_OPTIONS;
+  const hdOptions = regionTypes
+    ? []
+    : (HD_BY_BK[form.typeBk] ?? []).map((hd) => ({ value: hd, label: hd }));
   const withTechnology = regions.region === TECHNOLOGY_REGION;
 
   return (
@@ -75,8 +80,8 @@ export function RegularForm({
         <Select
           label={T.new.typeBk}
           icon={List}
-          options={BK_OPTIONS}
-          value={form.typeBk}
+          options={bkOptions}
+          value={regionTypes && !regionTypes.includes(form.typeBk) ? '' : form.typeBk}
           placeholder={T.new.choose}
           onChange={(value) => dispatch({ type: 'typeBk', value })}
         />
@@ -86,7 +91,7 @@ export function RegularForm({
           options={hdOptions}
           value={form.typeHd}
           placeholder={T.new.choose}
-          disabled={!form.typeBk}
+          disabled={!form.typeBk || hdOptions.length === 0}
           onChange={(value) => dispatch({ type: 'typeHd', value })}
         />
         <Input

@@ -91,10 +91,14 @@
   white-space: nowrap;
 }
 
-/* таблицы нормативов и бригад на белом */
+/* таблицы нормативов и бригад на белом: ширины колонок — по заголовкам, поля — по ширине колонки */
 .table {
   border-radius: var(--radius-md);
   background: var(--bg-surface);
+}
+
+.table table {
+  table-layout: fixed;
 }
 
 .number {
@@ -103,8 +107,21 @@
 
 .skills {
   display: flex;
-  gap: var(--space-3);
+  gap: var(--space-2);
   white-space: nowrap;
+}
+
+/* имя бригады и её смена под ним */
+.nameCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.shiftCaption {
+  color: var(--text-secondary);
+  font: var(--font-caption);
 }
 
 .shift {

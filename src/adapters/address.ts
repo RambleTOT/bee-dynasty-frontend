@@ -88,7 +88,8 @@ export function lookupOf(response: unknown): AddressLookup {
 // --- точки заявок другого участка (§14, `FEATURES.anyRegion`) ---
 
 /** Квартира, офис, подъезд — геокодер по ним промахивается: «кв. 47» уводит на другой конец города. */
-const ROOM_PART = /^(?:кв|квартира|оф|офис|пом|помещение|комн|комната|подъезд|под|эт|этаж)(?![а-яё])/iu;
+const ROOM_PART =
+  /^(?:кв|квартира|оф|офис|пом|помещение|комн|комната|подъезд|под|эт|этаж)(?![а-яё])/iu;
 
 /** Сокращение улицы в начале слова (`\b` с кириллицей не работает). */
 const abbr = (source: string) => new RegExp(`(?<![а-яё])${source}\\s*`, 'giu');
@@ -132,9 +133,30 @@ export function geocodeQuery(address: string): string {
 
 /** Слова, которые названия улицы не задают: города, типы улиц, «дом». */
 const COMMON_WORDS = new Set([
-  'москва', 'город', 'область', 'московская', 'район', 'поселение', 'улица', 'проспект', 'бульвар',
-  'проезд', 'переулок', 'шоссе', 'набережная', 'площадь', 'тупик', 'микрорайон', 'деревня', 'поселок',
-  'посёлок', 'село', 'квартал', 'корпус', 'строение', 'владение',
+  'москва',
+  'город',
+  'область',
+  'московская',
+  'район',
+  'поселение',
+  'улица',
+  'проспект',
+  'бульвар',
+  'проезд',
+  'переулок',
+  'шоссе',
+  'набережная',
+  'площадь',
+  'тупик',
+  'микрорайон',
+  'деревня',
+  'поселок',
+  'посёлок',
+  'село',
+  'квартал',
+  'корпус',
+  'строение',
+  'владение',
 ]);
 
 const STREET_TYPE =
@@ -147,8 +169,14 @@ const STREET_TYPE =
 function nameStems(query: string): string[] {
   const parts = query.split(',').map((part) => part.trim());
   const street = parts.find((part) => STREET_TYPE.test(part)) ?? parts[1] ?? parts[0] ?? '';
-  const words = street.toLowerCase().replace(/ё/g, 'е').match(/[а-яa-z]{4,}/gu) ?? [];
-  return [...new Set(words.filter((word) => !COMMON_WORDS.has(word)).map((word) => word.slice(0, 5)))];
+  const words =
+    street
+      .toLowerCase()
+      .replace(/ё/g, 'е')
+      .match(/[а-яa-z]{3,}/gu) ?? [];
+  return [
+    ...new Set(words.filter((word) => !COMMON_WORDS.has(word)).map((word) => word.slice(0, 5))),
+  ];
 }
 
 export type GeocodePrecision = 'house' | 'street';
@@ -168,7 +196,9 @@ function distanceKm(a: { lat: number; lon: number }, b: { lat: number; lon: numb
   const rad = Math.PI / 180;
   const dLat = (b.lat - a.lat) * rad;
   const dLon = (b.lon - a.lon) * rad;
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
   return 12742 * Math.asin(Math.sqrt(h));
 }
 
@@ -186,7 +216,8 @@ export function geocodeHit(
   const stems = nameStems(query);
   if (stems.length === 0) return null;
   for (const feature of response.features) {
-    if (!isObject(feature) || !isObject(feature.properties) || !isObject(feature.geometry)) continue;
+    if (!isObject(feature) || !isObject(feature.properties) || !isObject(feature.geometry))
+      continue;
     const coords = feature.geometry.coordinates;
     if (!Array.isArray(coords) || coords.length < 2) continue;
     const [lon, lat] = coords.map(Number);

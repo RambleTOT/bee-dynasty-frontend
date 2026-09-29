@@ -44,11 +44,10 @@ export function NormsStep({ draft, disabled }: { draft: RegionDraft; disabled: b
     {
       key: 'skill',
       title: 'Навык бригады',
-      width: 260,
+      width: 276,
       render: (row) => (
         <Select
           size="sm"
-          tone="white"
           aria-label={`Навык · ${row.typeBk || 'без типа'}`}
           options={SKILL_OPTIONS}
           value={row.skill}
@@ -64,7 +63,6 @@ export function NormsStep({ draft, disabled }: { draft: RegionDraft; disabled: b
       render: (row) => (
         <Input
           size="sm"
-          tone="white"
           type="number"
           inputMode="numeric"
           min={DURATION_MIN}
@@ -84,7 +82,7 @@ export function NormsStep({ draft, disabled }: { draft: RegionDraft; disabled: b
     {
       key: 'source',
       title: '',
-      width: 128,
+      width: 132,
       render: (row) => (
         <ToneChip size="sm" tone={SOURCE_CHIP[row.source].tone}>
           {SOURCE_CHIP[row.source].text}

@@ -43,15 +43,22 @@ type SlotsFields = Pick<
   'date' | 'typeBk' | 'typeHd' | 'address' | 'gigabit' | 'transport'
 >;
 
-/** Окна по полям формы: запрос уходит, когда выбраны регион, BK и HD (§8.3.7). */
-function slotsParams(region: string | null, fields: SlotsFields): SlotsQuery | null {
-  if (!region || !fields.typeBk || !fields.typeHd) return null;
+/**
+ * Окна по полям формы: запрос уходит, когда выбраны регион, BK и HD (§8.3.7). У своего участка
+ * (§14) подтипов нет — хватает BK.
+ */
+function slotsParams(
+  region: string | null,
+  fields: SlotsFields,
+  withoutHd = false,
+): SlotsQuery | null {
+  if (!region || !fields.typeBk || (!fields.typeHd && !withoutHd)) return null;
   const address = fields.address.trim();
   return {
     region_id: region,
     date: fields.date,
     type_bk: fields.typeBk,
-    type_hd: fields.typeHd,
+    type_hd: fields.typeHd || undefined,
     address: address.length >= MIN_ADDRESS ? address : undefined,
     gigabit: fields.gigabit,
     required_transport: fields.transport ?? undefined,
@@ -69,6 +76,7 @@ export default function NewRequestPage() {
   const emergency = FEATURES.emergencyByRegion && search.tab === 'emergency';
   const regions = useOperatorRegion();
   const { region } = regions;
+  const regionTypes = regions.regions.find((item) => item.id === region)?.types ?? null;
   const [form, dispatch] = useBookingForm();
 
   // тост с номером записи висит, пока его не закроют, — но не дольше, чем открыта страница
@@ -79,8 +87,13 @@ export default function NewRequestPage() {
   // Шаг 1 — фоном, после паузы 300 мс и без опроса; шаг 2 — сразу, с опросом (useSlots)
   const { date, typeBk, typeHd, address, gigabit, transport } = form;
   const params = useMemo(
-    () => slotsParams(region, { date, typeBk, typeHd, address, gigabit, transport }),
-    [region, date, typeBk, typeHd, address, gigabit, transport],
+    () =>
+      slotsParams(
+        region,
+        { date, typeBk, typeHd, address, gigabit, transport },
+        regionTypes !== null,
+      ),
+    [region, date, typeBk, typeHd, address, gigabit, transport, regionTypes],
   );
   const typing = useDebouncedValue(params, 300);
   const onStepTwo = !emergency && form.step === 2;
@@ -230,7 +243,7 @@ export default function NewRequestPage() {
                 variant="primary"
                 size="lg"
                 icon={ArrowRight}
-                disabled={!stepOneReady(form, region)}
+                disabled={!stepOneReady(form, region, regionTypes)}
                 onClick={() => dispatch({ type: 'step', value: 2 })}
               >
                 {T.new.next}
