@@ -54,6 +54,10 @@ const SEPTEMBER: CalendarResponse = {
   ],
 };
 
+/** «Все регионы» — запрос по каждому региону: заявки сентября — у Востока, у остальных пусто. */
+const byRegion = async ({ region_id }: { region_id?: string }): Promise<CalendarResponse> =>
+  region_id === 'east' || region_id === 'all' ? SEPTEMBER : { days: [] };
+
 function CurrentUrl() {
   const { pathname, search } = useLocation();
   return <output data-testid="url">{decodeURIComponent(pathname + search)}</output>;
@@ -101,7 +105,7 @@ beforeEach(() => {
   // «Сегодня» — 29.09.2026 по Москве; таймеры настоящие, подменяем только дату.
   vi.useFakeTimers({ toFake: ['Date'], shouldAdvanceTime: true });
   vi.setSystemTime(new Date('2026-09-29T09:00:00Z'));
-  vi.mocked(getCalendar).mockReset().mockResolvedValue(SEPTEMBER);
+  vi.mocked(getCalendar).mockReset().mockImplementation(byRegion);
   vi.mocked(getRegions).mockReset().mockResolvedValue(REGIONS_RESPONSE);
 });
 
@@ -117,14 +121,15 @@ describe('DS-01 Календарь заявок', () => {
     expect(screen.getByRole('status', { name: 'Загрузка календаря' })).toBeInTheDocument();
 
     expect(await screen.findByText('86 заявок за месяц · 3 региона')).toBeInTheDocument();
-    expect(getCalendar).toHaveBeenCalledWith(
-      {
-        from: '2026-08-31',
-        to: '2026-10-04',
-        region_id: 'all',
-        status: undefined,
-        type_bk: undefined,
-      },
+    // «Все регионы» — по запросу на регион: в подсказке видно, где неназначенные
+    for (const region_id of ['east', 'south_east', 'south_center']) {
+      expect(getCalendar).toHaveBeenCalledWith(
+        { from: '2026-08-31', to: '2026-10-04', region_id, status: undefined, type_bk: undefined },
+        expect.anything(),
+      );
+    }
+    expect(getCalendar).not.toHaveBeenCalledWith(
+      expect.objectContaining({ region_id: 'all' }),
       expect.anything(),
     );
 
@@ -159,6 +164,11 @@ describe('DS-01 Календарь заявок', () => {
     expect(within(tip).getByText('В пути')).toBeInTheDocument();
     expect(within(tip).getByText('В работе')).toBeInTheDocument();
     expect(within(tip).getByText('Флаг «Просрочена»')).toBeInTheDocument();
+    // по регионам: только регионы с заявками в этот день
+    expect(within(tip).getByText('По регионам')).toBeInTheDocument();
+    expect(within(tip).getByText('Восток')).toBeInTheDocument();
+    expect(within(tip).getByText('· 3 не назн.', { exact: false })).toBeInTheDocument();
+    expect(within(tip).queryByText('Югоцентр')).not.toBeInTheDocument();
     expect(today).toHaveAttribute('aria-describedby', tip.id);
     fireEvent.mouseLeave(today.parentElement as HTMLElement);
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
@@ -171,6 +181,7 @@ describe('DS-01 Календарь заявок', () => {
   });
 
   it('фильтр региона — в запросе, итоге и ссылке на день', async () => {
+    vi.mocked(getCalendar).mockResolvedValue(SEPTEMBER);
     renderCalendar('/dispatcher?month=2026-09&region=south_center');
     expect(await screen.findByText('86 заявок за месяц · 1 регион')).toBeInTheDocument();
     expect(getCalendar).toHaveBeenCalledWith(
@@ -242,11 +253,22 @@ describe('DS-01 Календарь заявок', () => {
       .mockRejectedValueOnce(
         new ApiError(0, 'NETWORK', 'Не удалось связаться с сервером. Повторите'),
       )
-      .mockResolvedValue(SEPTEMBER);
+      .mockImplementation(byRegion);
     renderCalendar('/dispatcher');
     expect(await screen.findByText('Не удалось связаться с сервером')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
     expect(await dayLink(/66 заявок/)).toBeInTheDocument();
+  });
+
+  it('фильтр по статусу: в ячейке — только заявки с этим статусом', async () => {
+    vi.mocked(getCalendar).mockResolvedValue({
+      days: [
+        { date: '2026-09-29', request_count: 66, by_status: { en_route: 2 }, flags: {}, sources: [] },
+      ],
+    });
+    renderCalendar('/dispatcher?region=east&status=en_route');
+    expect(await dayLink(/2 заявки/)).toBeInTheDocument();
+    expect(screen.queryByText('66 заявок')).not.toBeInTheDocument();
   });
 
   it('ошибка бэка — его текст', async () => {

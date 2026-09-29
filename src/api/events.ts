@@ -16,7 +16,11 @@ export type DispatcherEvent =
       plan_id: string;
       event_time?: string;
       order_id: string;
-      params: { reason: 'client_refused' | 'other'; comment?: string };
+      /**
+       * Из окна события — `client_refused` | `other`; при пересчёте устаревшего предложения —
+       * причина из журнала как есть (у «Прервать» инженера ещё `stage` и `previous_status`).
+       */
+      params: { reason: string; comment?: string; stage?: string; previous_status?: string };
     }
   | {
       type: 'engineer_unavailable';

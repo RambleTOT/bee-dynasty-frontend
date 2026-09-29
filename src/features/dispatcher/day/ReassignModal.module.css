@@ -110,3 +110,8 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+.previewRow {
+  display: flex;
+  justify-content: flex-end;
+}

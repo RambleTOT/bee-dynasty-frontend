@@ -47,7 +47,8 @@ export default defineConfig(({ mode }) => ({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
-    // тесты не зависят от .env.local разработчика: без ключа Яндекс Карт и флагов правок бэка
-    env: { VITE_YANDEX_MAPS_KEY: '', VITE_FEATURES: '' },
+    // тесты не зависят от .env.local разработчика: без ключа Яндекс Карт, флагов правок бэка
+    // и внешнего сервиса подсказок адреса
+    env: { VITE_YANDEX_MAPS_KEY: '', VITE_FEATURES: '', VITE_ADDRESS_SUGGEST_URL: 'off' },
   },
 }));

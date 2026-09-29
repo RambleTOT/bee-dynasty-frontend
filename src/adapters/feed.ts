@@ -7,6 +7,7 @@ import {
   CalendarPlus,
   Check,
   CircleDot,
+  History,
   CircleX,
   ClockAlert,
   GitCompareArrows,
@@ -36,8 +37,11 @@ export interface FeedRow {
   text: string;
   chip: { label: string; tone: StatusTone; icon: LucideIcon } | null;
   note: string | null;
-  /** «Открыть» / «Решить» → DS-07 по предложению. */
-  action: { label: string; planId: string } | null;
+  /**
+   * «Открыть» / «Решить» → DS-07 по предложению; «Пересчитать» (`resend`) — устаревшее
+   * предложение: то же событие на действующей версии.
+   */
+  action: { label: string; planId: string; kind: 'open' | 'resend' } | null;
   needsDecision: boolean;
   event: EventItem;
 }
@@ -188,7 +192,8 @@ function textOf(
 }
 
 export interface FeedInput {
-  chain: Pick<DayChain, 'events' | 'planStatus' | 'headPlanId' | 'versions'>;
+  chain: Pick<DayChain, 'events' | 'planStatus' | 'headPlanId' | 'versions'> &
+    Partial<Pick<DayChain, 'staleProposals' | 'consumed'>>;
   model: Labels;
 }
 
@@ -201,6 +206,8 @@ export function buildFeed({ chain, model }: FeedInput): FeedRow[] {
     const at = e.applied_at ?? (e.payload?.applied_at as string | undefined);
     if (typeof at === 'string' && at) appliedAt.set(e.result_plan_id, at.slice(0, 5));
   }
+  const stale = new Set((chain.staleProposals ?? []).map((p) => p.planId));
+  const consumed = chain.consumed ?? new Map<string, string>();
   return chain.events.map((event) => {
     const action = event.event_type === 'engineer_action' ? String(event.payload?.action ?? '') : '';
     const style = action
@@ -208,23 +215,42 @@ export function buildFeed({ chain, model }: FeedInput): FeedRow[] {
       : (ICONS[event.event_type] ?? { icon: CircleDot, tone: 'neutral' as StatusTone });
     const result = event.result_plan_id ?? null;
     const status = result ? chain.planStatus.get(result) : undefined;
-    const actionable = status === 'proposed' && event.plan_id === chain.headPlanId;
+    const editedInto = result ? consumed.get(result) : undefined;
+    const outdated = Boolean(result && stale.has(result));
+    const actionable = status === 'proposed' && event.plan_id === chain.headPlanId && !editedInto;
     // статус плана знаем — решаем сами (бэк считает «ждёт решения» и при неназначенных в принятом плане)
-    const needsDecision = status ? actionable : event.needs_decision && Boolean(result);
+    const needsDecision = status ? actionable || outdated : event.needs_decision && Boolean(result);
     const engineerFail = event.event_type === 'order_cancelled' && event.payload?.source === 'engineer';
 
     let note: string | null = null;
     if (event.event_type === 'plan_applied' || action) {
       note = null;
+    } else if (editedInto) {
+      const version = versionOf.get(editedInto);
+      note = `Принято с правкой вручную${version ? ` · версия ${version}` : ''}`;
     } else if (status === 'applied' || status === 'superseded' || status === 'completed') {
       const version = result ? versionOf.get(result) : undefined;
       const at = result ? appliedAt.get(result) : undefined;
       note = [at ? `Принято в ${at}` : 'Принято', version ? `версия ${version}` : null].filter(Boolean).join(' · ');
     } else if (status === 'rejected') {
       note = 'Отклонено';
+    } else if (outdated) {
+      note = 'План изменился после расчёта — пересчитайте на действующей версии';
     } else if (status === 'proposed' && !actionable) {
-      note = 'Устарело: план уже изменился';
+      note = 'Устарело: пересчитано на новой версии';
     }
+
+    let chip: FeedRow['chip'] = null;
+    if (outdated) chip = { label: 'Устарело', tone: 'warning', icon: History };
+    else if (needsDecision) {
+      chip = engineerFail
+        ? { label: 'Отменяется', tone: 'warning', icon: ClockAlert }
+        : { label: 'Ждёт решения', tone: 'warning', icon: ClockAlert };
+    }
+
+    let rowAction: FeedRow['action'] = null;
+    if (outdated && result) rowAction = { label: 'Пересчитать', planId: result, kind: 'resend' };
+    else if (needsDecision && result) rowAction = { label: engineerFail ? 'Решить' : 'Открыть', planId: result, kind: 'open' };
 
     return {
       id: event.event_id,
@@ -232,13 +258,9 @@ export function buildFeed({ chain, model }: FeedInput): FeedRow[] {
       icon: style.icon,
       tone: style.tone,
       text: textOf(event, model, versionOf, needsDecision),
-      chip: needsDecision
-        ? engineerFail
-          ? { label: 'Отменяется', tone: 'warning', icon: ClockAlert }
-          : { label: 'Ждёт решения', tone: 'warning', icon: ClockAlert }
-        : null,
+      chip,
       note,
-      action: needsDecision && result ? { label: engineerFail ? 'Решить' : 'Открыть', planId: result } : null,
+      action: rowAction,
       needsDecision,
       event,
     };

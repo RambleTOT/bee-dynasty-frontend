@@ -4,6 +4,7 @@ import {
   makeEngineer,
   makeEvent,
   makePlan,
+  makePlanItem,
   makePoint,
   makeRegion,
   makeRequest,
@@ -391,7 +392,7 @@ describe('feed', () => {
       ['13:40', 'Бригада Мельников недоступна с 13:40: 2 без исполнителя', true, null],
       ['12:30', 'Авария №U-0001 → Бригада Соколов, прибытие 13:25', false, 'Отклонено'],
     ]);
-    expect(rows[0].action).toEqual({ label: 'Открыть', planId: 'P3' });
+    expect(rows[0].action).toEqual({ label: 'Открыть', planId: 'P3', kind: 'open' });
     expect(rows[0].chip?.label).toBe('Ждёт решения');
   });
 });
@@ -463,6 +464,47 @@ describe('feed: «Прервать» инженера', () => {
     expect(pending[0].text).toMatch(/— требует решения$/);
     expect(rejected[0]).toMatchObject({ needsDecision: false, note: 'Отклонено' });
     expect(rejected[0].text).not.toMatch(/требует решения/);
+  });
+});
+
+describe('feed: устаревшее и исправленное вручную предложение', () => {
+  it('устаревшее — «Пересчитать», исправленное вручную — «Принято с правкой»', () => {
+    const region = makeRegion({ active_plan_id: 'P1', plan_state: 'applied', version: 1 });
+    const events = [
+      makeEvent({ event_id: 'U1', plan_id: 'P1', result_plan_id: 'P2', created_at: '2026-09-28T12:40:00Z', payload: { request_id: 'U-1' } }),
+      makeEvent({ event_id: 'U2', plan_id: 'P1', result_plan_id: 'P3', created_at: '2026-09-28T12:41:00Z', payload: { request_id: 'U-2' } }),
+      makeEvent({
+        event_id: 'F1',
+        event_type: 'order_cancelled',
+        plan_id: 'P2',
+        result_plan_id: 'P4',
+        created_at: '2026-09-28T12:50:00Z',
+        payload: { request_id: '305838184', reason: 'no_access', source: 'engineer' },
+      }),
+      makeEvent({
+        event_id: 'M1',
+        event_type: 'manual_reassign',
+        plan_id: 'P4',
+        result_plan_id: 'P5',
+        created_at: '2026-09-28T12:55:00Z',
+        payload: { order_id: '305838184', to_engineer_id: 'e1' },
+      }),
+    ];
+    const plans = [
+      makePlanItem({ plan_id: 'P1', status: 'superseded', version: 1 }),
+      makePlanItem({ plan_id: 'P2', scenario_id: 'S1', status: 'superseded' }),
+      makePlanItem({ plan_id: 'P3', scenario_id: 'S2', status: 'proposed' }),
+      makePlanItem({ plan_id: 'P4', scenario_id: 'S3', status: 'proposed' }),
+      makePlanItem({ plan_id: 'P5', scenario_id: 'S4', status: 'applied' }),
+    ];
+    const rows = new Map(buildFeed({ chain: resolveDayChain(region, events, plans), model }).map((r) => [r.id, r]));
+    expect(rows.get('U2')).toMatchObject({
+      needsDecision: true,
+      chip: { label: 'Устарело' },
+      action: { label: 'Пересчитать', planId: 'P3', kind: 'resend' },
+    });
+    expect(rows.get('F1')).toMatchObject({ needsDecision: false, action: null, note: 'Принято с правкой вручную · версия 3' });
+    expect(rows.get('M1')?.note).toBe('Принято · версия 3');
   });
 });
 

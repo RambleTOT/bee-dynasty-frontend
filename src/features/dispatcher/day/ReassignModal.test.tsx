@@ -20,6 +20,7 @@ import type { ReassignCheckResponse, ReplanResult } from '@/api/types';
 import { dismissAll } from '@/lib/notify';
 import { renderDay, withDayActions } from '@/test/dispatcherDay';
 import { ReassignModal } from './ReassignModal';
+import type { DraftRequest } from './useDraftTimeline';
 
 vi.mock('@/api/planning', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api/planning')>()),
@@ -80,7 +81,11 @@ function mockApply() {
   vi.mocked(applyPlan).mockResolvedValue({ plan_id: 'P2', status: 'applied' });
 }
 
-function renderModal({ requestId = ORDER, basePlanId = null as string | null } = {}) {
+function renderModal({
+  requestId = ORDER,
+  basePlanId = null as string | null,
+  onPreview = undefined as ((draft: DraftRequest) => void) | undefined,
+} = {}) {
   const onClose = vi.fn();
   renderDay(
     withDayActions('2026-09-29', (actions) => (
@@ -89,6 +94,7 @@ function renderModal({ requestId = ORDER, basePlanId = null as string | null } =
         basePlanId={basePlanId}
         model={overlayModel()}
         actions={actions}
+        onPreview={onPreview}
         onClose={onClose}
       />
     )),
@@ -149,6 +155,25 @@ describe('DS-08 «Ручное переназначение»', () => {
     expect(
       await screen.findByText('Версия 5 применена. Инженеры получили обновление'),
     ).toBeInTheDocument();
+  });
+
+  it('начало раньше «сейчас» — предупреждение; «Показать на таймлайне» — черновик переназначения', async () => {
+    mockChecks({ e2: check('e2', { shifted_visits: [{ order_id: 'x', delta_min: 5 }] }) });
+    const onPreview = vi.fn();
+    renderModal({ onPreview });
+    const dialog = screen.getByRole('dialog', { name: `Заявка №${ORDER} → инженер` });
+    // часы дня 14:32, проверка ставит начало на 12:40
+    expect(
+      await within(dialog).findByText(/Начало 12:40 — раньше текущего времени 14:32/),
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Показать на таймлайне' }));
+    expect(onPreview).toHaveBeenCalledTimes(1);
+    const draft = onPreview.mock.calls[0][0] as Extract<DraftRequest, { kind: 'reassign' }>;
+    expect(draft.kind).toBe('reassign');
+    expect(draft.caption).toMatch(new RegExp(`^Черновик: №${ORDER} → .+, начало 12:40$`));
+    expect(draft.model.requestById.get(ORDER)?.engineerId).toBe('e2');
+    expect(draft.overlay.moved.has(ORDER)).toBe(true);
   });
 
   it('отсеянную можно выбрать: нарушения по трём ограничениям, «Применить с нарушением» — после подтверждения, force', async () => {

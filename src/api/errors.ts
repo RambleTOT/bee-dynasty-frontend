@@ -22,6 +22,17 @@ export function errorMessage(error: unknown): string {
   return isApiError(error) ? error.message : 'Не удалось выполнить запрос. Повторите';
 }
 
+/** Текст исключения бэка (SQL, трассировка) — не для пользователя. */
+const INTERNAL_TEXT = /psycopg|sqlalchemy|traceback|\bSQL\b|\[parameters:|StringDataRightTruncation|IntegrityError/i;
+export const SERVER_FAILED = 'Ошибка на сервере: изменение не сохранено. Повторите позже или сообщите администратору';
+
+/** Сообщение 5xx: внутренности бэка заменяем понятным текстом, сам текст — в консоль. */
+function safeMessage(status: number, message: string): string {
+  if (status < 500 || !INTERNAL_TEXT.test(message)) return message;
+  console.error('Ошибка бэка', status, message);
+  return SERVER_FAILED;
+}
+
 type Json = Record<string, unknown>;
 
 const isObject = (value: unknown): value is Json => typeof value === 'object' && value !== null;
@@ -43,14 +54,19 @@ export function toApiError(status: number, body: unknown): ApiError {
     return new ApiError(
       status,
       nonEmpty(error.code) ?? 'UNKNOWN',
-      nonEmpty(error.message) ?? 'Не удалось выполнить запрос. Повторите',
+      safeMessage(status, nonEmpty(error.message) ?? 'Не удалось выполнить запрос. Повторите'),
       error.details,
     );
   }
 
   // 422 ErrorResponse: {detail, code, context}
   if (typeof detail === 'string') {
-    return new ApiError(status, nonEmpty(root.code) ?? 'VALIDATION_ERROR', detail, root.context);
+    return new ApiError(
+      status,
+      nonEmpty(root.code) ?? 'VALIDATION_ERROR',
+      safeMessage(status, detail),
+      root.context,
+    );
   }
 
   // 422 FastAPI HTTPValidationError: {detail: [...]}

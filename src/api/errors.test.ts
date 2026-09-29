@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { ApiError, errorMessage, toApiError } from './errors';
+import { describe, expect, it, vi } from 'vitest';
+import { ApiError, errorMessage, SERVER_FAILED, toApiError } from './errors';
 
 describe('toApiError', () => {
   it('middleware: {error: {code, message}}', () => {
@@ -86,5 +86,20 @@ describe('errorMessage', () => {
       'Окно уже занято',
     );
     expect(errorMessage(new Error('x'))).toBe('Не удалось выполнить запрос. Повторите');
+  });
+
+  it('5xx с текстом исключения бэка (SQL) — понятный текст, а не внутренности', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const sql =
+      '(psycopg.errors.StringDataRightTruncation) value too long for type character varying(255) [SQL: INSERT INTO scenarios …]';
+    expect(toApiError(500, { error: { code: 'INTERNAL_ERROR', message: sql } })).toMatchObject({
+      status: 500,
+      message: SERVER_FAILED,
+    });
+    expect(toApiError(500, { detail: sql })).toMatchObject({ message: SERVER_FAILED });
+    // обычный текст бэка и 4xx — как есть
+    expect(toApiError(503, { error: { message: 'Сервис недоступен' } }).message).toBe('Сервис недоступен');
+    expect(toApiError(409, { error: { message: 'SQL в тексте 409' } }).message).toBe('SQL в тексте 409');
+    spy.mockRestore();
   });
 });

@@ -443,6 +443,7 @@
 
 .metricsBar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
@@ -452,4 +453,11 @@
   background: var(--bg-surface-nested);
   font: var(--font-caption-medium);
   font-variant-numeric: tabular-nums;
+}
+
+.metricsActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-left: auto;
 }

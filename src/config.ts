@@ -26,6 +26,23 @@ export const REALTIME = {
 export const TZ = 'Europe/Moscow';
 
 /**
+ * Подсказки адресов при вводе и адрес точки на карте — Photon (OpenStreetMap, без ключа): геокодер
+ * Яндекса по нашему ключу не отвечает (403). Своя копия Photon — `VITE_ADDRESS_SUGGEST_URL`,
+ * выключить — `off`. В сервис уходит только набранный адрес.
+ */
+const SUGGEST_URL = (import.meta.env.VITE_ADDRESS_SUGGEST_URL ?? '').trim();
+export const ADDRESS_SUGGEST = {
+  url: SUGGEST_URL === 'off' ? null : (SUGGEST_URL || 'https://photon.komoot.io').replace(/\/+$/, ''),
+  /** Центр Москвы: подсказки ближе к нему — выше. */
+  center: { lat: 55.7558, lon: 37.6173 },
+  /** Москва и область: lon1,lat1,lon2,lat2. */
+  bbox: '35.14,54.25,40.21,56.96',
+  minChars: 3,
+  debounceMs: 350,
+  limit: 7,
+} as const;
+
+/**
  * Правки бэка (docs/spec/BACKEND_FIXES_FINAL_28-09.md), без которых кнопка или запрос упадут.
  * Меняем руками после ответа бэка или проверки Swagger; один флаг на правку (FRONTEND_SPEC §5.4).
  */
@@ -42,6 +59,8 @@ const FEATURE_DEFAULTS = {
   comparePlanStrategy: true, // P1-8 «Наш план» в сравнении — стратегия plan тем же расчётом, что FIFO
   // п. 38: WebSocket живых обновлений (/realtime/ticket, /realtime/ws) — у бэка ещё нет
   realtime: false,
+  // п. 47: поле time («сейчас» дня) в reassign/check и reassign — у бэка ещё нет
+  reassignTime: false,
 };
 
 export type FeatureFlag = keyof typeof FEATURE_DEFAULTS;

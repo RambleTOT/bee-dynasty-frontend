@@ -46,9 +46,9 @@
   color: var(--text-primary);
 }
 
-/* жёлтая плашка ключевой метрики — пробег нашего плана */
+/* жёлтая плашка ключевой метрики — пробег нашего плана: во всю ширину колонки, без скруглений */
 .oursAccent {
-  border-radius: var(--radius-md);
+  border-radius: 0;
   background: var(--accent);
   color: var(--on-accent);
 }

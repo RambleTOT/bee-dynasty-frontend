@@ -107,6 +107,19 @@ describe('useSearchState', () => {
     expect(result.current.search).toBe('');
   });
 
+  it('два вызова подряд складываются, запись из старого замыкания не возвращает закрытое', () => {
+    const { result } = renderSearch('/x?view=timeline');
+    const stale = result.current.setValues;
+    act(() => {
+      result.current.setValues({ request: 'R-1' });
+      result.current.setValues({ page: 2 });
+    });
+    expect(result.current.values).toMatchObject({ request: 'R-1', page: 2, view: 'timeline' });
+
+    act(() => stale({ view: 'map' }));
+    expect(result.current.values).toMatchObject({ request: 'R-1', page: 2, view: 'map' });
+  });
+
   it('функциональное обновление от текущих значений', () => {
     const { result } = renderSearch('/x?page=4');
     act(() => {

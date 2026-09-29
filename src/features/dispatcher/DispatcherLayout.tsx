@@ -5,6 +5,7 @@ import { DesktopLayout } from '@/app/layouts/DesktopLayout';
 import { todayMsk } from '@/lib/time';
 import { Button, cx } from '@/ui';
 import { lastDayPath } from './lastDay';
+import { RequestSearch } from './RequestSearch';
 
 function DispatcherTabs() {
   const { pathname } = useLocation();
@@ -20,6 +21,9 @@ function DispatcherTabs() {
       >
         День
       </Link>
+      <span className={appBar.navSearch}>
+        <RequestSearch />
+      </span>
     </>
   );
 }
@@ -46,7 +50,7 @@ function UploadCsvButton() {
   );
 }
 
-/** Раскладка диспетчера: AppBar с вкладками «Календарь / День» (FRONTEND_SPEC §8.1). */
+/** Раскладка диспетчера: AppBar с вкладками «Календарь / День» и поиском заявки по номеру (§8.1). */
 export default function DispatcherLayout() {
   return <DesktopLayout nav={<DispatcherTabs />} action={<UploadCsvButton />} />;
 }

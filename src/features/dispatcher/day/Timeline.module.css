@@ -395,6 +395,31 @@
   opacity: 0.3;
 }
 
+/* черновик: бригада с изменениями, визит на новом месте и прежнее место — пунктиром */
+.rowChanged {
+  background: var(--row-hover);
+}
+
+.movedBlock {
+  box-shadow: inset 3px 0 0 var(--c), 0 0 0 2px var(--st-changed);
+}
+
+.ghost {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-width: 6px;
+  padding: 0 4px 0 7px;
+  overflow: hidden;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  pointer-events: auto;
+}
+
 .empty {
   padding: var(--space-8);
   color: var(--text-secondary);

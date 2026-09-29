@@ -1,11 +1,12 @@
 /**
  * DS-07 «Предложение» (FRONTEND_SPEC §6.4): diff новой версии к прежней, счётчики, карточка решения
- * по аварии, «Показать на карте», принять / отклонить / править вручную. `409 STALE_PROPOSAL` —
- * «План уже изменился. Пересчитать?» → повтор того же события. Из «Версий» — режим просмотра.
+ * по аварии, «Показать на карте» и «на таймлайне», принять / отклонить / править вручную.
+ * Предложение от прежней версии (`409 STALE_PROPOSAL`) — «План уже изменился» и «Пересчитать»:
+ * то же событие на действующей версии (useResend). Из «Версий» — режим просмотра.
  */
 import { useQuery } from '@tanstack/react-query';
-import { Check, Map as MapIcon, Pencil, RefreshCw } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Check, GanttChart, Map as MapIcon, Pencil, RefreshCw } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DispatcherEvent } from '@/api/events';
 import { errorMessage, isApiError } from '@/api/errors';
 import { getPlan, getPlanDiff } from '@/api/planning';
@@ -39,6 +40,8 @@ import {
 } from '@/ui';
 import type { MapHighlight } from './DayMap';
 import type { DayActions } from './useDayActions';
+import type { DraftRequest } from './useDraftTimeline';
+import type { Resend } from './useResend';
 import styles from './Overlays.module.css';
 
 export function ProposalDrawer({
@@ -47,11 +50,13 @@ export function ProposalDrawer({
   model,
   chain,
   actions,
-  sentEvent,
+  resend,
   onResent,
   onShowOnMap,
+  onShowOnTimeline,
   onEditManually,
   onOpenRequest,
+  onDone,
   onClose,
 }: {
   planId: string;
@@ -60,12 +65,18 @@ export function ProposalDrawer({
   model: DayModel;
   chain: DayChain;
   actions: DayActions;
-  sentEvent: DispatcherEvent | null;
+  resend: Resend;
   onResent: (planId: string, event: DispatcherEvent) => void;
   onShowOnMap: (highlight: MapHighlight) => void;
+  onShowOnTimeline: (draft: DraftRequest) => void;
   onEditManually: (orderId: string, basePlanId: string) => void;
   /** Номер заявки в «Что изменится» — её карточка поверх предложения; закрыли — снова предложение. */
   onOpenRequest: (requestId: string) => void;
+  /**
+   * Решение принято («Принять», «Отклонить»): закрыть окно, если в нём всё ещё это предложение —
+   * пока шёл запрос, диспетчер мог открыть другое.
+   */
+  onDone: (planId: string) => void;
   onClose: () => void;
 }) {
   const viewMode = Boolean(against);
@@ -93,8 +104,17 @@ export function ProposalDrawer({
     staleTime: 60_000,
   });
 
-  const [stale, setStale] = useState(false);
+  // 409 STALE_PROPOSAL на «Принять»: версия сменилась, пока окно было открыто
+  const [staleByApi, setStaleByApi] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // после `await` окно могли закрыть — ошибку показывать уже некому
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
 
   const plan = planQuery.data ?? null;
   const basePlan = parentId === model.planId ? model.plan : (baseQuery.data ?? null);
@@ -111,7 +131,20 @@ export function ProposalDrawer({
 
   const versionOf = new Map(chain.versions.map((v) => [v.planId, v.version]));
   const status = chain.planStatus.get(planId) ?? plan?.status ?? null;
-  const actionable = !viewMode && status === 'proposed' && plan?.parent_plan_id === model.planId;
+  // «Править вручную» уже превратило предложение в версию
+  const editedInto = viewMode ? undefined : chain.consumed.get(planId);
+  // уже версия дня: сразу после «Принять» список планов может ещё помнить «proposed»
+  const isVersion = !viewMode && chain.versions.some((v) => v.planId === planId);
+  const stale =
+    !viewMode &&
+    !editedInto &&
+    !isVersion &&
+    status === 'proposed' &&
+    (staleByApi || Boolean(plan && plan.parent_plan_id !== model.planId));
+  const actionable =
+    !viewMode && !editedInto && !isVersion && !stale && status === 'proposed' && plan?.parent_plan_id === model.planId;
+  const baseVersion = plan?.parent_plan_id ? versionOf.get(plan.parent_plan_id) : undefined;
+  const canResend = stale && resend.can(planId);
 
   const newRoutes = useMemo(() => {
     const byEngineer = new Map<string, string[]>();
@@ -165,32 +198,32 @@ export function ProposalDrawer({
   const title = viewMode
     ? `Версия ${versionOf.get(planId) ?? '—'} → ${versionOf.get(newId) ?? model.version}`
     : `Предложение: ${event ? eventTitle(model, event.event_type, payload) : 'изменение плана'}`;
-  const subtitle = viewMode
-    ? 'Режим просмотра: что изменилось с выбранной версии'
-    : `Версия ${model.version} → ${model.version + 1}${plan?.created_at ? ` · рассчитано в ${timeOfIso(plan.created_at)}` : ''}`;
+  const computedAt = plan?.created_at ? ` · рассчитано в ${timeOfIso(plan.created_at)}` : '';
+  let subtitle: string;
+  if (viewMode) subtitle = 'Режим просмотра: что изменилось с выбранной версии';
+  else if (stale) subtitle = `Считалось от версии ${baseVersion ?? '—'}, действует версия ${model.version}${computedAt}`;
+  else subtitle = `Версия ${model.version} → ${model.version + 1}${computedAt}`;
   const headline = [feedText, diff?.headline].filter(Boolean).join('; ');
 
   const accept = async () => {
     setError(null);
     try {
       await actions.acceptProposal.mutateAsync({ planId, nextVersion: model.version + 1 });
-      onClose();
+      onDone(planId);
     } catch (e) {
-      if (isApiError(e) && e.code === 'STALE_PROPOSAL') setStale(true);
+      if (!alive.current) return;
+      if (isApiError(e) && e.code === 'STALE_PROPOSAL') setStaleByApi(true);
       else setError(errorMessage(e));
     }
   };
 
-  const resend = async () => {
-    if (!sentEvent || !model.planId) return;
+  const recalc = async () => {
     setError(null);
     try {
-      const next = { ...sentEvent, plan_id: model.planId } as DispatcherEvent;
-      const result = await actions.sendEvent.mutateAsync(next);
-      setStale(false);
-      onResent(result.plan.plan_id, next);
+      const next = await resend.run(planId);
+      onResent(next.planId, next.event);
     } catch (e) {
-      setError(errorMessage(e));
+      if (alive.current) setError(errorMessage(e));
     }
   };
 
@@ -198,10 +231,23 @@ export function ProposalDrawer({
     setError(null);
     try {
       await actions.rejectProposal.mutateAsync(planId);
-      onClose();
+      onDone(planId);
     } catch (e) {
-      setError(errorMessage(e));
+      if (alive.current) setError(errorMessage(e));
     }
+  };
+
+  const showOnTimeline = () => {
+    if (!parentId) return;
+    onShowOnTimeline({
+      kind: 'plan',
+      planId: newId,
+      basePlanId: parentId,
+      proposalId: viewMode ? null : planId,
+      caption: viewMode
+        ? `Версия ${versionOf.get(planId) ?? '—'} → ${versionOf.get(newId) ?? model.version}: что изменилось`
+        : `Черновик: ${title.replace(/^Предложение: /, '')}`,
+    });
   };
 
   const showOnMap = () => {
@@ -244,30 +290,50 @@ export function ProposalDrawer({
     ((diff?.changes ?? []) as { request_id?: string }[]).find((c) => c.request_id)?.request_id ??
     null;
 
-  const footer = actionable ? (
-    <>
-      <Button variant="ghost" loading={actions.rejectProposal.isPending} onClick={() => void reject()}>
-        Отклонить
-      </Button>
-      <Button
-        variant="tertiary"
-        icon={Pencil}
-        disabled={!editOrder}
-        onClick={() => editOrder && onEditManually(editOrder, planId)}
-      >
-        Править вручную
-      </Button>
-      <Button
-        variant="primary"
-        icon={Check}
-        loading={actions.acceptProposal.isPending}
-        disabled={stale}
-        onClick={() => void accept()}
-      >
-        Принять изменения
-      </Button>
-    </>
-  ) : undefined;
+  let footer;
+  if (actionable) {
+    footer = (
+      <>
+        <Button variant="ghost" loading={actions.rejectProposal.isPending} onClick={() => void reject()}>
+          Отклонить
+        </Button>
+        <Button
+          variant="tertiary"
+          icon={Pencil}
+          disabled={!editOrder}
+          onClick={() => editOrder && onEditManually(editOrder, planId)}
+        >
+          Править вручную
+        </Button>
+        <Button
+          variant="primary"
+          icon={Check}
+          loading={actions.acceptProposal.isPending}
+          onClick={() => void accept()}
+        >
+          Принять изменения
+        </Button>
+      </>
+    );
+  } else if (stale) {
+    footer = (
+      <>
+        <Button variant="ghost" loading={actions.rejectProposal.isPending} onClick={() => void reject()}>
+          Отклонить
+        </Button>
+        {canResend && (
+          <Button
+            variant="primary"
+            icon={RefreshCw}
+            loading={resend.pendingId === planId}
+            onClick={() => void recalc()}
+          >
+            Пересчитать
+          </Button>
+        )}
+      </>
+    );
+  }
 
   const loading = planQuery.isPending || (Boolean(parentId) && diffQuery.isPending);
 
@@ -288,37 +354,28 @@ export function ProposalDrawer({
         </EmptyState>
       ) : (
         <>
-          {!viewMode && status && status !== 'proposed' && (
+          {editedInto && (
             <Callout tone="neutral">
-              {status === 'applied' || status === 'superseded'
+              Предложение принято с правкой вручную
+              {versionOf.get(editedInto) ? ` — версия ${versionOf.get(editedInto)}` : ''}
+            </Callout>
+          )}
+          {!viewMode && !editedInto && ((status && status !== 'proposed') || isVersion) && (
+            <Callout tone="neutral">
+              {isVersion || status === 'applied' || status === 'superseded'
                 ? 'Предложение уже принято'
                 : status === 'rejected'
                   ? 'Предложение отклонено'
                   : `Статус версии: ${status}`}
             </Callout>
           )}
-          {!viewMode && status === 'proposed' && plan?.parent_plan_id !== model.planId && !stale && (
-            <Callout tone="warning">Предложение считалось от прежней версии плана — его нельзя принять.</Callout>
-          )}
           {stale && (
-            <Callout
-              tone="warning"
-              action={
-                sentEvent ? (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    icon={RefreshCw}
-                    loading={actions.sendEvent.isPending}
-                    onClick={() => void resend()}
-                  >
-                    Пересчитать
-                  </Button>
-                ) : undefined
-              }
-            >
-              План уже изменился. Пересчитать?
-              {!sentEvent && ' Отклоните предложение и добавьте событие заново.'}
+            <Callout tone="warning">
+              План уже изменился: предложение считалось от версии {baseVersion ?? '—'}, а действует
+              версия {model.version}. Принять его нельзя.{' '}
+              {canResend
+                ? 'Пересчитайте его на действующей версии или отклоните.'
+                : 'Отклоните его и добавьте событие заново.'}
             </Callout>
           )}
           {error && <Callout tone="danger">{error}</Callout>}
@@ -401,9 +458,14 @@ export function ProposalDrawer({
 
           <div className={styles.metricsBar}>
             <span>{metrics ?? ''}</span>
-            <Button variant="secondary" size="sm" icon={MapIcon} onClick={showOnMap}>
-              Показать на карте
-            </Button>
+            <div className={styles.metricsActions}>
+              <Button variant="secondary" size="sm" icon={GanttChart} onClick={showOnTimeline}>
+                Показать на таймлайне
+              </Button>
+              <Button variant="secondary" size="sm" icon={MapIcon} onClick={showOnMap}>
+                Показать на карте
+              </Button>
+            </div>
           </div>
         </>
       )}

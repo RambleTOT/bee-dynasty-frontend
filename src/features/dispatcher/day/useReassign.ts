@@ -84,9 +84,10 @@ function checkOptions(
   orderId: string,
   engineerId: string,
   position: number | null,
+  time: string | null,
 ) {
   return {
-    queryKey: queryKeys.reassignCheck(planId ?? '-', orderId, engineerId, position),
+    queryKey: queryKeys.reassignCheck(planId ?? '-', orderId, engineerId, position, time),
     queryFn: ({ signal }: { signal: AbortSignal }) =>
       checkReassign(
         planId as string,
@@ -94,6 +95,7 @@ function checkOptions(
           order_id: orderId,
           to_engineer_id: engineerId,
           ...(position != null ? { position } : {}),
+          ...(time ? { time } : {}),
         },
         signal,
       ),
@@ -125,6 +127,8 @@ export function useReassignCandidates(
   base: DayModel | null,
   planId: string | null,
   requestId: string,
+  /** «Сейчас» дня для проверки (флаг `reassignTime`); `null` — не передаём. */
+  time: string | null = null,
 ) {
   const request = base?.requestById.get(requestId) ?? null;
   const candidates = useMemo(
@@ -134,7 +138,7 @@ export function useReassignCandidates(
   const nearest = candidates.filter((c) => c.checkNow);
   const parallel = useQueries({
     queries: nearest.map((c) => ({
-      ...checkOptions(planId, requestId, c.engineer.id, null),
+      ...checkOptions(planId, requestId, c.engineer.id, null, time),
       enabled: Boolean(planId),
     })),
   });
@@ -152,9 +156,10 @@ export function useSelectedCheck(
   requestId: string,
   request: DayRequest | null,
   selected: { engineerId: string; position: number | null } | null,
+  time: string | null = null,
 ): CheckState | null {
   const query = useQuery({
-    ...checkOptions(planId, requestId, selected?.engineerId ?? '-', selected?.position ?? null),
+    ...checkOptions(planId, requestId, selected?.engineerId ?? '-', selected?.position ?? null, time),
     enabled: Boolean(planId && selected),
   });
   return selected ? toState(query, request) : null;

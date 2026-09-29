@@ -58,6 +58,9 @@ export const testChain: DayChain = {
   version: 4,
   versions: [],
   pendingProposals: [],
+  staleProposals: [],
+  consumed: new Map(),
+  cancelledIds: new Set(),
   events: [],
   planStatus: new Map(),
 };

@@ -5,6 +5,7 @@
 import { CircleAlert } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { matchesFilters, type DayEngineer, type DayFilters, type DayModel, type DayRequest } from '@/adapters/dayModel';
+import type { TimelineOverlay } from '@/adapters/timelineDraft';
 import { SKILL_ICON, TRANSPORT_ICON } from '@/lib/dictionaries';
 import { countOf, formatKm, PL_REQUEST } from '@/lib/format';
 import {
@@ -27,6 +28,8 @@ interface TimelineProps {
   selectedRequest: string | null;
   onOpenRequest: (id: string) => void;
   onOpenUnassigned: (id: string) => void;
+  /** Черновик (предложение, сравнение версий, переназначение): `model` — черновика. */
+  draft?: TimelineOverlay | null;
 }
 
 const pct = (minutes: number, axis: TimeAxis) => `${(axisFraction(minutes, axis) * 100).toFixed(3)}%`;
@@ -84,6 +87,7 @@ function VisitBlock({
   axis,
   dim,
   selected,
+  moved = false,
   onOpen,
 }: {
   request: DayRequest;
@@ -91,6 +95,8 @@ function VisitBlock({
   axis: TimeAxis;
   dim: boolean;
   selected: boolean;
+  /** Черновик: визит на новом месте. */
+  moved?: boolean;
   onOpen: () => void;
 }) {
   const visit = request.visit!;
@@ -121,6 +127,7 @@ function VisitBlock({
           statusClass,
           late && styles.sDanger,
           styles[`c${engineer.color.index}`],
+          moved && styles.movedBlock,
           selected && styles.selectedBlock,
           dim && styles.dim,
         )}
@@ -177,6 +184,7 @@ export function Timeline({
   selectedRequest,
   onOpenRequest,
   onOpenUnassigned,
+  draft = null,
 }: TimelineProps) {
   const axis = model.axis;
   if (!axis) {
@@ -229,10 +237,17 @@ export function Timeline({
           </div>
           {model.engineers.map((engineer) => {
             const visits = visitsByEngineer.get(engineer.id) ?? [];
+            const changed = draft ? draft.changed.has(engineer.id) : false;
+            // в черновике приглушаем бригады без изменений, фильтры дня не применяем
+            const rowDim = draft ? !changed : Boolean(brigade) && brigade !== engineer.id;
             return (
               <div
                 key={engineer.id}
-                className={cx(styles.row, brigade === engineer.id && styles.rowActive)}
+                className={cx(
+                  styles.row,
+                  !draft && brigade === engineer.id && styles.rowActive,
+                  changed && styles.rowChanged,
+                )}
               >
                 <EngineerName engineer={engineer} hasPlan={hasPlan} />
                 <div className={styles.track}>
@@ -243,14 +258,25 @@ export function Timeline({
                       aria-hidden
                     />
                   )}
+                  {(draft?.ghost.get(engineer.id) ?? []).map((ghost) => (
+                    <div
+                      key={`ghost-${ghost.requestId}`}
+                      className={styles.ghost}
+                      style={span(toMin(ghost.start), toMin(ghost.end), axis)}
+                      title={`Было: №${ghost.requestId} · ${ghost.start}–${ghost.end}`}
+                    >
+                      <span className={styles.blockId}>{ghost.label}</span>
+                    </div>
+                  ))}
                   {visits.map((request) => (
                     <VisitBlock
                       key={request.id}
                       request={request}
                       engineer={engineer}
                       axis={axis}
-                      dim={!matchesFilters(request, filters) || (Boolean(brigade) && brigade !== engineer.id)}
+                      dim={rowDim || (!draft && !matchesFilters(request, filters))}
                       selected={request.id === selectedRequest}
+                      moved={Boolean(draft?.moved.has(request.id))}
                       onOpen={() => onOpenRequest(request.id)}
                     />
                   ))}

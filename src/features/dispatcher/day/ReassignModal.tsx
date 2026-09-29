@@ -2,11 +2,14 @@
  * DS-08 «Ручное переназначение» (FRONTEND_SPEC §6.7, §8.2 пп. 7, 23): кандидаты с метками по `check`,
  * позиция в маршруте, три ограничения, чипы-последствия; «Применить» или «Применить с нарушением»
  * (после подтверждения, `force: true`) → `/reassign` → сразу `/apply` (useDayActions).
+ * «Показать на таймлайне» — черновик по ответу проверки; окно прячется, пока смотрят черновик.
  */
-import { Check, CircleCheck, CircleX, TriangleAlert, UserX } from 'lucide-react';
+import { Check, CircleCheck, CircleX, GanttChart, TriangleAlert, UserX } from 'lucide-react';
 import { useState } from 'react';
 import { errorMessage } from '@/api/errors';
 import type { DayModel } from '@/adapters/dayModel';
+import { reassignDraft } from '@/adapters/timelineDraft';
+import { FEATURES } from '@/config';
 import {
   candidateBadge,
   candidateInfo,
@@ -33,6 +36,7 @@ import {
   cx,
 } from '@/ui';
 import type { DayActions } from './useDayActions';
+import type { DraftRequest } from './useDraftTimeline';
 import {
   useReassignBase,
   useReassignCandidates,
@@ -87,6 +91,8 @@ export function ReassignModal({
   basePlanId,
   model,
   actions,
+  hidden = false,
+  onPreview,
   onClose,
 }: {
   requestId: string;
@@ -94,10 +100,17 @@ export function ReassignModal({
   basePlanId: string | null;
   model: DayModel;
   actions: DayActions;
+  /** Смотрят черновик на таймлайне: окно прячем, выбор бригады и позиции сохраняем. */
+  hidden?: boolean;
+  onPreview?: (draft: DraftRequest) => void;
   onClose: () => void;
 }) {
+  // «свободен» / «занят до» и «раньше текущего времени» — только если у дня идут часы (или он сегодня)
+  const nowMin = model.clock || model.date === todayMsk() ? toMin(model.now) : null;
+  // «сейчас» дня для бэка, когда он научится его учитывать (BACKEND_REQUESTS п. 47)
+  const time = FEATURES.reassignTime && nowMin != null ? model.now : null;
   const { base, planId, loading, failed, retry } = useReassignBase(model, basePlanId);
-  const { request, candidates, checks } = useReassignCandidates(base, planId, requestId);
+  const { request, candidates, checks } = useReassignCandidates(base, planId, requestId, time);
   const [picked, setPicked] = useState<string | null>(null);
   const [positions, setPositions] = useState<Readonly<Record<string, number>>>({});
   const [confirming, setConfirming] = useState(false);
@@ -116,15 +129,13 @@ export function ReassignModal({
     requestId,
     request,
     selectedId ? { engineerId: selectedId, position } : null,
+    time,
   );
   const checkOf = (engineerId: string) =>
     engineerId === selectedId ? selectedCheck : checks.get(engineerId);
 
   const stopsOf = (engineerId: string) => (base ? routeStops(base, engineerId, requestId) : []);
-  // «свободен» / «занят до» — только если время ещё впереди по «сейчас» дня (у дня без часов — только сегодня)
-  const nowMin = model.clock || model.date === todayMsk() ? toMin(model.now) : null;
-  const upcoming = (time: string | null) =>
-    time && (nowMin == null || toMin(time) > nowMin) ? time : null;
+  const upcoming = (at: string | null) => (at && (nowMin == null || toMin(at) > nowMin) ? at : null);
   const positionOf = (engineerId: string, summary: CheckSummary | null) =>
     positions[engineerId] ?? inferPosition(stopsOf(engineerId), summary?.newStart ?? null);
 
@@ -146,7 +157,13 @@ export function ReassignModal({
     actions.reassign.mutate(
       {
         planId,
-        body: { order_id: requestId, to_engineer_id: selectedId, position: explicit, force },
+        body: {
+          order_id: requestId,
+          to_engineer_id: selectedId,
+          position: explicit,
+          force,
+          ...(time ? { time } : {}),
+        },
         nextVersion: model.version + 1,
       },
       {
@@ -279,6 +296,41 @@ export function ReassignModal({
 
         <CheckResult state={selectedCheck} />
 
+        {summary?.newStart && nowMin != null && toMin(summary.newStart) < nowMin && (
+          <Callout tone="warning" icon={TriangleAlert}>
+            Начало {summary.newStart} — раньше текущего времени {model.now}: визит встанет в прошлое.
+            Выберите позицию позже в маршруте или другую бригаду.
+          </Callout>
+        )}
+
+        {summary?.newStart && selectedId && onPreview && (
+          <div className={styles.previewRow}>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={GanttChart}
+              onClick={() => {
+                const draft = reassignDraft(base, {
+                  requestId,
+                  toEngineerId: selectedId,
+                  newStart: summary.newStart as string,
+                  shifted: summary.shifted,
+                });
+                const engineer = base.engineerById.get(selectedId);
+                if (draft) {
+                  onPreview({
+                    kind: 'reassign',
+                    ...draft,
+                    caption: `Черновик: №${requestId} → ${engineer?.label ?? selectedId}, начало ${summary.newStart}`,
+                  });
+                }
+              }}
+            >
+              Показать на таймлайне
+            </Button>
+          </div>
+        )}
+
         {chips.length > 0 && (
           <div className={styles.chips}>
             {chips.map((chip) => (
@@ -350,7 +402,7 @@ export function ReassignModal({
 
   return (
     <Modal
-      open
+      open={!hidden}
       width={560}
       onClose={onClose}
       title={title}

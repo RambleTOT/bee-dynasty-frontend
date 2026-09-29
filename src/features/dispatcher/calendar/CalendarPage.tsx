@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCallback, useMemo, type CSSProperties } from 'react';
 import {
@@ -16,6 +16,7 @@ import { useSearchState } from '@/hooks/useSearchState';
 import { usePollInterval } from '@/realtime/useRealtime';
 import { BK } from '@/lib/dictionaries';
 import { formatMonthTitle } from '@/lib/format';
+import { REGIONS } from '@/lib/statuses';
 import { addMonths, monthGrid, monthOf, todayMsk } from '@/lib/time';
 import { Button, cx, ErrorState, FilterPill, IconButton } from '@/ui';
 import { ImportModal } from '../import/ImportModal';
@@ -35,6 +36,8 @@ import tones from './tones.module.css';
 /**
  * DS-01 «Календарь заявок» — главный экран диспетчера (FRONTEND_SPEC §8.2): месяц, фильтры в адресе,
  * опрос раз в 30 с, клик по дню — в DS-03. `modal=import` открывает DS-02.
+ * «Все регионы» — запрос по каждому региону: итог дня — их сумма, в подсказке — строка на регион
+ * (видно, в каком регионе неназначенные).
  */
 export default function CalendarPage() {
   const [search, setSearch] = useSearchState(calendarSearch);
@@ -45,17 +48,17 @@ export default function CalendarPage() {
   const month = search.month ?? currentMonth;
   const { region, status, type } = search;
 
-  const calendar = useQuery({
+  const calendarOptions = (regionId: string) => ({
     queryKey: queryKeys.calendar(month, {
-      region,
+      region: regionId,
       status: status ?? undefined,
       type: type ?? undefined,
     }),
-    queryFn: ({ signal }) =>
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
       getCalendar(
         {
           ...calendarRange(month),
-          region_id: region,
+          region_id: regionId,
           status: status ?? undefined,
           type_bk: type ? BK[type] : undefined,
         },
@@ -63,12 +66,27 @@ export default function CalendarPage() {
       ),
     refetchInterval: poll,
   });
+  const allRegions = region === 'all';
+  const calendar = useQuery({ ...calendarOptions(region), enabled: !allRegions });
+  const perRegion = useQueries({
+    queries: REGIONS.map((regionId) => ({ ...calendarOptions(regionId), enabled: allRegions })),
+  });
   const regions = useQuery(regionsQuery);
 
-  const model = useMemo(
-    () => (calendar.data ? buildCalendarMonth(month, calendar.data, today) : null),
-    [calendar.data, month, today],
-  );
+  const perRegionData = perRegion.map((q) => q.data);
+  const model = useMemo(() => {
+    const countByStatus = status !== null;
+    if (allRegions) {
+      if (!perRegionData.every(Boolean)) return null;
+      return buildCalendarMonth(month, null, today, {
+        countByStatus,
+        regions: REGIONS.map((regionId, index) => ({ regionId, response: perRegionData[index] })),
+      });
+    }
+    return calendar.data ? buildCalendarMonth(month, calendar.data, today, { countByStatus }) : null;
+    // perRegionData — новый массив на каждую отрисовку; ответы стабильны, сравниваем их
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allRegions, calendar.data, month, today, status, ...perRegionData]);
 
   const userRegions = user?.region_ids;
   const dayHref = useCallback(
@@ -78,7 +96,17 @@ export default function CalendarPage() {
 
   const goToMonth = (next: string) => setSearch({ month: next === currentMonth ? null : next });
   const filtered = region !== 'all' || status !== null || type !== null;
-  const loadError = calendar.isError && !calendar.data ? calendar.error : null;
+  const failedRegion = perRegion.find((q) => q.isError && !q.data);
+  const loadError = allRegions
+    ? (failedRegion?.error ?? null)
+    : calendar.isError && !calendar.data
+      ? calendar.error
+      : null;
+  const retry = () => {
+    if (allRegions) perRegion.forEach((q) => void q.refetch());
+    else void calendar.refetch();
+  };
+  const retrying = allRegions ? perRegion.some((q) => q.isFetching) : calendar.isFetching;
   const gridDays = monthGrid(month).length;
 
   return (
@@ -166,8 +194,8 @@ export default function CalendarPage() {
               message={
                 isApiError(loadError) && loadError.status !== 0 ? loadError.message : undefined
               }
-              onRetry={() => void calendar.refetch()}
-              retrying={calendar.isFetching}
+              onRetry={retry}
+              retrying={retrying}
             />
           </div>
         ) : (

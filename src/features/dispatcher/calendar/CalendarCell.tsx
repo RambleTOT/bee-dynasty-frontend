@@ -95,6 +95,22 @@ export const CalendarCell = memo(function CalendarCell({
               <span>{formatInt(row.count)}</span>
             </div>
           ))}
+          {tip.regions.length > 0 && (
+            <>
+              <div className={styles.tipSection}>По регионам</div>
+              {tip.regions.map((row) => (
+                <div key={row.regionId} className={styles.tipRow}>
+                  <span className={styles.tipLabel}>{row.label}</span>
+                  <span>
+                    {formatInt(row.count)}
+                    {row.unassigned > 0 && (
+                      <span className={styles.tipDanger}> · {formatInt(row.unassigned)} не назн.</span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </>
+          )}
         </div>
       )}
     </div>

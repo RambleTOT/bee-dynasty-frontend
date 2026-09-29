@@ -88,6 +88,26 @@ export async function fetchSiteIndex(): Promise<string | null> {
   }
 }
 
+/**
+ * JSON стороннего сервиса (подсказки адресов, api/geocoder.ts). Не наш API: без токена и cookies,
+ * без разбора ошибок бэка; не вышло — `null`. Отмену (`signal`) не глотаем.
+ */
+export async function fetchExternalJson(url: string, signal?: AbortSignal): Promise<unknown> {
+  let response: Response;
+  try {
+    response = await fetch(url, { signal, credentials: 'omit', headers: { Accept: 'application/json' } });
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    return null;
+  }
+  if (!response.ok) return null;
+  try {
+    return (await response.json()) as unknown;
+  } catch {
+    return null;
+  }
+}
+
 type Options = Pick<RequestOptions, 'query' | 'signal'>;
 
 export const api = {

@@ -155,6 +155,7 @@ describe('buildCalendarMonth', () => {
         { key: 'unassigned', label: 'Не назначена', count: 3, tone: 'danger' },
         { key: 'late', label: 'Флаг «Просрочена»', count: 1, tone: 'danger' },
       ],
+      regions: [],
     });
     // статусы вне полосы в подсказке есть
     expect(cellAt(model.cells, '2026-09-15').tip?.rows.map((row) => row.label)).toEqual([
@@ -178,6 +179,45 @@ describe('buildCalendarMonth', () => {
   it('итог — сумма request_count за месяц без соседних дней', () => {
     expect(model.total).toBe(93);
     expect(model.empty).toBe(false);
+  });
+
+  it('фильтр по статусу: число дня — только этот статус (request_count бэк не фильтрует)', () => {
+    const filtered = buildCalendarMonth(
+      '2026-09',
+      { days: [{ date: '2026-09-29', request_count: 372, by_status: { en_route: 12 }, flags: {}, sources: [] }] },
+      TODAY,
+      { countByStatus: true },
+    );
+    expect(cellAt(filtered.cells, '2026-09-29')).toMatchObject({ count: 12, countLabel: '12 заявок' });
+    expect(filtered.total).toBe(12);
+  });
+
+  it('«Все регионы»: сумма регионов и строка на регион в подсказке', () => {
+    const day = (count: number, unassigned: number) => ({
+      days: [
+        {
+          date: '2026-09-29',
+          request_count: count,
+          by_status: { planned: count - unassigned, ...(unassigned ? { unassigned } : {}) },
+          flags: {},
+          sources: ['demo'],
+        },
+      ],
+    });
+    const all = buildCalendarMonth('2026-09', null, TODAY, {
+      regions: [
+        { regionId: 'east', response: day(70, 0) },
+        { regionId: 'south_east', response: day(250, 9) },
+        { regionId: 'south_center', response: day(56, 6) },
+      ],
+    });
+    const cell = cellAt(all.cells, '2026-09-29');
+    expect(cell).toMatchObject({ count: 376, unassignedLabel: '15 не назначены' });
+    expect(cell.tip?.regions).toEqual([
+      { regionId: 'east', label: 'Восток', count: 70, unassigned: 0 },
+      { regionId: 'south_east', label: 'Юго-восток', count: 250, unassigned: 9 },
+      { regionId: 'south_center', label: 'Югоцентр', count: 56, unassigned: 6 },
+    ]);
   });
 
   it('пустой месяц и мусор в ответе', () => {

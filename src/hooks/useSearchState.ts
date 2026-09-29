@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 /** Один query-параметр: как прочитать его из адреса и как записать обратно. */
@@ -97,29 +97,34 @@ export function parseSearch<S extends SearchSchema>(
  * ```
  *
  * Запись — с `replace: true` (история браузера не копится). Параметры вне схемы сохраняются.
- * Несколько изменений сразу — одним вызовом: вызовы в одном обработчике не складываются.
+ * Запись строится от последнего адреса, а не от того, что был при отрисовке: вызовы подряд
+ * складываются, а замыкание после `await` не вернёт закрытые с тех пор панели.
  */
 export function useSearchState<S extends SearchSchema>(schema: S) {
   const [searchParams, setSearchParams] = useSearchParams();
+  // `setSearchParams(prev => …)` роутера берёт адрес отрисовки: два вызова до новой отрисовки
+  // затирают друг друга. Последний адрес — наш: из роутера, когда он сменился, или из записи.
+  const latest = useRef(searchParams);
+  const seen = useRef(searchParams);
+  if (seen.current !== searchParams) {
+    seen.current = searchParams;
+    latest.current = searchParams;
+  }
 
   const values = useMemo(() => parseSearch(schema, searchParams), [schema, searchParams]);
 
   const setValues = useCallback(
     (patch: SearchPatch<S> | ((current: SearchValues<S>) => SearchPatch<S>)) => {
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          const changes = typeof patch === 'function' ? patch(parseSearch(schema, prev)) : patch;
-          for (const key of Object.keys(changes)) {
-            const value = changes[key];
-            const raw = value === undefined ? null : schema[key].serialize(value);
-            if (raw === null) next.delete(key);
-            else next.set(key, raw);
-          }
-          return next;
-        },
-        { replace: true },
-      );
+      const next = new URLSearchParams(latest.current);
+      const changes = typeof patch === 'function' ? patch(parseSearch(schema, next)) : patch;
+      for (const key of Object.keys(changes)) {
+        const value = changes[key];
+        const raw = value === undefined ? null : schema[key].serialize(value);
+        if (raw === null) next.delete(key);
+        else next.set(key, raw);
+      }
+      latest.current = next;
+      setSearchParams(next, { replace: true });
     },
     [schema, setSearchParams],
   );

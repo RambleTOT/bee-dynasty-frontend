@@ -119,6 +119,8 @@ export interface CheckSummary {
   deltaKm: number;
   /** Заявки, которые уйдут в просрочку. */
   lateIds: string[];
+  /** Сдвиг визитов новой бригады, мин (`shifted_visits`) — для черновика на таймлайне. */
+  shifted: { orderId: string; deltaMin: number }[];
 }
 
 const LABEL_ORDER: readonly ConstraintLabel[] = ['Квалификация', 'Время', 'Ресурс'];
@@ -204,6 +206,18 @@ function templateText(
   }
 }
 
+function shiftedOf(list: unknown): { orderId: string; deltaMin: number }[] {
+  if (!Array.isArray(list)) return [];
+  return list.flatMap((item) => {
+    if (!isObject(item)) return [];
+    const id = item.order_id ?? item.request_id;
+    const delta = Number(item.delta_min);
+    return (typeof id === 'string' || typeof id === 'number') && Number.isFinite(delta) && delta !== 0
+      ? [{ orderId: String(id), deltaMin: delta }]
+      : [];
+  });
+}
+
 function lateIdsOf(list: unknown): string[] {
   if (!Array.isArray(list)) return [];
   const ids = list
@@ -249,6 +263,7 @@ export function summarizeCheck(response: ReassignCheckResponse, request: DayRequ
     newStart,
     deltaKm: Number.isFinite(deltaKm) ? deltaKm : 0,
     lateIds: lateIdsOf(response.late_visits),
+    shifted: shiftedOf(response.shifted_visits),
   };
 }
 

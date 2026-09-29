@@ -28,8 +28,13 @@ export const queryKeys = {
   compare: (target: string) => ['compare', target] as const,
   extendResource: (planId: string, orderIds: string) =>
     ['plan', planId, 'extend', orderIds] as const,
-  reassignCheck: (planId: string, orderId: string, engineerId: string, position: number | null) =>
-    ['plan', planId, 'reassign', orderId, engineerId, position] as const,
+  reassignCheck: (
+    planId: string,
+    orderId: string,
+    engineerId: string,
+    position: number | null,
+    time: string | null = null,
+  ) => ['plan', planId, 'reassign', orderId, engineerId, position, time] as const,
   events: (scenarioId: string) => ['events', scenarioId] as const,
   clock: (scenarioId: string) => ['clock', scenarioId] as const,
   engineerDay: () => ['engineerDay'] as const,

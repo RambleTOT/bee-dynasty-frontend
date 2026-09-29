@@ -142,6 +142,88 @@ describe('resolveDayChain', () => {
     expect(chain.versions.map((v) => v.version)).toEqual([3]);
   });
 
+  it('«Править вручную» из предложения: предложение входит в версию, а не считается отдельной', () => {
+    const events = [
+      makeEvent({ event_id: 'F1', event_type: 'order_cancelled', plan_id: 'P1', result_plan_id: 'P2', created_at: '2026-09-28T12:00:00Z', payload: { request_id: '10197', source: 'engineer' } }),
+      makeEvent({ event_id: 'M1', event_type: 'manual_reassign', plan_id: 'P2', result_plan_id: 'P3', created_at: '2026-09-28T12:05:00Z', payload: { order_id: '10197', to_engineer_id: 'E01' } }),
+      makeEvent({ event_id: 'A1', event_type: 'plan_applied', plan_id: 'P2', result_plan_id: 'P3', created_at: '2026-09-28T12:05:01Z' }),
+    ];
+    const plans = [
+      makePlanItem({ plan_id: 'P1', status: 'superseded', version: 1 }),
+      makePlanItem({ plan_id: 'P2', scenario_id: 'S1', status: 'proposed' }),
+      makePlanItem({ plan_id: 'P3', scenario_id: 'S2', status: 'applied' }),
+    ];
+    const expectEdit = (chain: ReturnType<typeof resolveDayChain>) => {
+      expect(chain.headPlanId).toBe('P3');
+      expect(chain.version).toBe(2);
+      expect(chain.versions.map((v) => [v.planId, v.version, v.event?.event_id ?? null, v.via?.event_id ?? null])).toEqual([
+        ['P3', 2, 'M1', 'F1'],
+        ['P1', 1, null, null],
+      ]);
+      expect(chain.consumed.get('P2')).toBe('P3');
+      expect(chain.pendingProposals).toEqual([]);
+      expect(chain.staleProposals).toEqual([]);
+      expect(chain.events.map((e) => e.event_id)).toEqual(['A1', 'M1', 'F1']);
+    };
+    // бэк отдаёт голову — идём назад
+    expectEdit(resolveDayChain(makeRegion({ active_plan_id: 'P3', plan_state: 'applied', version: 2 }), events, plans));
+    // бэк отдаёт первую версию — идём вперёд
+    expectEdit(resolveDayChain(region, events, plans));
+  });
+
+  it('второе предложение к прежней версии — устарело; после пересчёта — нет', () => {
+    const events = [
+      makeEvent({ event_id: 'U1', plan_id: 'P1', result_plan_id: 'P2', created_at: '2026-09-28T12:40:00Z', payload: { request_id: 'U-1' } }),
+      makeEvent({ event_id: 'U2', plan_id: 'P1', result_plan_id: 'P3', created_at: '2026-09-28T12:41:00Z', payload: { request_id: 'U-2' } }),
+      makeEvent({ event_id: 'A1', event_type: 'plan_applied', plan_id: 'P1', result_plan_id: 'P2', created_at: '2026-09-28T12:45:00Z' }),
+    ];
+    const plans = [
+      makePlanItem({ plan_id: 'P1', status: 'superseded', version: 1 }),
+      makePlanItem({ plan_id: 'P2', scenario_id: 'S1', status: 'applied' }),
+      makePlanItem({ plan_id: 'P3', scenario_id: 'S2', status: 'proposed' }),
+    ];
+    const chain = resolveDayChain(region, events, plans);
+    expect(chain.headPlanId).toBe('P2');
+    expect(chain.pendingProposals).toEqual([]);
+    expect(chain.staleProposals.map((p) => [p.planId, p.event.event_id, p.baseVersion])).toEqual([['P3', 'U2', 1]]);
+
+    // «Пересчитать»: то же событие на действующей версии — новое предложение ждёт решения
+    const resent = makeEvent({ event_id: 'U3', plan_id: 'P2', result_plan_id: 'P4', created_at: '2026-09-28T12:50:00Z', payload: { request_id: 'U-2' } });
+    const after = resolveDayChain(region, [...events, resent], [...plans, makePlanItem({ plan_id: 'P4', scenario_id: 'S3', status: 'proposed' })]);
+    expect(after.staleProposals).toEqual([]);
+    expect(after.pendingProposals.map((p) => p.plan_id)).toEqual(['P4']);
+  });
+
+  it('сразу после «Принять»: день уже на новой версии, список планов ещё помнит «proposed»', () => {
+    const events = [
+      makeEvent({ event_id: 'C1', event_type: 'order_cancelled', plan_id: 'P1', result_plan_id: 'P2', created_at: '2026-09-28T13:30:00Z', payload: { request_id: '86160' } }),
+    ];
+    const plans = [
+      makePlanItem({ plan_id: 'P1', status: 'applied', version: 1 }),
+      makePlanItem({ plan_id: 'P2', scenario_id: 'S1', status: 'proposed' }),
+    ];
+    const chain = resolveDayChain(makeRegion({ active_plan_id: 'P2', plan_state: 'applied', version: 2 }), events, plans);
+    expect(chain.headPlanId).toBe('P2');
+    expect(chain.pendingProposals).toEqual([]);
+    expect(chain.staleProposals).toEqual([]);
+  });
+
+  it('отменённые принятыми событиями заявки — отменены (бэк возвращает их в неназначенные)', () => {
+    const events = [
+      makeEvent({ event_id: 'C1', event_type: 'order_cancelled', plan_id: 'P1', result_plan_id: 'P2', created_at: '2026-09-28T13:30:00Z', payload: { request_id: '86160' } }),
+      makeEvent({ event_id: 'C2', event_type: 'order_cancelled', plan_id: 'P2', result_plan_id: 'P3', created_at: '2026-09-28T14:00:00Z', payload: { request_id: '50104' } }),
+      makeEvent({ event_id: 'C3', event_type: 'order_cancelled', plan_id: 'P3', result_plan_id: 'P4', created_at: '2026-09-28T14:10:00Z', payload: { request_id: '77777' } }),
+    ];
+    const plans = [
+      makePlanItem({ plan_id: 'P1', status: 'superseded', version: 1 }),
+      makePlanItem({ plan_id: 'P2', scenario_id: 'S1', status: 'superseded' }),
+      makePlanItem({ plan_id: 'P3', scenario_id: 'S2', status: 'applied' }),
+      makePlanItem({ plan_id: 'P4', scenario_id: 'S3', status: 'rejected' }),
+    ];
+    const chain = resolveDayChain(makeRegion({ active_plan_id: 'P3', plan_state: 'applied', version: 3 }), events, plans);
+    expect([...chain.cancelledIds].sort()).toEqual(['50104', '86160']);
+  });
+
   it('цикл в данных не зацикливает', () => {
     const events = [
       makeEvent({ event_id: 'E1', plan_id: 'P1', result_plan_id: 'P2' }),

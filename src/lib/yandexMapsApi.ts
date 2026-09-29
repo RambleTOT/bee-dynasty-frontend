@@ -22,6 +22,8 @@ export interface YEventManager {
 
 export interface YMap {
   geoObjects: YMapsGeoObjects;
+  /** `click` по карте: `event.get('coords')` — [широта, долгота]. */
+  events: YEventManager;
   /** Слои карты: у слоя с тайлами есть событие `tileloadchange` (`readyTileNumber`). */
   layers: { each(callback: (layer: { events: YEventManager }) => void): void };
   setBounds(bounds: number[][], options?: Record<string, unknown>): PromiseLike<void> | void;

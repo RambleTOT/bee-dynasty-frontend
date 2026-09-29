@@ -1,5 +1,5 @@
 /** Вкладка «Лента» (DS-03, FRONTEND_SPEC §6.5): события новые сверху, фильтр «Требуют решения». */
-import { Inbox } from 'lucide-react';
+import { Inbox, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import type { FeedRow } from '@/adapters/feed';
 import { Button, SegmentedControl, ToneChip, cx } from '@/ui';
@@ -7,7 +7,20 @@ import styles from './Panel.module.css';
 
 type FeedFilter = 'all' | 'need';
 
-export function FeedPanel({ rows, onOpenProposal }: { rows: FeedRow[]; onOpenProposal: (planId: string) => void }) {
+export function FeedPanel({
+  rows,
+  onOpenProposal,
+  onResend,
+  canResend,
+  resendingId = null,
+}: {
+  rows: FeedRow[];
+  onOpenProposal: (planId: string) => void;
+  /** «Пересчитать» устаревшее предложение; не собрать событие заново — «Открыть» его. */
+  onResend: (planId: string) => void;
+  canResend: (planId: string) => boolean;
+  resendingId?: string | null;
+}) {
   const [filter, setFilter] = useState<FeedFilter>('all');
   const need = rows.filter((r) => r.needsDecision).length;
   const visible = filter === 'need' ? rows.filter((r) => r.needsDecision) : rows;
@@ -39,6 +52,11 @@ export function FeedPanel({ rows, onOpenProposal }: { rows: FeedRow[]; onOpenPro
         <div className={styles.feed}>
           {visible.map((row) => {
             const Icon = row.icon;
+            // устаревшее, но событие не собрать — открыть предложение, там «Отклонить»
+            const action =
+              row.action?.kind === 'resend' && !canResend(row.action.planId)
+                ? { ...row.action, kind: 'open' as const, label: 'Открыть' }
+                : row.action;
             return (
               <div key={row.id} className={styles.feedRow}>
                 <span className={styles.feedTime}>{row.time}</span>
@@ -47,7 +65,7 @@ export function FeedPanel({ rows, onOpenProposal }: { rows: FeedRow[]; onOpenPro
                 </span>
                 <div className={styles.feedBody}>
                   <div className={styles.feedText}>{row.text}</div>
-                  {(row.chip || row.action) && (
+                  {(row.chip || action) && (
                     <div className={styles.feedActions}>
                       {row.chip && (
                         <ToneChip tone={row.chip.tone} icon={row.chip.icon} size="sm">
@@ -55,9 +73,20 @@ export function FeedPanel({ rows, onOpenProposal }: { rows: FeedRow[]; onOpenPro
                         </ToneChip>
                       )}
                       <span className={styles.spacer} />
-                      {row.action && (
-                        <Button variant="secondary" size="sm" onClick={() => onOpenProposal(row.action!.planId)}>
-                          {row.action.label}
+                      {action?.kind === 'resend' && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          icon={RefreshCw}
+                          loading={resendingId === action.planId}
+                          onClick={() => onResend(action.planId)}
+                        >
+                          {action.label}
+                        </Button>
+                      )}
+                      {action?.kind === 'open' && (
+                        <Button variant="secondary" size="sm" onClick={() => onOpenProposal(action.planId)}>
+                          {action.label}
                         </Button>
                       )}
                     </div>

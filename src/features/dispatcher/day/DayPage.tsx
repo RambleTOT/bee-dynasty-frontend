@@ -5,11 +5,13 @@
 import { CalendarX2, ClipboardList, GanttChart, Map as MapIcon, MoreHorizontal, Plus, Route, Upload, Users } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { errorMessage } from '@/api/errors';
 import type { DispatcherEvent } from '@/api/events';
 import { buildFeed } from '@/adapters/feed';
 import { useAuth } from '@/auth/useAuth';
 import { useSearchState } from '@/hooks/useSearchState';
 import { countOf, formatDayTitle, PL_REQUEST } from '@/lib/format';
+import { notify } from '@/lib/notify';
 import { isRegionId, REGION_LABEL, REGIONS, type RegionId } from '@/lib/statuses';
 import { addDays, todayMsk } from '@/lib/time';
 import {
@@ -42,6 +44,8 @@ import { UnassignedPanel } from './UnassignedPanel';
 import { useCompareData } from './useCompareData';
 import { useDayActions } from './useDayActions';
 import { useDayData } from './useDayData';
+import { useDraftTimeline, type DraftRequest } from './useDraftTimeline';
+import { useResend } from './useResend';
 import { VersionsPanel } from './VersionsPanel';
 import styles from './DayPage.module.css';
 
@@ -80,8 +84,39 @@ export default function DayPage() {
   const feed = useMemo(() => (model && chain ? buildFeed({ chain, model }) : []), [model, chain]);
   const filters = useMemo(() => ({ status: search.status, type: search.type }), [search.status, search.type]);
   const [highlight, setHighlight] = useState<MapHighlight | null>(null);
+  // черновик на таймлайне: предложение, сравнение версий или ручное переназначение
+  const [draftRequest, setDraftRequest] = useState<DraftRequest | null>(null);
+  const draftView = useDraftTimeline(draftRequest, {
+    date,
+    region: data.region,
+    scenario: data.scenario,
+    model,
+    clock,
+  });
+  // подсветка и черновик — только для дня, где их открыли
+  useEffect(() => {
+    setHighlight(null);
+    setDraftRequest(null);
+  }, [date, regionId]);
   // тело события по плану предложения: для повтора при STALE_PROPOSAL (§6.4, п. 8)
   const sentEvents = useRef(new Map<string, DispatcherEvent>());
+  const resend = useResend({
+    headPlanId: model?.planId ?? null,
+    chain,
+    actions,
+    sentEvent: (planId) => sentEvents.current.get(planId) ?? null,
+  });
+  const resendProposal = async (planId: string) => {
+    try {
+      const next = await resend.run(planId);
+      sentEvents.current.set(next.planId, next.event);
+      setHighlight(null);
+      setDraftRequest(null);
+      setSearch({ proposal: next.planId, against: null });
+    } catch (error) {
+      notify(errorMessage(error), 'error');
+    }
+  };
 
   // Карточка заявки поверх предложения — отдельным шагом истории: «Назад» браузера, «К предложению»
   // и ✕ возвращают к предложению. Открыли по ссылке (шага нет) — просто закрываем.
@@ -121,6 +156,7 @@ export default function DayPage() {
   const openUnassigned = (id: string) => setSearch({ tab: 'un', focus: id });
   const openProposal = (planId: string) => {
     setHighlight(null);
+    setDraftRequest(null);
     setSearch({ proposal: planId, against: null });
   };
 
@@ -253,7 +289,11 @@ export default function DayPage() {
           <div className={styles.toolbar}>
             <SegmentedControl<DayView>
               value={search.view}
-              onChange={(view) => setSearch({ view })}
+              onChange={(view) => {
+                setHighlight(null);
+                setDraftRequest(null);
+                setSearch({ view });
+              }}
               label="Вид"
               options={[
                 { value: 'map', label: 'Карта', icon: MapIcon },
@@ -275,13 +315,40 @@ export default function DayPage() {
               />
             ) : (
               <Timeline
-                model={model}
+                model={draftView.draft?.model ?? model}
                 filters={filters}
                 brigade={search.brigade}
                 selectedRequest={search.request ?? search.focus}
                 onOpenRequest={openRequest}
                 onOpenUnassigned={openUnassigned}
+                draft={draftRequest ? (draftView.draft?.overlay ?? null) : null}
               />
+            )}
+            {draftRequest && search.view === 'timeline' && (
+              <div className={styles.highlightBar}>
+                {draftView.loading && <Spinner size={16} label="Готовим черновик" />}
+                {draftView.failed
+                  ? 'Не удалось загрузить черновик'
+                  : `${draftRequest.caption}. Изменённые бригады — ярко, прежнее место визита — пунктиром`}
+                {draftRequest.kind === 'plan' && draftRequest.proposalId && (
+                  <Button
+                    variant="inverse"
+                    size="sm"
+                    onClick={() => openProposal((draftRequest as { proposalId: string }).proposalId)}
+                  >
+                    К предложению
+                  </Button>
+                )}
+                {draftRequest.kind === 'reassign' ? (
+                  <Button variant="inverse" size="sm" onClick={() => setDraftRequest(null)}>
+                    К переназначению
+                  </Button>
+                ) : (
+                  <Button variant="inverse" size="sm" onClick={() => setDraftRequest(null)}>
+                    Скрыть
+                  </Button>
+                )}
+              </div>
             )}
             {highlight && (
               <div className={styles.highlightBar}>
@@ -330,7 +397,15 @@ export default function DayPage() {
                 onAddEngineer={() => setSearch({ roster: '1', add: '1' })}
               />
             )}
-            {search.tab === 'feed' && <FeedPanel rows={feed} onOpenProposal={openProposal} />}
+            {search.tab === 'feed' && (
+              <FeedPanel
+                rows={feed}
+                onOpenProposal={openProposal}
+                onResend={(planId) => void resendProposal(planId)}
+                canResend={resend.can}
+                resendingId={resend.pendingId}
+              />
+            )}
             {search.tab === 'ver' && chain && (
               <VersionsPanel
                 chain={chain}
@@ -360,8 +435,14 @@ export default function DayPage() {
         onType={(type) => setSearch({ type })}
         actions={headerActions}
       />
-      {model && chain && model.pendingProposals.length > 0 && (
-        <ProposalBanner model={model} chain={chain} onOpen={openProposal} />
+      {model && chain && (model.pendingProposals.length > 0 || chain.staleProposals.length > 0) && (
+        <ProposalBanner
+          model={model}
+          chain={chain}
+          resend={resend}
+          onOpen={openProposal}
+          onResend={(planId) => void resendProposal(planId)}
+        />
       )}
       {body}
 
@@ -393,24 +474,38 @@ export default function DayPage() {
           )}
           {search.proposal && (
             <ProposalDrawer
+              key={`${search.proposal}:${search.against ?? ''}`}
               planId={search.proposal}
               against={search.against}
               model={model}
               chain={chain}
               actions={actions}
-              sentEvent={sentEvents.current.get(search.proposal) ?? null}
+              resend={resend}
               onResent={(planId, event) => {
                 sentEvents.current.set(planId, event);
-                setSearch({ proposal: planId, against: null });
+                setSearch((current) =>
+                  current.proposal === search.proposal ? { proposal: planId, against: null } : {},
+                );
               }}
               onShowOnMap={(next) => {
+                setDraftRequest(null);
                 setHighlight(next);
                 setSearch({ proposal: null, against: null, view: 'map' });
+              }}
+              onShowOnTimeline={(next) => {
+                setHighlight(null);
+                setDraftRequest(next);
+                setSearch({ proposal: null, against: null, view: 'timeline' });
               }}
               onEditManually={(orderId, basePlanId) =>
                 setSearch({ proposal: null, against: null, reassign: orderId, base: basePlanId })
               }
               onOpenRequest={openCardOverProposal}
+              onDone={(planId) =>
+                setSearch((current) =>
+                  current.proposal === planId ? { proposal: null, against: null } : {},
+                )
+              }
               onClose={() => setSearch({ proposal: null, against: null })}
             />
           )}
@@ -436,7 +531,16 @@ export default function DayPage() {
               basePlanId={search.base}
               model={model}
               actions={actions}
-              onClose={() => setSearch({ reassign: null, base: null })}
+              hidden={draftRequest?.kind === 'reassign'}
+              onPreview={(next) => {
+                setHighlight(null);
+                setDraftRequest(next);
+                setSearch({ view: 'timeline' });
+              }}
+              onClose={() => {
+                if (draftRequest?.kind === 'reassign') setDraftRequest(null);
+                setSearch({ reassign: null, base: null });
+              }}
             />
           )}
           {search.roster && (

@@ -2,10 +2,12 @@
  * DS-06 «Событие» (FRONTEND_SPEC §6.4): «Срочная заявка» · «Отмена» · «Инженер недоступен».
  * Все события — `apply: false`, `source: 'dispatcher'`; ответ открывает DS-07 с предложением.
  */
-import { Calculator, Car, Clock, Info, MapPin, Search, X, Zap } from 'lucide-react';
+import { Calculator, Car, Clock, Info, Search, X, Zap } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { DispatcherEvent } from '@/api/events';
 import { errorMessage } from '@/api/errors';
+import { suggestAddresses } from '@/api/geocoder';
+import { lookupOf, type AddressSuggestion } from '@/adapters/address';
 import type { DayModel, DayRequest } from '@/adapters/dayModel';
 import {
   cancelEvent,
@@ -19,6 +21,7 @@ import { countOf, PL_REQUEST } from '@/lib/format';
 import { notify } from '@/lib/notify';
 import { REGION_LABEL, REGIONS, isRequestStatus, REQUEST_STATUS_LABEL } from '@/lib/statuses';
 import { Button, Callout, Input, Modal, RadioCards, SegmentedControl, Select, Textarea, cx } from '@/ui';
+import { AddressInput } from '../../shared/AddressInput';
 import type { EventTab } from './daySearch';
 import type { DayActions } from './useDayActions';
 import styles from './Overlays.module.css';
@@ -57,6 +60,9 @@ export function EventModal({
 }) {
   const [time, setTime] = useState(model.now);
   const [address, setAddress] = useState('');
+  // адрес из подсказки или с карты — с координатами: срочная без координат ломает день (BACKEND_REQUESTS п. 46)
+  const [addressPoint, setAddressPoint] = useState<AddressSuggestion | null>(null);
+  const [locating, setLocating] = useState(false);
   const [typeHd, setTypeHd] = useState<'Авария' | 'Информация'>('Авария');
   const [transport, setTransport] = useState('car');
   const [query, setQuery] = useState('');
@@ -77,6 +83,24 @@ export function EventModal({
       return true;
     });
   }, [model.requests]);
+  const dayHints = useMemo<AddressSuggestion[]>(
+    () =>
+      addressHints.flatMap((r) =>
+        Number.isFinite(r.raw.latitude) && Number.isFinite(r.raw.longitude)
+          ? [
+              {
+                id: `day-${r.id}`,
+                title: r.addressText,
+                subtitle: `Адрес заявки №${r.id}`,
+                value: r.addressText,
+                lat: r.raw.latitude,
+                lon: r.raw.longitude,
+              },
+            ]
+          : [],
+      ),
+    [addressHints],
+  );
   const openRequests = model.requests.filter((r) => !CLOSED.has(r.status));
   const found = openRequests.filter((r) => matchRequest(r, query)).slice(0, 6);
   const pickedRequest = picked ? model.requestById.get(picked) : undefined;
@@ -88,13 +112,19 @@ export function EventModal({
   const commentError = touched && tab === 'cancel' && reason === 'other' && !comment.trim() ? 'Опишите причину' : null;
   const engineerError = touched && tab === 'off' && !engineerId ? 'Выберите инженера' : null;
 
-  const build = (): DispatcherEvent | null => {
+  /** Точка адреса: выбранная подсказка или адрес заявки дня с тем же текстом. */
+  const pointOf = (text: string): { lat: number; lon: number } | null => {
+    if (addressPoint && addressPoint.value === text) return { lat: addressPoint.lat, lon: addressPoint.lon };
+    const raw = addressHints.find((r) => r.addressText === text)?.raw;
+    return raw && Number.isFinite(raw.latitude) ? { lat: raw.latitude, lon: raw.longitude } : null;
+  };
+
+  const build = (found: { lat: number; lon: number } | null = null): DispatcherEvent | null => {
     if (!model.planId || !TIME.test(time)) return null;
     const eventTime = time.padStart(5, '0');
     if (tab === 'urgent') {
       if (!address.trim()) return null;
       const hint = addressHints.find((r) => r.addressText === address.trim());
-      const raw = hint?.raw;
       return urgentEvent(
         {
           planId: model.planId,
@@ -103,7 +133,7 @@ export function EventModal({
           typeHd,
           transport: transport || null,
           shiftEnd: maxShiftEnd(model),
-          point: raw && Number.isFinite(raw.latitude) ? { lat: raw.latitude, lon: raw.longitude } : null,
+          point: pointOf(address.trim()) ?? found,
           district: hint?.district ?? null,
         },
         urgentIdFor(new Set(model.requests.map((r) => r.id))),
@@ -117,10 +147,31 @@ export function EventModal({
     return unavailableEvent(model.planId, eventTime, engineerId, offReason);
   };
 
+  /** Адрес без подсказки: координаты — первым вариантом сервиса; адреса нет — просим уточнить. */
+  const locate = async (): Promise<{ lat: number; lon: number } | null | false> => {
+    const text = address.trim();
+    if (tab !== 'urgent' || !text || pointOf(text)) return null;
+    setLocating(true);
+    try {
+      const lookup = lookupOf(await suggestAddresses(text));
+      if (lookup.status === 'none') return false;
+      if (lookup.status === 'found') return { lat: lookup.suggestion.lat, lon: lookup.suggestion.lon };
+      return null; // сервис не ответил — адрес найдёт геокодер бэка
+    } finally {
+      setLocating(false);
+    }
+  };
+
   const submit = async () => {
     setTouched(true);
     setError(null);
-    const event = build();
+    if (!build()) return;
+    const found = await locate();
+    if (found === false) {
+      setError('Адрес не нашли на карте. Выберите вариант из подсказок или отметьте точку на карте');
+      return;
+    }
+    const event = build(found);
     if (!event) return;
     try {
       const result = await actions.sendEvent.mutateAsync(event);
@@ -172,7 +223,7 @@ export function EventModal({
           <Button
             variant="primary"
             icon={Calculator}
-            loading={actions.sendEvent.isPending}
+            loading={actions.sendEvent.isPending || locating}
             disabled={!published}
             onClick={() => void submit()}
           >
@@ -209,22 +260,17 @@ export function EventModal({
 
       {tab === 'urgent' && (
         <>
-          <Input
+          <AddressInput
             label="Адрес"
             tone="filled"
-            icon={MapPin}
-            list="event-address-hints"
-            placeholder="Улица, дом"
             value={address}
-            onChange={(e) => setAddress(e.target.value)}
+            onChange={setAddress}
+            onPick={setAddressPoint}
+            point={addressPoint}
+            localSuggestions={dayHints}
             error={addressError}
-            hint="Подсказки — адреса заявок дня: по ним точка встанет на карту"
+            hint="Начните вводить — подскажем адрес, или отметьте точку на карте"
           />
-          <datalist id="event-address-hints">
-            {addressHints.map((r) => (
-              <option key={r.id} value={r.addressText} />
-            ))}
-          </datalist>
           <div className={styles.grid2}>
             <Select
               label="Тип заявки HD"

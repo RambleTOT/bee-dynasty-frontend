@@ -3,7 +3,7 @@
  * DayModel (FRONTEND_SPEC §5.3, §6.1). Опрос — POLL.day, при открытом сокете живых обновлений — редкий.
  */
 import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { getScenario } from '@/api/data';
 import { getDay } from '@/api/days';
 import { listEvents } from '@/api/events';
@@ -50,11 +50,18 @@ export function useDayData(date: string, regionId: string, clockOverride: string
   );
   const headPlanId = chainReady ? (chain?.headPlanId ?? null) : null;
 
+  // Новая версия (после «Принять», события, переназначения): пока грузится её план и сценарий,
+  // показываем прежние того же дня — иначе экран дня и открытые окна пропадают и появляются снова.
+  const dayKey = `${date}:${regionId}`;
+  const shownFor = useRef<string | null>(null);
+  const keepSameDay = <T,>(previous: T | undefined) => (shownFor.current === dayKey ? previous : undefined);
+
   const planQuery = useQuery({
     queryKey: queryKeys.plan(headPlanId ?? '-'),
     queryFn: ({ signal }) => getPlan(headPlanId as string, signal),
     enabled: Boolean(headPlanId),
     refetchInterval: poll,
+    placeholderData: keepSameDay,
   });
 
   // сценарий действующей версии: после событий — производный (в нём новые заявки)
@@ -64,6 +71,7 @@ export function useDayData(date: string, regionId: string, clockOverride: string
     queryFn: ({ signal }) => getScenario(scenarioId as string, signal),
     enabled: Boolean(scenarioId),
     refetchInterval: poll,
+    placeholderData: keepSameDay,
   });
 
   const geojsonQuery = useQuery({
@@ -88,6 +96,9 @@ export function useDayData(date: string, regionId: string, clockOverride: string
       clockOverride,
     });
   }, [date, region, scenarioQuery.data, plan, headPlanId, chain, chainReady, clockOverride]);
+  useEffect(() => {
+    if (model) shownFor.current = dayKey;
+  }, [model, dayKey]);
 
   const loading =
     dayQuery.isPending ||

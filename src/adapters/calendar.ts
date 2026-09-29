@@ -14,6 +14,7 @@ import {
   CALENDAR_BAR_STATUSES,
   FLAG_LABEL,
   isRequestStatus,
+  REGION_LABEL,
   REGIONS,
   REQUEST_STATUS_LABEL,
   REQUEST_STATUS_TONE,
@@ -36,10 +37,20 @@ export interface CalendarTipRow {
   tone: StatusTone;
 }
 
+/** Строка региона в подсказке «Все регионы»: где именно заявки и неназначенные. */
+export interface CalendarRegionRow {
+  regionId: string;
+  label: string;
+  count: number;
+  unassigned: number;
+}
+
 /** Подсказка по наведению: «Пн, 29 сентября · 66 заявок» и строка на каждый ненулевой статус. */
 export interface CalendarTip {
   title: string;
   rows: CalendarTipRow[];
+  /** «Все регионы»: по строке на регион с заявками. */
+  regions: CalendarRegionRow[];
 }
 
 export interface CalendarCell {
@@ -105,8 +116,15 @@ const entriesOf = (value: unknown): [string, unknown][] =>
 
 const CSV_SOURCES = new Set(['csv', 'demo']);
 
-/** Дни ответа по дате. Если одна дата пришла несколько раз (например, по регионам) — суммируем. */
-function totalsByDate(response: CalendarResponse | null | undefined): Map<string, DayTotals> {
+/**
+ * Дни ответа по дате. Если одна дата пришла несколько раз (например, по регионам) — суммируем.
+ * `countByStatus` — при фильтре по статусу число дня — сумма `by_status`: `request_count` бэк
+ * считает без этого фильтра (BACKEND_REQUESTS п. 44).
+ */
+function totalsByDate(
+  response: CalendarResponse | null | undefined,
+  countByStatus = false,
+): Map<string, DayTotals> {
   const days = new Map<string, DayTotals>();
   const list: unknown = response?.days;
   if (!Array.isArray(list)) return days;
@@ -123,8 +141,11 @@ function totalsByDate(response: CalendarResponse | null | undefined): Map<string
       day.byStatus.set(status, (day.byStatus.get(status) ?? 0) + count);
       statusSum += count;
     }
-    // request_count есть всегда; если нет — считаем по статусам.
-    day.count += typeof raw.request_count === 'number' ? positive(raw.request_count) : statusSum;
+    // request_count есть всегда; если нет или фильтр по статусу — считаем по статусам.
+    day.count +=
+      !countByStatus && typeof raw.request_count === 'number'
+        ? positive(raw.request_count)
+        : statusSum;
     day.late += positive(entriesOf(raw.flags).find(([flag]) => flag === 'late')?.[1]);
     day.csv ||= Array.isArray(raw.sources) && raw.sources.some((source) => CSV_SOURCES.has(source));
     days.set(date, day);
@@ -138,7 +159,7 @@ const unassignedText = (n: number) =>
 const lateText = (n: number) =>
   `${formatInt(n)} ${plural(n, ['просрочена', 'просрочены', 'просрочены'])}`;
 
-function tipOf(date: string, totals: DayTotals): CalendarTip {
+function tipOf(date: string, totals: DayTotals, regions: CalendarRegionRow[]): CalendarTip {
   const rows: CalendarTipRow[] = TIP_STATUSES.flatMap((status) => {
     const count = totals.byStatus.get(status) ?? 0;
     return count > 0
@@ -160,10 +181,16 @@ function tipOf(date: string, totals: DayTotals): CalendarTip {
       tone: 'danger',
     });
   }
-  return { title: `${formatDayTitle(date)} · ${countOf(totals.count, PL_REQUEST)}`, rows };
+  return { title: `${formatDayTitle(date)} · ${countOf(totals.count, PL_REQUEST)}`, rows, regions };
 }
 
-function cellOf(date: string, month: string, today: string, totals?: DayTotals): CalendarCell {
+function cellOf(
+  date: string,
+  month: string,
+  today: string,
+  totals: DayTotals | undefined,
+  regions: CalendarRegionRow[],
+): CalendarCell {
   const base = {
     date,
     day: Number(date.slice(8, 10)),
@@ -197,7 +224,7 @@ function cellOf(date: string, month: string, today: string, totals?: DayTotals):
     segments,
     unassignedLabel: unassigned > 0 ? unassignedText(unassigned) : null,
     lateLabel: totals.late > 0 ? lateText(totals.late) : null,
-    tip: tipOf(date, totals),
+    tip: tipOf(date, totals, regions),
   };
 }
 
@@ -207,14 +234,42 @@ export function calendarRange(month: string): { from: string; to: string } {
   return { from: days[0], to: days[days.length - 1] };
 }
 
+export interface CalendarBuildOptions {
+  /** Выбран фильтр по статусу: число заявок дня — только с этим статусом. */
+  countByStatus?: boolean;
+  /**
+   * «Все регионы» — ответы по каждому региону: в подсказке строка на регион (где неназначенные).
+   * Тогда `response` не нужен — итог дня складываем из регионов.
+   */
+  regions?: readonly { regionId: string; response: CalendarResponse | null | undefined }[];
+}
+
 /** Модель сетки месяца. `today` — 'YYYY-MM-DD' по Москве (`todayMsk()`). */
 export function buildCalendarMonth(
   month: string,
   response: CalendarResponse | null | undefined,
   today: string,
+  { countByStatus = false, regions }: CalendarBuildOptions = {},
 ): CalendarMonth {
-  const totals = totalsByDate(response);
-  const cells = monthGrid(month).map((date) => cellOf(date, month, today, totals.get(date)));
+  const combined: CalendarResponse | null | undefined = regions
+    ? { days: regions.flatMap((r) => r.response?.days ?? []) }
+    : response;
+  const totals = totalsByDate(combined, countByStatus);
+  const byRegion = (regions ?? []).map((r) => ({
+    regionId: r.regionId,
+    label: r.regionId in REGION_LABEL ? REGION_LABEL[r.regionId as keyof typeof REGION_LABEL] : r.regionId,
+    totals: totalsByDate(r.response, countByStatus),
+  }));
+  const regionRows = (date: string): CalendarRegionRow[] =>
+    byRegion.flatMap(({ regionId, label, totals: days }) => {
+      const day = days.get(date);
+      return day && day.count > 0
+        ? [{ regionId, label, count: day.count, unassigned: day.byStatus.get('unassigned') ?? 0 }]
+        : [];
+    });
+  const cells = monthGrid(month).map((date) =>
+    cellOf(date, month, today, totals.get(date), regionRows(date)),
+  );
   const inMonth = cells.filter((cell) => cell.inMonth);
   const seen = new Set(inMonth.flatMap((cell) => cell.segments.map((segment) => segment.status)));
   const total = inMonth.reduce((sum, cell) => sum + cell.count, 0);

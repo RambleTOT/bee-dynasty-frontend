@@ -200,8 +200,8 @@ export interface DayModelInput {
   /** Сценарий действующей версии (после событий — производный: в нём и новые заявки). */
   scenario: ScenarioOut;
   plan: PlanResponse | null;
-  /** Номер версии и предложения — из цепочки версий (adapters/dayChain.ts). */
-  chain?: Pick<DayChain, 'version' | 'pendingProposals'> | null;
+  /** Номер версии, предложения и отменённые событиями заявки — из цепочки версий (adapters/dayChain.ts). */
+  chain?: Pick<DayChain, 'version' | 'pendingProposals'> & Partial<Pick<DayChain, 'cancelledIds'>> | null;
   /** Запасной путь часов дня: `?clock=HH:MM` в адресе (§7). */
   clockOverride?: string | null;
 }
@@ -276,15 +276,20 @@ export function buildDayModel({
     });
   const engineerById = new Map(dayEngineers.map((e) => [e.id, e]));
 
+  // отменённая принятым событием заявка — отменена, даже если бэк вернул её в неназначенные (п. 49)
+  const cancelledIds = chain?.cancelledIds ?? new Set<string>();
+  const cancelledNow = (id: string) => cancelledIds.has(id) && !visitByRequest.has(id);
   const unassignedIds = new Set((plan?.unassigned ?? []).map((u) => u.request_id));
   const dayRequests: DayRequest[] = requests.map((request) => {
     const visit = visitByRequest.get(request.id) ?? null;
     const labels = requestLabels(request);
     const status =
       visit?.status ??
-      (unassignedIds.has(request.id) && !STICKY_STATUSES.has(request.status)
-        ? 'unassigned'
-        : request.status);
+      (cancelledNow(request.id)
+        ? 'cancelled'
+        : unassignedIds.has(request.id) && !STICKY_STATUSES.has(request.status)
+          ? 'unassigned'
+          : request.status);
     const flags = visit ? visit.flags : knownFlags(request.flags);
     const urgent = request.priority === 'urgent' || flags.includes('urgent');
     return {
@@ -328,11 +333,13 @@ export function buildDayModel({
     if (raw && !knownIds.has(raw)) request.dispatcherEngineerId = idByName.get(raw.trim().toLowerCase()) ?? raw;
   }
 
-  const unassigned: DayUnassigned[] = (plan?.unassigned ?? []).map((item) => ({
-    requestId: item.request_id,
-    reasonCode: item.reason_code,
-    reason: item.reason,
-  }));
+  const unassigned: DayUnassigned[] = (plan?.unassigned ?? [])
+    .filter((item) => !cancelledNow(item.request_id))
+    .map((item) => ({
+      requestId: item.request_id,
+      reasonCode: item.reason_code,
+      reason: item.reason,
+    }));
 
   const explanations = new Map((plan?.explanations ?? []).map((e) => [e.request_id, e]));
 

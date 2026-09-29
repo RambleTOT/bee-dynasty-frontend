@@ -4,10 +4,16 @@
  * Поэтому голову цепочки находим сами: от `active_plan_id` дня идём по событиям
  * (`plan_id` → `result_plan_id`) к применённым версиям. Бэк с правкой BACKEND_REQUESTS п. 3 отдаёт
  * голову сам — тогда прежние версии дня находим назад по тем же событиям.
+ *
+ * «Править вручную» из предложения: переназначение считается от предложения и сразу применяется —
+ * предложение входит в эту версию (`consumed`), отдельной версией его не считаем.
+ * Предложение к прежней версии принять нельзя (`409 STALE_PROPOSAL`) — оно «устарело»
+ * (`staleProposals`), его можно пересчитать на действующей (BACKEND_REQUESTS п. 48).
  */
 import type { DayRegion, EventItem, PendingProposal, PlanListItem } from '@/api/types';
 
-const LIVE_STATUSES = new Set(['applied', 'completed']);
+// версии дня: действующая и прежние (`superseded` — была действующей до следующего «Принять»)
+const LIVE_STATUSES = new Set(['applied', 'completed', 'superseded']);
 const MAX_DEPTH = 100;
 
 export interface DayVersion {
@@ -21,6 +27,17 @@ export interface DayVersion {
   distanceKm: number | null;
   /** Событие, которое породило версию; у первой — нет. */
   event: EventItem | null;
+  /** Версия — ручная правка предложения: событие этого предложения. */
+  via: EventItem | null;
+}
+
+/** Предложение к прежней версии дня: ждёт пересчёта на действующей. */
+export interface StaleProposal {
+  planId: string;
+  /** Событие, из которого посчитано предложение. */
+  event: EventItem;
+  /** Номер версии, от которой считалось. */
+  baseVersion: number | null;
 }
 
 export interface DayChain {
@@ -32,6 +49,15 @@ export interface DayChain {
   versions: DayVersion[];
   /** Предложения к действующей версии, ждущие решения. */
   pendingProposals: PendingProposal[];
+  /** Предложения к прежним версиям, которые ещё не пересчитали, новые сверху. */
+  staleProposals: StaleProposal[];
+  /** Предложения, вошедшие в версию через «Править вручную»: id предложения → id версии. */
+  consumed: ReadonlyMap<string, string>;
+  /**
+   * Заявки, отменённые принятыми событиями дня. Бэк оставляет их в сценарии со статусом
+   * «не назначена», и следующее событие возвращает их в неназначенные (BACKEND_REQUESTS п. 49).
+   */
+  cancelledIds: ReadonlySet<string>;
   /** События дня — по всем версиям цепочки, новые сверху. */
   events: EventItem[];
   /** Статусы известных планов: ленте нужно знать, ждёт ли предложение решения. */
@@ -48,6 +74,30 @@ const newestFirst = (a: EventItem, b: EventItem) => time(b.created_at) - time(a.
 function headlineOf(event: EventItem): string | null {
   const headline = event.payload?.headline;
   return typeof headline === 'string' && headline.trim() ? headline : null;
+}
+
+const text = (value: unknown): string | null => (typeof value === 'string' && value ? value : null);
+
+/**
+ * Кого касается событие: заявка или бригада. Пересчитали устаревшее предложение — на той же
+ * заявке (бригаде) появилось событие того же типа позже; у событий без цели — `null`.
+ */
+export function eventTarget(event: Pick<EventItem, 'event_type' | 'payload'>): string | null {
+  const p = event.payload ?? {};
+  switch (event.event_type) {
+    case 'urgent_order_added':
+    case 'order_added':
+    case 'order_cancelled':
+      return text(p.request_id) ?? text(p.order_id);
+    case 'manual_reassign':
+      return text(p.order_id) ?? text(p.request_id);
+    case 'engineer_unavailable':
+    case 'engineer_available':
+    case 'transport_changed':
+      return text(p.engineer_id);
+    default:
+      return null;
+  }
 }
 
 export function resolveDayChain(
@@ -79,15 +129,16 @@ export function resolveDayChain(
 
   const root = region.active_plan_id ?? null;
   const draft = region.draft_plan_id ?? null;
-  const chain: { planId: string; event: EventItem | null }[] = [];
+  const chain: { planId: string; event: EventItem | null; via: EventItem | null }[] = [];
+  const consumed = new Map<string, string>();
+  const isProposed = (planId: string | null | undefined) => Boolean(planId) && planStatus.get(planId as string) === 'proposed';
 
   if (root) {
-    chain.push({ planId: root, event: null });
+    chain.push({ planId: root, event: null, via: null });
     const visited = new Set([root]);
-    let head = root;
-    for (let depth = 0; depth < MAX_DEPTH; depth += 1) {
-      // `plan_applied` первой версии ссылается сам на себя — петли и пройденные версии пропускаем
-      const next = (byBase.get(head) ?? [])
+    // `plan_applied` первой версии ссылается сам на себя — петли и пройденные версии пропускаем
+    const liveFrom = (base: string) =>
+      (byBase.get(base) ?? [])
         .filter(
           (e) =>
             e.result_plan_id &&
@@ -95,10 +146,30 @@ export function resolveDayChain(
             LIVE_STATUSES.has(planStatus.get(e.result_plan_id) ?? ''),
         )
         .sort(causeFirst)[0];
+    let head = root;
+    for (let depth = 0; depth < MAX_DEPTH; depth += 1) {
+      let next = liveFrom(head);
+      let via: EventItem | null = null;
+      if (!next) {
+        // голова → предложение → его ручная правка (применена сразу)
+        for (const proposal of [...(byBase.get(head) ?? [])].sort(newestFirst)) {
+          if (!proposal.result_plan_id || visited.has(proposal.result_plan_id) || !isProposed(proposal.result_plan_id)) continue;
+          const edit = liveFrom(proposal.result_plan_id);
+          if (edit) {
+            next = edit;
+            via = proposal;
+            break;
+          }
+        }
+      }
       if (!next?.result_plan_id) break;
+      if (via?.result_plan_id) {
+        visited.add(via.result_plan_id);
+        consumed.set(via.result_plan_id, next.result_plan_id);
+      }
       head = next.result_plan_id;
       visited.add(head);
-      chain.push({ planId: head, event: next });
+      chain.push({ planId: head, event: next, via });
     }
     // назад: какая версия была до `active_plan_id` дня (бэк с правкой п. 3 отдаёт уже голову)
     for (let depth = 0; depth < MAX_DEPTH; depth += 1) {
@@ -107,7 +178,17 @@ export function resolveDayChain(
       if (!cause?.plan_id || visited.has(cause.plan_id)) break;
       visited.add(cause.plan_id);
       first.event = cause;
-      chain.unshift({ planId: cause.plan_id, event: null });
+      let base = cause.plan_id;
+      if (isProposed(base)) {
+        // версия — ручная правка предложения: оно вошло в неё, версия до него — его основа
+        consumed.set(base, first.planId);
+        const inner = [...(byResult.get(base) ?? [])].sort(causeFirst)[0];
+        first.via = inner ?? null;
+        if (!inner?.plan_id || visited.has(inner.plan_id)) break;
+        base = inner.plan_id;
+        visited.add(base);
+      }
+      chain.unshift({ planId: base, event: null, via: null });
     }
   }
 
@@ -122,7 +203,7 @@ export function resolveDayChain(
   const version = root ? firstVersion + chain.length - 1 : 0;
 
   const versions: DayVersion[] = chain
-    .map(({ planId, event }, index) => {
+    .map(({ planId, event, via }, index) => {
       const item = planById.get(planId);
       return {
         planId,
@@ -133,17 +214,21 @@ export function resolveDayChain(
         plannedCount: item?.planned_count ?? null,
         distanceKm: item?.total_distance_km ?? null,
         event,
+        via,
       };
     })
     .reverse();
+  const versionOf = new Map(versions.map((v) => [v.planId, v.version]));
 
   // предложения к голове: из событий (бэк их не видит) + то, что бэк отдал сам
   const pendingProposals: PendingProposal[] = [];
   const seen = new Set<string>();
+  const versionIds = new Set(chain.map((c) => c.planId));
   if (root && headPlanId) {
     for (const event of [...(byBase.get(headPlanId) ?? [])].sort(newestFirst)) {
       const planId = event.result_plan_id;
-      if (!planId || seen.has(planId) || planStatus.get(planId) !== 'proposed') continue;
+      if (!planId || seen.has(planId) || consumed.has(planId) || versionIds.has(planId)) continue;
+      if (planStatus.get(planId) !== 'proposed') continue;
       seen.add(planId);
       pendingProposals.push({
         plan_id: planId,
@@ -155,13 +240,39 @@ export function resolveDayChain(
     }
   }
   for (const proposal of region.pending_proposals ?? []) {
-    if (seen.has(proposal.plan_id)) continue;
+    if (seen.has(proposal.plan_id) || consumed.has(proposal.plan_id)) continue;
     if (planStatus.has(proposal.plan_id) && planStatus.get(proposal.plan_id) !== 'proposed') continue;
     seen.add(proposal.plan_id);
     pendingProposals.push(proposal);
   }
 
   const chainIds = new Set(chain.map((c) => c.planId));
+  // устаревшие: к прежней версии дня, ещё не пересчитаны (позже нет события на ту же цель)
+  const staleProposals: StaleProposal[] = [];
+  const sorted = [...events].sort(newestFirst);
+  for (const event of sorted) {
+    const planId = event.result_plan_id;
+    const base = event.plan_id;
+    if (!planId || !base || seen.has(planId) || consumed.has(planId) || !isProposed(planId)) continue;
+    // уже версия дня (список планов ещё не обновился после «Принять») — не устаревшее
+    if (chainIds.has(planId) || base === headPlanId || !chainIds.has(base)) continue;
+    const target = eventTarget(event);
+    const redone =
+      target !== null &&
+      sorted.some(
+        (later) =>
+          later !== event &&
+          later.event_type === event.event_type &&
+          time(later.created_at) > time(event.created_at) &&
+          eventTarget(later) === target,
+      );
+    if (redone) continue;
+    seen.add(planId);
+    staleProposals.push({ planId, event, baseVersion: versionOf.get(base) ?? null });
+  }
+
+  // правка предложения и её «Принять» записаны на предложение — они тоже события дня
+  for (const planId of consumed.keys()) chainIds.add(planId);
   if (draft) chainIds.add(draft);
   const dayEvents = events
     .filter(
@@ -172,5 +283,23 @@ export function resolveDayChain(
     .filter((e, i, list) => list.findIndex((x) => x.event_id === e.event_id) === i)
     .sort(newestFirst);
 
-  return { headPlanId, version, versions, pendingProposals, events: dayEvents, planStatus };
+  const accepted = new Set([...versionIds, ...consumed.keys()]);
+  const cancelledIds = new Set<string>();
+  for (const event of dayEvents) {
+    if (event.event_type !== 'order_cancelled' || !event.result_plan_id || !accepted.has(event.result_plan_id)) continue;
+    const id = eventTarget(event);
+    if (id) cancelledIds.add(id);
+  }
+
+  return {
+    headPlanId,
+    version,
+    versions,
+    pendingProposals,
+    staleProposals,
+    consumed,
+    cancelledIds,
+    events: dayEvents,
+    planStatus,
+  };
 }

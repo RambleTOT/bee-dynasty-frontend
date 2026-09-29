@@ -9,6 +9,8 @@ interface ImportMetaEnv {
   readonly VITE_FEATURES?: string;
   /** Ключ «JavaScript API и HTTP Геокодер» Яндекс Карт: встроенная карта с маршрутом. Без ключа — OSM. */
   readonly VITE_YANDEX_MAPS_KEY?: string;
+  /** Photon для подсказок адресов (по умолчанию photon.komoot.io); `off` — без подсказок. */
+  readonly VITE_ADDRESS_SUGGEST_URL?: string;
 }
 
 interface ImportMeta {

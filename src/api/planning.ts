@@ -81,6 +81,8 @@ export interface ReassignBody {
   to_engineer_id: string;
   position?: number | null;
   force?: boolean;
+  /** «Сейчас» дня: визит не раньше (BACKEND_REQUESTS п. 47, флаг `reassignTime`). */
+  time?: string;
 }
 
 export const checkReassign = (planId: string, body: ReassignBody, signal?: Signal) =>
