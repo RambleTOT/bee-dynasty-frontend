@@ -1,10 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import { useAuth } from '@/auth/useAuth';
-import { FEATURES } from '@/config';
 import { regionsQuery as regionsQueryOptions } from '@/hooks/useRegions';
 import { regionLabel } from '@/lib/dictionaries';
-import { isBuiltinRegion } from '@/lib/regions';
+import { anyRegionEnabled, isBuiltinRegion } from '@/lib/regions';
 import { REGIONS } from '@/lib/statuses';
 
 /** Последний выбранный регион — на время сессии вкладки (FRONTEND_SPEC §8.3.5). */
@@ -55,7 +54,7 @@ export function useOperatorRegion() {
     const types = new Map(
       fromApi.map((region) => [
         region.region_id,
-        FEATURES.anyRegion && !isBuiltinRegion(region.region_id) && region.norms?.types.length
+        anyRegionEnabled() && !isBuiltinRegion(region.region_id) && region.norms?.types.length
           ? // аварии — вкладкой «Авария», как у участков кейса
             region.norms.types
               .filter((type) => type.skill !== 'emergency')
@@ -65,7 +64,7 @@ export function useOperatorRegion() {
     );
     // region_ids не пришли — все регионы из справочника (как подпись в AppBar) [Д]
     const ids = allowed?.length ? allowed : fromApi.map((region) => region.region_id);
-    const custom = FEATURES.anyRegion
+    const custom = anyRegionEnabled()
       ? fromApi.map((region) => region.region_id).filter((id) => !isBuiltinRegion(id))
       : [];
     return [...new Set([...ids, ...custom])]

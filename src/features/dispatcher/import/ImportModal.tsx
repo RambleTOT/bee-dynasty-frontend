@@ -12,9 +12,9 @@ import {
 import { importBeeline } from '@/api/data';
 import { getDay } from '@/api/days';
 import { queryKeys } from '@/api/queryKeys';
-import { FEATURES } from '@/config';
 import { useRegions, type RegionItem } from '@/hooks/useRegions';
 import { formatFileSize, readCsvRowCount } from '@/lib/csv';
+import { anyRegionEnabled } from '@/lib/regions';
 import { countOf, formatDateFull, formatDayMonth, PL_BRIGADE, PL_ROW } from '@/lib/format';
 import { REGION_LABEL, REGIONS, type RegionId } from '@/lib/statuses';
 import { todayMsk } from '@/lib/time';
@@ -359,7 +359,7 @@ export function ImportModal({
             </section>
           );
         })}
-        {FEATURES.anyRegion && (
+        {anyRegionEnabled() && (
           <>
             {customRegions.map((region) => (
               <CustomRegionCard

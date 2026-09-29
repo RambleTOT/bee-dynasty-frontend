@@ -12,9 +12,9 @@ import { useAuth } from '@/auth/useAuth';
 import { useSearchState } from '@/hooks/useSearchState';
 import { countOf, formatDayTitle, PL_REQUEST } from '@/lib/format';
 import { notify } from '@/lib/notify';
-import { FEATURES } from '@/config';
 import { regionLabel } from '@/lib/dictionaries';
-import { isRegionSlug } from '@/lib/regions';
+import { useRegions } from '@/hooks/useRegions';
+import { anyRegionEnabled, isRegionSlug } from '@/lib/regions';
 import { isRegionId, REGIONS, type RegionId } from '@/lib/statuses';
 import { addDays, todayMsk } from '@/lib/time';
 import {
@@ -68,9 +68,13 @@ export default function DayPage() {
   const [search, setSearch] = useSearchState(daySearch);
 
   const date = params.date && YMD.test(params.date) ? params.date : todayMsk();
-  // участок кейса; с §14 — любой id участка (свои участки заводит диспетчер)
+  // участок кейса; с §14 — любой id участка (свои участки заводит диспетчер). Пока справочник
+  // участков не пришёл, id из адреса не отбрасываем: иначе ссылка на день своего участка
+  // перепишется на участок по умолчанию.
+  const { query: regionsQuery } = useRegions();
+  const customRegion = anyRegionEnabled() || regionsQuery.isPending;
   const knownRegion =
-    search.region && (isRegionId(search.region) || (FEATURES.anyRegion && isRegionSlug(search.region)));
+    search.region && (isRegionId(search.region) || (customRegion && isRegionSlug(search.region)));
   const regionId: string = knownRegion && search.region ? search.region : defaultRegion(user?.region_ids);
   const clock = search.clock && CLOCK.test(search.clock) ? search.clock.padStart(5, '0') : null;
 

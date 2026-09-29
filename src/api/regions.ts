@@ -1,5 +1,5 @@
 /**
- * Свои участки (§14, `FEATURES.anyRegion`; ТЗ бэка — docs/spec/BACKEND_ANY_REGION.md): создать,
+ * Свои участки (§14, `anyRegionEnabled`; ТЗ бэка — docs/spec/BACKEND_ANY_REGION.md): создать,
  * поменять название, офис и нормативы, прочитать и сохранить ростер. Список — `GET /regions` (data.ts).
  */
 import { api } from './client';

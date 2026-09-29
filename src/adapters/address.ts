@@ -85,7 +85,7 @@ export function lookupOf(response: unknown): AddressLookup {
   return first ? { status: 'found', suggestion: first } : { status: 'none' };
 }
 
-// --- точки заявок другого участка (§14, `FEATURES.anyRegion`) ---
+// --- точки заявок другого участка (§14, `anyRegionEnabled`) ---
 
 /** Квартира, офис, подъезд — геокодер по ним промахивается: «кв. 47» уводит на другой конец города. */
 const ROOM_PART =

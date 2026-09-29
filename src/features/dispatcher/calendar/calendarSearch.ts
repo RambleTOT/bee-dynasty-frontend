@@ -2,13 +2,12 @@
  * DS-01: фильтры и открытая модалка — в адресе (FRONTEND_SPEC §4):
  * `month=2026-09`, `region=all|east|south_east|south_center`, `status`, `type` — по одному значению (D-27),
  * `modal=import` — DS-02, `date=YYYY-MM-DD` — день, на который загружаем CSV (с пустого дня DS-03).
- * Свой участок (§14, `FEATURES.anyRegion`) — `region=<id с бэка>`.
+ * Свой участок (§14, `anyRegionEnabled`) — `region=<id с бэка>`.
  */
 import type { MenuOption } from '@/ui';
-import { FEATURES } from '@/config';
 import { searchParam, type SearchParamDef } from '@/hooks/useSearchState';
 import { BK } from '@/lib/dictionaries';
-import { isRegionSlug } from '@/lib/regions';
+import { anyRegionEnabled, isRegionSlug } from '@/lib/regions';
 import {
   isRegionId,
   REGIONS,
@@ -38,7 +37,7 @@ export type RegionFilter = string;
 /** Участок кейса; с §14 — любой id участка; мусор — «Все регионы». */
 const regionParam: SearchParamDef<RegionFilter> = {
   parse: (raw) =>
-    raw !== null && (isRegionId(raw) || (FEATURES.anyRegion && isRegionSlug(raw))) ? raw : 'all',
+    raw !== null && (isRegionId(raw) || (anyRegionEnabled() && isRegionSlug(raw))) ? raw : 'all',
   serialize: (value) => (value === 'all' ? null : value),
 };
 

@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { RegionInfo } from '@/api/types';
 import { regionLabel } from '@/lib/dictionaries';
-import { forgetRegions, isRegionSlug, knownRegionName, rememberRegions } from '@/lib/regions';
+import {
+  anyRegionEnabled,
+  forgetRegions,
+  isRegionSlug,
+  knownRegionName,
+  rememberRegions,
+} from '@/lib/regions';
 import { regionItems } from './useRegions';
 
 const region = (region_id: string, name: string, builtin?: boolean): RegionInfo => ({
@@ -56,5 +62,18 @@ describe('названия участков', () => {
     expect(isRegionSlug('south_center')).toBe(true);
     expect(isRegionSlug('../x')).toBe(false);
     expect(isRegionSlug('')).toBe(false);
+  });
+});
+
+describe('свои участки включаются сами, когда бэк выложит §14', () => {
+  afterEach(forgetRegions);
+
+  it('нет поля builtin в GET /regions — выключено; есть — включено, свои участки в списках', () => {
+    rememberRegions(API.map((region) => ({ region_id: region.region_id, name: region.name })));
+    expect(anyRegionEnabled()).toBe(false);
+    expect(regionItems(API)).toHaveLength(3);
+    rememberRegions(API);
+    expect(anyRegionEnabled()).toBe(true);
+    expect(regionItems(API).map((item) => item.id)).toContain('r-north');
   });
 });

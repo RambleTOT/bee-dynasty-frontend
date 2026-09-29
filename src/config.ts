@@ -62,7 +62,9 @@ const FEATURE_DEFAULTS = {
   // п. 47: поле time («сейчас» дня) в reassign/check и reassign — у бэка ещё нет
   reassignTime: false,
   // §14 (docs/spec/BACKEND_ANY_REGION.md): свои участки — POST/PATCH /regions, ростер участка,
-  // колонки «Навык», «Длительность», «Широта», «Долгота» в import-beeline — у бэка ещё нет
+  // колонки «Навык», «Длительность», «Широта», «Долгота» в import-beeline — у бэка ещё нет.
+  // Включать руками не нужно: фронт включит сам, когда в GET /regions появится поле builtin
+  // (lib/regions.ts `anyRegionEnabled`)
   anyRegion: false,
 };
 

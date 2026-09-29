@@ -6,6 +6,7 @@ import { getRegions, importBeeline, type ImportFiles } from '@/api/data';
 import { getDay } from '@/api/days';
 import { ApiError } from '@/api/errors';
 import type { RegionOut, ScenarioSummary } from '@/api/types';
+import { forgetRegions } from '@/lib/regions';
 import { ImportModal } from './ImportModal';
 
 vi.mock('@/api/data', () => ({ getRegions: vi.fn(), importBeeline: vi.fn() }));
@@ -113,6 +114,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  forgetRegions();
 });
 
 describe('DS-02 Загрузка CSV · шаг 1', () => {
@@ -134,6 +136,14 @@ describe('DS-02 Загрузка CSV · шаг 1', () => {
     expect(uploadButton()).toBeDisabled();
     // «Другой участок» — только с §14 (FEATURES.anyRegion)
     expect(screen.queryByRole('region', { name: 'Другой участок' })).not.toBeInTheDocument();
+  });
+
+  it('бэк выложил §14 (в GET /regions есть builtin) — «Другой участок» появляется сам', async () => {
+    vi.mocked(getRegions).mockResolvedValue(
+      REGIONS_RESPONSE.map((item) => ({ ...item, builtin: true }) as RegionOut),
+    );
+    renderModal();
+    expect(await screen.findByRole('region', { name: 'Другой участок' })).toBeInTheDocument();
   });
 
   it('выбранный файл: имя, строки на клиенте и размер; ✕ убирает', async () => {

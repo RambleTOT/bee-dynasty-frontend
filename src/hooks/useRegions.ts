@@ -3,8 +3,7 @@ import { useMemo } from 'react';
 import { getRegions } from '@/api/data';
 import { queryKeys } from '@/api/queryKeys';
 import type { RegionInfo } from '@/api/types';
-import { FEATURES } from '@/config';
-import { isBuiltinRegion, rememberRegions } from '@/lib/regions';
+import { anyRegionEnabled, isBuiltinRegion, rememberRegions } from '@/lib/regions';
 import { REGION_LABEL, REGIONS } from '@/lib/statuses';
 
 /**
@@ -31,12 +30,12 @@ export interface RegionItem {
 }
 
 /**
- * Участки для списков и фильтров: три участка кейса в порядке кейса; с `FEATURES.anyRegion` —
- * после них свои участки из `GET /regions` в порядке ответа.
+ * Участки для списков и фильтров: три участка кейса в порядке кейса; со своими участками (§14,
+ * `anyRegionEnabled`) — после них свои участки из `GET /regions` в порядке ответа.
  */
 export function regionItems(
   data: readonly RegionInfo[] | undefined,
-  anyRegion: boolean = FEATURES.anyRegion,
+  anyRegion: boolean = anyRegionEnabled(),
 ): RegionItem[] {
   const byId = new Map((data ?? []).map((region) => [region.region_id, region]));
   const builtin = REGIONS.map((id) => ({

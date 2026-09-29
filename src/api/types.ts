@@ -32,7 +32,7 @@ export interface RegionNorms {
 }
 
 /**
- * Участок из `GET /regions` с полями §14 (свои участки, `FEATURES.anyRegion`). До правки бэка их нет:
+ * Участок из `GET /regions` с полями §14 (свои участки, `anyRegionEnabled`). До правки бэка их нет:
  * читаем через `?.`, участок без `builtin` — участок кейса.
  */
 export type RegionInfo = RegionOut & {
