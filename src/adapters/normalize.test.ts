@@ -29,6 +29,17 @@ describe('isSynthetic', () => {
   });
 });
 
+describe('срочная без координат (п. 46): бэк отдаёт (0, 0)', () => {
+  it('день не становится синтетикой, облако не переносится', () => {
+    const requests = [
+      makeRequest({ id: '305838184', latitude: 55.7, longitude: 37.76 }),
+      makeRequest({ id: 'U-1', latitude: 0, longitude: 0 }),
+    ];
+    expect(isSynthetic({ source: 'csv', requests, engineers: [] })).toBe(false);
+    expect(coordinatesFor(requests, [], null).approx).toBe(false);
+  });
+});
+
 describe('coordinatesFor', () => {
   it('точки в регионе — без переноса', () => {
     const coords = coordinatesFor([makeRequest({ id: 'R1' })], [makeEngineer({ id: 'E1' })], null);

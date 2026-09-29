@@ -40,7 +40,20 @@ function pointsOf(requests: readonly RequestOut[], engineers: readonly EngineerO
   const points: LatLng[] = [];
   for (const r of requests) if (isValidLatLng(r.latitude, r.longitude)) points.push([r.latitude, r.longitude]);
   for (const e of engineers) if (isValidLatLng(e.latitude, e.longitude)) points.push([e.latitude, e.longitude]);
-  return points;
+  // в дне с точками в Москве (0, 0) — пустые координаты, а не «условные км»: у срочной без
+  // найденного адреса бэк пишет 0.0 вместо null (BACKEND_REQUESTS п. 46)
+  return points.some(([lat, lon]) => insideMoscowRegion(lat, lon))
+    ? points.filter(([lat, lon]) => !isZeroPoint(lat, lon))
+    : points;
+}
+
+const isZeroPoint = (lat: number, lon: number) => lat === 0 && lon === 0;
+
+/** Точка для карты дня: в настоящих координатах (0, 0) — «точки нет» (п. 46), иначе — перенос. */
+export function mapPoint(coords: Coordinates, lat: unknown, lon: unknown): LatLng | null {
+  if (!isValidLatLng(lat, lon)) return null;
+  if (!coords.approx && isZeroPoint(lat as number, lon as number)) return null;
+  return coords.transform(lat as number, lon as number);
 }
 
 export type CoordTransform = (lat: number, lon: number) => LatLng;

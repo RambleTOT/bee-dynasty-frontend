@@ -1,14 +1,14 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getRegions } from '@/api/data';
-import type { RegionOut } from '@/api/types';
+import type { RegionInfo } from '@/api/types';
 import { FEATURES } from '@/config';
 import { hookWrapper, TEST_OPERATOR } from './testUtils';
 import { REGION_STORAGE_KEY, useOperatorRegion } from './useOperatorRegion';
 
 vi.mock('@/api/data', () => ({ getRegions: vi.fn() }));
 
-const region = (region_id: string, name: string): RegionOut => ({
+const region = (region_id: string, name: string): RegionInfo => ({
   region_id,
   name,
   office: { address: '', lat: 0, lon: 0 },
@@ -69,7 +69,7 @@ describe('useOperatorRegion', () => {
               { type_bk: 'Авария', skill: 'emergency', duration_minutes: 80 },
             ],
           },
-        } as RegionOut,
+        } as RegionInfo,
       ]);
       const user = { ...TEST_OPERATOR, region_ids: ['east'] };
       const { result } = renderHook(() => useOperatorRegion(), { wrapper: hookWrapper(user) });

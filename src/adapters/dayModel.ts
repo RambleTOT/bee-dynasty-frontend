@@ -28,8 +28,10 @@ import {
   coordinatesFor,
   engineerLabels,
   isSynthetic,
+  mapPoint,
   requestLabels,
   type CoordTransform,
+  type Coordinates,
 } from './normalize';
 
 export interface DayEngineer {
@@ -171,7 +173,7 @@ function numberOr(value: unknown, fallback = 0): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
-function toVisit(point: RoutePoint, engineerId: string, transform: CoordTransform): DayVisit {
+function toVisit(point: RoutePoint, engineerId: string, coords: Coordinates): DayVisit {
   return {
     requestId: point.request_id,
     engineerId,
@@ -188,9 +190,7 @@ function toVisit(point: RoutePoint, engineerId: string, transform: CoordTransfor
     flags: knownFlags(point.flags),
     actualStart: point.actual_start ?? null,
     actualEnd: point.actual_end ?? null,
-    point: isValidLatLng(point.latitude, point.longitude)
-      ? transform(point.latitude, point.longitude)
-      : null,
+    point: mapPoint(coords, point.latitude, point.longitude),
   };
 }
 
@@ -230,7 +230,7 @@ export function buildDayModel({
   for (const route of plan?.routes ?? []) {
     const visits = [...(route.route ?? [])]
       .sort((a, b) => a.sequence - b.sequence)
-      .map((point) => toVisit(point, route.engineer_id, transform));
+      .map((point) => toVisit(point, route.engineer_id, coords));
     for (const visit of visits) visitByRequest.set(visit.requestId, visit);
     routes.push({
       engineerId: route.engineer_id,
@@ -312,11 +312,7 @@ export function buildDayModel({
       flags: urgent && !flags.includes('urgent') ? ['urgent', ...flags] : flags,
       urgent,
       emergency: isEmergency(request),
-      point:
-        visit?.point ??
-        (isValidLatLng(request.latitude, request.longitude)
-          ? transform(request.latitude, request.longitude)
-          : null),
+      point: visit?.point ?? mapPoint(coords, request.latitude, request.longitude),
       engineerId: visit?.engineerId ?? null,
       visit,
       dispatcherEngineerId: request.dispatcher_engineer_id ?? null,

@@ -130,9 +130,10 @@ describe('DS-08 «Ручное переназначение»', () => {
     expect(candidate('Попов')).toHaveTextContent('Нет навыка');
     // проверка — только у прошедших фильтр на фронте
     expect(checkReassign).toHaveBeenCalledTimes(1);
+    // «сейчас» дня — полем time (п. 47): бэк не ставит визит раньше него
     expect(checkReassign).toHaveBeenCalledWith(
       'P1',
-      { order_id: ORDER, to_engineer_id: 'e2' },
+      { order_id: ORDER, to_engineer_id: 'e2', time: '14:32' },
       expect.anything(),
     );
 
@@ -154,6 +155,7 @@ describe('DS-08 «Ручное переназначение»', () => {
       to_engineer_id: 'e2',
       position: 0,
       force: false,
+      time: '14:32',
     });
     expect(applyPlan).toHaveBeenCalledWith('P2');
     expect(
@@ -220,6 +222,7 @@ describe('DS-08 «Ручное переназначение»', () => {
       to_engineer_id: 'e4',
       position: 0,
       force: true,
+      time: '14:32',
     });
   });
 
@@ -247,7 +250,7 @@ describe('DS-08 «Ручное переназначение»', () => {
     expect(await screen.findByText('Время: начало 16:40 вне окна 12–14')).toBeInTheDocument();
     expect(checkReassign).toHaveBeenLastCalledWith(
       'P1',
-      { order_id: ORDER, to_engineer_id: 'e2', position: 2 },
+      { order_id: ORDER, to_engineer_id: 'e2', position: 2, time: '14:32' },
       expect.anything(),
     );
     expect(candidate('Мельников')).toHaveTextContent('Вне окна');
@@ -302,7 +305,7 @@ describe('DS-08 «Ручное переназначение»', () => {
     // навык «Авария» есть только у Соколова; текущая бригада срочной заявки в предложении — Перов
     expect(checkReassign).toHaveBeenCalledWith(
       'P9',
-      { order_id: 'U-0427', to_engineer_id: 'e1' },
+      { order_id: 'U-0427', to_engineer_id: 'e1', time: '14:32' },
       expect.anything(),
     );
     expect(within(dialog).queryByRole('button', { name: /Перов/ })).toBeNull();

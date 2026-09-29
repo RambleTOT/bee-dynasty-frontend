@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getRealtimeTicket } from '@/api/realtime';
 import type { UserOut } from '@/api/types';
 import { isRole } from '@/auth/roles';
+import { REALTIME } from '@/config';
 import { AuthContext, type AuthContextValue } from '@/auth/useAuth';
 import { dismissAll, NotifyProvider } from '@/lib/notify';
 import { RealtimeProvider } from './RealtimeProvider';
@@ -120,7 +121,8 @@ describe('RealtimeProvider', () => {
     expect(FakeWebSocket.last.url).toMatch(/\/api\/v1\/realtime\/ws\?ticket=ticket-1$/);
 
     FakeWebSocket.last.receive({ type: 'hello', protocol: 1, seq: 5, resumed: false });
-    expect(screen.getByTestId('poll')).toHaveTextContent('60000');
+    // сокет открыт: опрос — страховочный (пока бэк шлёт только события плана — не реже обычного)
+    expect(screen.getByTestId('poll')).toHaveTextContent(String(Math.max(10_000, REALTIME.safetyPollMs)));
 
     FakeWebSocket.last.receive({
       type: 'event',

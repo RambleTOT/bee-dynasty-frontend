@@ -9,11 +9,14 @@ export const POLL = { day: 10_000, engineer: 15_000, calendar: 30_000, slots: 30
 
 /**
  * Живые обновления по WebSocket (docs/REALTIME.md, контракт — docs/BACKEND_REQUESTS.md п. 38).
- * Пока сокет открыт, опрос редкий — страховка на случай потерянного события.
+ * Пока сокет открыт, опрос — страховка на случай потерянного события.
  */
 export const REALTIME = {
-  /** Опрос при открытом сокете. */
-  safetyPollMs: 60_000,
+  /**
+   * Опрос при открытом сокете. Бэк пока шлёт только события плана, а действия инженеров, часы дня и
+   * записи оператора — нет (п. 38): опрос не реже обычного. Когда пришлёт всё — 60 с.
+   */
+  safetyPollMs: 10_000,
   /** Сервер шлёт `ping` раз в 25 с; тишина дольше — соединение мёртвое, переподключаемся. */
   heartbeatTimeoutMs: 60_000,
   /** Паузы перед переподключением, дальше — последняя; ±20 % случайно, чтобы вкладки не шли разом. */
@@ -57,10 +60,11 @@ const FEATURE_DEFAULTS = {
   addEngineerAfterPublish: true, // §12, P1-6 бригада в начатый день — событие engineer_added → предложение
   extendResourceCheck: true, // P1-5 «кого не хватает» — extend-resource/check, без сохранения предложения
   comparePlanStrategy: true, // P1-8 «Наш план» в сравнении — стратегия plan тем же расчётом, что FIFO
-  // п. 38: WebSocket живых обновлений (/realtime/ticket, /realtime/ws) — у бэка ещё нет
-  realtime: false,
-  // п. 47: поле time («сейчас» дня) в reassign/check и reassign — у бэка ещё нет
-  reassignTime: false,
+  // п. 38: WebSocket живых обновлений (/realtime/ticket, /realtime/ws) — есть с 29.09 (85cbf26),
+  // бэк пока шлёт только plan.proposed / plan.applied / plan.rejected
+  realtime: true,
+  // п. 47: поле time («сейчас» дня) в reassign/check и reassign — есть с 29.09 (85cbf26)
+  reassignTime: true,
   // §14 (docs/spec/BACKEND_ANY_REGION.md): свои участки — POST/PATCH /regions, ростер участка,
   // колонки «Навык», «Длительность», «Широта», «Долгота» в import-beeline — у бэка ещё нет.
   // Включать руками не нужно: фронт включит сам, когда в GET /regions появится поле builtin

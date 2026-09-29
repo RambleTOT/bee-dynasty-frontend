@@ -5,14 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getRegions, importBeeline, type ImportFiles } from '@/api/data';
 import { getDay } from '@/api/days';
 import { ApiError } from '@/api/errors';
-import type { RegionOut, ScenarioSummary } from '@/api/types';
+import type { RegionInfo, ScenarioSummary } from '@/api/types';
 import { forgetRegions } from '@/lib/regions';
 import { ImportModal } from './ImportModal';
 
 vi.mock('@/api/data', () => ({ getRegions: vi.fn(), importBeeline: vi.fn() }));
 vi.mock('@/api/days', () => ({ getDay: vi.fn() }));
 
-const region = (region_id: string, name: string, engineer_count: number): RegionOut => ({
+const region = (region_id: string, name: string, engineer_count: number): RegionInfo => ({
   region_id,
   name,
   office: { address: 'г. Москва', lat: 55.7, lon: 37.6 },
@@ -140,7 +140,7 @@ describe('DS-02 Загрузка CSV · шаг 1', () => {
 
   it('бэк выложил §14 (в GET /regions есть builtin) — «Другой участок» появляется сам', async () => {
     vi.mocked(getRegions).mockResolvedValue(
-      REGIONS_RESPONSE.map((item) => ({ ...item, builtin: true }) as RegionOut),
+      REGIONS_RESPONSE.map((item) => ({ ...item, builtin: true }) as RegionInfo),
     );
     renderModal();
     expect(await screen.findByRole('region', { name: 'Другой участок' })).toBeInTheDocument();

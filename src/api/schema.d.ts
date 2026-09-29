@@ -104,6 +104,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/days/{date}/clear": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Удалить день (п. 37)
+         * @description Удаляет день целиком: сценарии, версии, планы, события, действия инженеров.
+         */
+        post: operations["clear_day_api_v1_days__date__clear_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/data/load": {
         parameters: {
             query?: never;
@@ -468,6 +488,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/planning/{plan_id}/rebase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Пересчитать устаревшее предложение на действующей версии (п. 48)
+         * @description Повторяет событие устаревшего предложения на действующей версии дня.
+         */
+        post: operations["rebase_plan_version_api_v1_planning__plan_id__rebase_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/planning/{plan_id}/diff": {
         parameters: {
             query?: never;
@@ -746,6 +786,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/realtime/ticket": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Билет для подключения к сокету (§38)
+         * @description Выдаёт одноразовый короткоживущий билет для WebSocket.
+         */
+        post: operations["create_ticket_api_v1_realtime_ticket_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/visualization/{plan_id}/geojson": {
         parameters: {
             query?: never;
@@ -841,7 +901,7 @@ export interface paths {
         put?: never;
         /**
          * Отменить запись
-         * @description Отменяет запись. В начатом дне — предложением диспетчеру (п. 16).
+         * @description Отменяет запись. В начатом дне — предложением диспетчеру (п. 16, 35, 39).
          */
         post: operations["cancel_booking_request_api_v1_booking_requests__request_id__cancel_post"];
         delete?: never;
@@ -861,7 +921,7 @@ export interface paths {
         put?: never;
         /**
          * Перенести запись
-         * @description Переносит запись на новую дату и окно.
+         * @description Переносит запись. Номер заявки сохраняется, копии не создаются (п. 40).
          */
         post: operations["reschedule_booking_request_api_v1_booking_requests__request_id__reschedule_post"];
         delete?: never;
@@ -978,11 +1038,47 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Список регионов обслуживания
-         * @description Три региона кейса: офис, число заявок и бригад, наличие демо и контрольного файла.
+         * Список участков
+         * @description Три участка кейса, затем свои участки (§14) в порядке создания.
          */
         get: operations["get_regions_api_v1_regions_get"];
         put?: never;
+        /** Создать участок (§14) */
+        post: operations["create_region_api_v1_regions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/regions/{region_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Изменить свой участок (§14) */
+        patch: operations["patch_region_api_v1_regions__region_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/regions/{region_id}/roster": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ростер участка (§14) */
+        get: operations["get_roster_api_v1_regions__region_id__roster_get"];
+        /** Сохранить ростер своего участка (§14) */
+        put: operations["put_roster_api_v1_regions__region_id__roster_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2225,6 +2321,15 @@ export interface components {
              */
             extra_requests_planned: number;
         };
+        /** OfficeIn */
+        OfficeIn: {
+            /** Address */
+            address: string;
+            /** Lat */
+            lat: number;
+            /** Lon */
+            lon: number;
+        };
         /** OfficeOut */
         OfficeOut: {
             /** Address */
@@ -2523,6 +2628,41 @@ export interface components {
              * @default false
              */
             force: boolean;
+            /**
+             * Time
+             * @description Время дня HH:MM для проверки «не раньше сейчас» (п. 47); иначе часы дня
+             */
+            time?: string | null;
+        };
+        /**
+         * RegionCreate
+         * @description Новый участок (§14).
+         */
+        RegionCreate: {
+            /** Name */
+            name: string;
+            office: components["schemas"]["OfficeIn"];
+            norms?: components["schemas"]["RegionNorms"] | null;
+        };
+        /**
+         * RegionNormType
+         * @description Норматив: тип заявки BK → навык и длительность работ без дороги (§14).
+         */
+        RegionNormType: {
+            /** Type Bk */
+            type_bk: string;
+            /**
+             * Skill
+             * @description local | installation | emergency (или русское название)
+             */
+            skill: string;
+            /** Duration Minutes */
+            duration_minutes: number;
+        };
+        /** RegionNorms */
+        RegionNorms: {
+            /** Types */
+            types?: components["schemas"]["RegionNormType"][];
         };
         /** RegionOut */
         RegionOut: {
@@ -2539,6 +2679,21 @@ export interface components {
             demo_available: boolean;
             /** Has Control */
             has_control: boolean;
+            /**
+             * Builtin
+             * @default true
+             */
+            builtin: boolean;
+            norms?: components["schemas"]["RegionNorms"] | null;
+            /** Created At */
+            created_at?: string | null;
+        };
+        /** RegionPatch */
+        RegionPatch: {
+            /** Name */
+            name?: string | null;
+            office?: components["schemas"]["OfficeIn"] | null;
+            norms?: components["schemas"]["RegionNorms"] | null;
         };
         /**
          * ReplanResult
@@ -3510,6 +3665,42 @@ export interface operations {
             };
         };
     };
+    clear_day_api_v1_days__date__clear_post: {
+        parameters: {
+            query: {
+                /** @description ID участка */
+                region_id: string;
+            };
+            header?: never;
+            path: {
+                date: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     load_scenario_api_v1_data_load_post: {
         parameters: {
             query?: never;
@@ -4356,6 +4547,46 @@ export interface operations {
             };
         };
     };
+    rebase_plan_version_api_v1_planning__plan_id__rebase_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplanResult"];
+                };
+            };
+            /** @description Объект не найден (сценарий, план или событие). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Ошибка валидации входных данных или невозможность построить план. Поле `context.errors` содержит детали. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     get_plan_diff_api_v1_planning__plan_id__diff_get: {
         parameters: {
             query?: {
@@ -4924,6 +5155,28 @@ export interface operations {
             };
         };
     };
+    create_ticket_api_v1_realtime_ticket_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     get_plan_geojson_api_v1_visualization__plan_id__geojson_get: {
         parameters: {
             query?: {
@@ -5121,7 +5374,10 @@ export interface operations {
     };
     cancel_booking_request_api_v1_booking_requests__request_id__cancel_post: {
         parameters: {
-            query?: never;
+            query?: {
+                region_id?: string | null;
+                date?: string | null;
+            };
             header?: never;
             path: {
                 request_id: string;
@@ -5158,7 +5414,10 @@ export interface operations {
     };
     reschedule_booking_request_api_v1_booking_requests__request_id__reschedule_post: {
         parameters: {
-            query?: never;
+            query?: {
+                region_id?: string | null;
+                date?: string | null;
+            };
             header?: never;
             path: {
                 request_id: string;
@@ -5374,6 +5633,140 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RegionOut"][];
+                };
+            };
+        };
+    };
+    create_region_api_v1_regions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_region_api_v1_regions__region_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                region_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegionPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_roster_api_v1_regions__region_id__roster_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                region_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngineerIn"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_roster_api_v1_regions__region_id__roster_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                region_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EngineerIn"][];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngineerIn"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

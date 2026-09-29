@@ -32,10 +32,11 @@ export interface RegionNorms {
 }
 
 /**
- * Участок из `GET /regions` с полями §14 (свои участки, `anyRegionEnabled`). До правки бэка их нет:
- * читаем через `?.`, участок без `builtin` — участок кейса.
+ * Участок из `GET /regions` с полями §14 (свои участки, `anyRegionEnabled`). У бэка до 29.09 их не
+ * было: читаем через `?.`, участок без `builtin` — участок кейса. `norms.types` в схеме
+ * необязательное — у своего участка бэк отдаёт его всегда.
  */
-export type RegionInfo = RegionOut & {
+export type RegionInfo = Omit<RegionOut, 'builtin' | 'norms' | 'created_at'> & {
   builtin?: boolean;
   norms?: RegionNorms | null;
   created_at?: string | null;

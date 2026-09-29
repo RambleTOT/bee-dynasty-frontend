@@ -108,6 +108,21 @@ describe('RealtimeClient', () => {
     expect(onResync).not.toHaveBeenCalled();
   });
 
+  it('сервер перезапустился: номер меньше нашего, хотя resumed: true — обновить всё и считать заново', async () => {
+    const { client, sockets, events, onResync } = setup();
+    client.start();
+    await tick();
+    sockets[0].receive({ type: 'hello', seq: 40, resumed: false });
+    sockets[0].receive(event(41));
+    sockets[0].drop();
+    await tick(1000);
+    sockets[1].receive({ type: 'hello', seq: 0, resumed: true });
+    expect(onResync).toHaveBeenCalledTimes(1);
+    expect(client.lastEventSeq).toBe(0);
+    sockets[1].receive(event(1));
+    expect(events.map((e) => e.seq)).toEqual([41, 1]);
+  });
+
   it('сервер не повторил пропущенное (resumed: false) или прислал resync — обновить всё', async () => {
     const { client, sockets, onResync } = setup();
     client.start();

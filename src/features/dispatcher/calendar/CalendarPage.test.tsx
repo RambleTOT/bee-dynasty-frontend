@@ -5,14 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCalendar } from '@/api/calendar';
 import { getRegions } from '@/api/data';
 import { ApiError } from '@/api/errors';
-import type { CalendarResponse, RegionOut, UserOut } from '@/api/types';
+import type { CalendarResponse, RegionInfo, UserOut } from '@/api/types';
 import { AuthContext, type AuthContextValue } from '@/auth/useAuth';
 import CalendarPage from './CalendarPage';
 
 vi.mock('@/api/calendar', () => ({ getCalendar: vi.fn() }));
 vi.mock('@/api/data', () => ({ getRegions: vi.fn(), importBeeline: vi.fn() }));
 
-const region = (region_id: string, name: string, engineer_count: number): RegionOut => ({
+const region = (region_id: string, name: string, engineer_count: number): RegionInfo => ({
   region_id,
   name,
   office: { address: 'г. Москва', lat: 55.7, lon: 37.6 },

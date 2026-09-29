@@ -138,15 +138,19 @@ export class RealtimeClient {
     const message = parseServerMessage(data);
     if (!message) return;
     switch (message.type) {
-      case 'hello':
+      case 'hello': {
         this.attempt = 0;
+        // номер на сервере меньше нашего — сервер перезапускался и считает заново; бэк при этом
+        // отвечает resumed: true (п. 38), но новые события иначе отбросили бы как повторы
+        const restarted = this.lastSeq !== null && message.seq < this.lastSeq;
         // сервер не повторил пропущенное (буфер кончился, сервер перезапускался) — обновляем всё
-        if (this.lastSeq !== null && !message.resumed && message.seq !== this.lastSeq) {
+        if (restarted || (this.lastSeq !== null && !message.resumed && message.seq !== this.lastSeq)) {
           this.options.onResync();
         }
-        if (this.lastSeq === null || !message.resumed) this.lastSeq = message.seq;
+        if (this.lastSeq === null || !message.resumed || restarted) this.lastSeq = message.seq;
         this.setStatus('open');
         break;
+      }
       case 'event':
         if (this.lastSeq !== null && message.event.seq <= this.lastSeq) return; // повтор
         this.lastSeq = message.event.seq;
