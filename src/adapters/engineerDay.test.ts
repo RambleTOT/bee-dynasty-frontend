@@ -5,6 +5,7 @@ import {
   hasActiveVisit,
   latestBanner,
   pageState,
+  pendingOutcomes,
   plannedLeft,
   routeGroups,
   shiftSummary,
@@ -424,3 +425,26 @@ describe('mergeDay — ответ действия поверх дня в кэш
     expect(model([], { engineer: { id: '' } }).engineer.name).toBe('');
   });
 });
+
+describe('pendingOutcomes — решение диспетчера по «Прервать»', () => {
+  it('исчезла или закрыта — подтверждено; снова в маршруте — вернули; ещё ждёт — молчим', () => {
+    const before = [
+      { id: 'A', status: 'cancel_pending' as const },
+      { id: 'B', status: 'reschedule_pending' as const },
+      { id: 'C', status: 'cancel_pending' as const },
+      { id: 'D', status: 'cancel_pending' as const },
+      { id: 'E', status: 'planned' as const },
+    ];
+    const after = [
+      { id: 'C', status: 'en_route' as const },
+      { id: 'D', status: 'cancel_pending' as const },
+      { id: 'E', status: 'planned' as const },
+    ];
+    expect(pendingOutcomes(before, after)).toEqual([
+      { id: 'A', kind: 'cancel_confirmed' },
+      { id: 'B', kind: 'reschedule_confirmed' },
+      { id: 'C', kind: 'returned' },
+    ]);
+  });
+});
+

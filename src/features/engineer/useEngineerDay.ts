@@ -81,6 +81,7 @@ const SUCCESS_TEXT: Partial<Record<EngineerAction, string>> = {
   fail: 'Отправлено диспетчеру. Можно ехать к следующей заявке',
   incident: 'Сообщили диспетчеру',
   unavailable: 'Сообщили диспетчеру',
+  transport_changed: 'Смена транспорта — диспетчеру на решение',
 };
 
 interface ActionContext {

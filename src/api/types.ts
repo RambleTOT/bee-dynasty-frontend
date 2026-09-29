@@ -98,7 +98,9 @@ export type EngineerAction =
   | 'fail'
   | 'unavailable'
   | 'shift_end'
-  | 'incident';
+  | 'incident'
+  /** Смена транспорта без инцидента — предложение диспетчеру (после «Начать смену» с другим). */
+  | 'transport_changed';
 
 export interface EngineerActionIn {
   action: EngineerAction;

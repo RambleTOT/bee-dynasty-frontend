@@ -102,6 +102,28 @@ describe('E-02 «На чём сегодня?»', () => {
         payload: { transport: 'public_transport' },
       }),
     );
+    // не по справочнику — ещё предложение диспетчеру: на shift_start бэк его не создаёт
+    await waitFor(() =>
+      expect(postAction).toHaveBeenCalledWith({
+        action: 'transport_changed',
+        payload: { transport: 'public_transport' },
+      }),
+    );
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('транспорт по справочнику — только shift_start', async () => {
+    vi.mocked(getMyDay).mockResolvedValue(beforeShift());
+    vi.mocked(postAction).mockResolvedValue({
+      engineer_id: 'E01',
+      action: 'shift_start',
+      status: 'ok',
+    } as ActionResult);
+    renderApp();
+    fireEvent.click(await screen.findByRole('button', { name: 'Начать смену' }));
+    const sheet = await screen.findByRole('dialog', { name: 'На чём сегодня?' });
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Поехали' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(postAction).toHaveBeenCalledTimes(1);
   });
 });

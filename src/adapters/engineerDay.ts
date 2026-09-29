@@ -264,6 +264,32 @@ export const isPendingStatus = (status: RequestStatus) => PENDING_STATUSES.inclu
 /** Выполнена, отменена или перенесена. */
 export const isClosedStatus = (status: RequestStatus) => CLOSED_STATUSES.includes(status);
 
+/**
+ * Решение диспетчера по «Прервать» (бэк баннера об этом не шлёт): заявка ждала решения, а теперь
+ * её нет в дне или она закрыта — подтверждено; снова в работе или в плане — диспетчер вернул.
+ */
+export interface PendingOutcome {
+  id: string;
+  kind: 'cancel_confirmed' | 'reschedule_confirmed' | 'returned';
+}
+
+export function pendingOutcomes(
+  before: readonly Pick<EngineerVisitModel, 'id' | 'status'>[],
+  after: readonly Pick<EngineerVisitModel, 'id' | 'status'>[],
+): PendingOutcome[] {
+  const now = new Map(after.map((visit) => [visit.id, visit.status]));
+  return before.flatMap((visit): PendingOutcome[] => {
+    if (!isPendingStatus(visit.status)) return [];
+    const status = now.get(visit.id);
+    if (status && isPendingStatus(status)) return [];
+    if (!status || isClosedStatus(status)) {
+      const reschedule = visit.status === 'reschedule_pending' || status === 'rescheduled';
+      return [{ id: visit.id, kind: reschedule ? 'reschedule_confirmed' : 'cancel_confirmed' }];
+    }
+    return [{ id: visit.id, kind: 'returned' }];
+  });
+}
+
 type VisitsOf = Pick<EngineerDayModel, 'visits' | 'activeRequestId'>;
 
 /**

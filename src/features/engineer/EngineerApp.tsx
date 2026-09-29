@@ -1,5 +1,5 @@
 import { List, LogOut, Map as MapIcon, Play } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   currentVisit,
@@ -9,10 +9,15 @@ import {
   plannedLeft,
   type EngineerBannerModel,
   type EngineerPageState,
+  pendingOutcomes,
+  type EngineerVisitModel,
+  type PendingOutcome,
 } from '@/adapters/engineerDay';
 import { effectiveRoute } from '@/adapters/engineerRoute';
 import { useAuth } from '@/auth/useAuth';
 import { FEATURES } from '@/config';
+import { requestNoShort } from '@/lib/engineerLabels';
+import { notify } from '@/lib/notify';
 import { searchParam, useSearchState } from '@/hooks/useSearchState';
 import { Button, SegmentedControl, type SegmentOption } from '@/ui';
 import { DayError, DaySkeleton, NoVisits, PlanNotPublished } from './DayStates';
@@ -74,6 +79,29 @@ function scrollToRoute() {
   });
 }
 
+const OUTCOME_TEXT: Record<PendingOutcome['kind'], (no: string) => string> = {
+  cancel_confirmed: (no) => `Диспетчер подтвердил отмену ${no}`,
+  reschedule_confirmed: (no) => `Диспетчер подтвердил перенос ${no}`,
+  returned: (no) => `Диспетчер вернул ${no} — заявка снова в маршруте`,
+};
+
+/** Решение диспетчера по «Прервать» — тостом: бэк баннера об этом не присылает. */
+function usePendingOutcomes(visits: readonly EngineerVisitModel[] | undefined) {
+  const before = useRef<readonly EngineerVisitModel[] | null>(null);
+  useEffect(() => {
+    if (!visits) return;
+    if (before.current) {
+      for (const outcome of pendingOutcomes(before.current, visits)) {
+        notify(
+          OUTCOME_TEXT[outcome.kind](requestNoShort(outcome.id)),
+          outcome.kind === 'returned' ? 'info' : 'success',
+        );
+      }
+    }
+    before.current = visits;
+  }, [visits]);
+}
+
 /**
  * `/engineer` — экран инженера по состоянию дня (FRONTEND_SPEC §9.1): загрузка, ошибка, план не
  * опубликован, заявок нет, E-01 до смены, E-03 / E-04 на смене, E-10 после.
@@ -98,6 +126,7 @@ export default function EngineerApp() {
   useEffect(() => {
     if (visits) forgetStaleChanged(visits);
   }, [visits]);
+  usePendingOutcomes(visits);
 
   const header = (
     <EngineerHeader

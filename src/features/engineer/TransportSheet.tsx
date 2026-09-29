@@ -9,7 +9,8 @@ import styles from './Sheets.module.css';
 
 /**
  * E-02 «На чём сегодня?» → `shift_start {payload: {transport}}`. По умолчанию — транспорт по
- * справочнику; бэк сам сообщает диспетчеру о смене транспорта (`transport_changed`).
+ * справочнику. Выбрал другой — ещё `transport_changed`: бэк на `shift_start` только запоминает
+ * транспорт и предложения диспетчеру не создаёт (BACKEND_REQUESTS п. 53).
  */
 export function TransportSheet({
   engineer,
@@ -31,6 +32,23 @@ export function TransportSheet({
   // [Д] Плашка — когда отказались от справочного транспорта не в пользу автомобиля
   const warn = reference !== null && transport !== reference && transport !== 'car';
 
+  // ошибки обоих нажатий показывает useEngineerAction (тост)
+  const start = async () => {
+    try {
+      await action.mutateAsync({ action: 'shift_start', payload: { transport } });
+    } catch {
+      return;
+    }
+    if (reference !== null && transport !== reference) {
+      try {
+        await action.mutateAsync({ action: 'transport_changed', payload: { transport } });
+      } catch {
+        // смена уже начата: окно закрываем, диспетчеру можно сообщить через «Инцидент»
+      }
+    }
+    onClose();
+  };
+
   return (
     <BottomSheet
       open
@@ -44,9 +62,7 @@ export function TransportSheet({
           fullWidth
           icon={Play}
           loading={action.isPending}
-          onClick={() =>
-            action.mutate({ action: 'shift_start', payload: { transport } }, { onSuccess: onClose })
-          }
+          onClick={() => void start()}
         >
           Поехали
         </Button>
