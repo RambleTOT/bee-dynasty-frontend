@@ -239,7 +239,10 @@ export function importReportFromSummary(
     lines.push({
       kind: 'transport',
       tone: 'success',
-      text: `Автомобиль нужен ${formatInt(car)} ${plural(car, ['заявке', 'заявкам', 'заявкам'])}${byRule ? ` (заполнено правилом: ${TRANSPORT_RULE})` : ''}`,
+      text:
+        car === 0
+          ? 'Автомобиль не нужен ни одной заявке'
+          : `Автомобиль нужен ${formatInt(car)} ${plural(car, ['заявке', 'заявкам', 'заявкам'])}${byRule ? ` (заполнено правилом: ${TRANSPORT_RULE})` : ''}`,
     });
   }
 
@@ -274,7 +277,7 @@ export function importReportFromSummary(
     remarks.push({
       kind: 'warning',
       tone: 'warning',
-      text: `${formatInt(unplaced)} ${plural(unplaced, ['адрес', 'адреса', 'адресов'])} без координат: точки поставлены у офиса`,
+      text: `${formatInt(unplaced)} ${plural(unplaced, ['адрес', 'адреса', 'адресов'])} без координат: ${unplaced === 1 ? 'точка поставлена' : 'точки поставлены'} у офиса`,
     });
   }
   if (skipped.length)

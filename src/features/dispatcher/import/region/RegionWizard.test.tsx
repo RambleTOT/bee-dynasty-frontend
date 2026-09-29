@@ -247,7 +247,9 @@ describe('«Другой участок» (§14)', () => {
     ).toBeInTheDocument();
     const missed = screen.getByRole('region', { name: 'Адреса без точки' });
     expect(within(missed).getByText('Химки, ул. Мира, д. 9')).toBeInTheDocument();
-    expect(screen.getByText(/С точкой — 3 из 4; остальные 1 найдёт бэк/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/С точкой — 3 из 4; без точки — 1: их найдёт геокодер бэка/),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Загрузить' }));
 

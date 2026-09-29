@@ -170,6 +170,23 @@ describe('importReportFromSummary', () => {
   });
 });
 
+describe('тексты для нуля и единицы', () => {
+  it('машина никому не нужна; один адрес у офиса', () => {
+    const report = importReportFromSummary(
+      'east',
+      summary({
+        ...FULL,
+        required_transport: { source: 'rule', car: 0, car_by_rule: 0 },
+        geocode_fallback: ['ул. Первая, 1'],
+      }),
+      true,
+    );
+    const texts = report.lines.map((line) => line.text);
+    expect(texts).toContain('Автомобиль не нужен ни одной заявке');
+    expect(texts).toContain('1 адрес без координат: точка поставлена у офиса');
+  });
+});
+
 describe('свой участок (§14)', () => {
   const extra = { created: true, name: 'Север', rosterSource: 'Из контрольного файла', normTypes: 5 };
 

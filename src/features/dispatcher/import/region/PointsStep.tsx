@@ -51,6 +51,14 @@ export function PointsStep({ draft, disabled }: { draft: RegionDraft; disabled: 
         </Callout>
       )}
 
+      {toFind.length > 0 && addressSuggestEnabled && !progress.finished && !progress.running && (
+        <Callout tone="warning">
+          Без поиска {formatInt(toFind.length)}{' '}
+          {plural(toFind.length, ['заявка встанет', 'заявки встанут', 'заявок встанут'])} у офиса,
+          если их не найдёт геокодер бэка, — маршрут по ним не посчитать. Нажмите «Найти точки»
+        </Callout>
+      )}
+
       {toFind.length > 0 && addressSuggestEnabled && (
         <section className={styles.section} aria-label="Поиск точек по адресам">
           <div className={styles.sectionHead}>
@@ -158,7 +166,7 @@ export function PointsStep({ draft, disabled }: { draft: RegionDraft; disabled: 
         <span className={styles.sectionNote}>
           С точкой — {formatInt(withPoint)} из {formatInt(rows.length)}
           {withPoint < rows.length &&
-            `; остальные ${formatInt(rows.length - withPoint)} найдёт бэк или поставит у офиса`}
+            `; без точки — ${formatInt(rows.length - withPoint)}: их найдёт геокодер бэка или поставит у офиса`}
         </span>
       )}
 
