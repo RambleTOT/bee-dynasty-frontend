@@ -97,6 +97,32 @@ describe('importReportFromSummary', () => {
     ]);
   });
 
+  it('новые дни 28–29.09 (п. 55, 56): правило из ответа бэка, «файл не загружен» — одной строкой', () => {
+    const report = importReportFromSummary(
+      'east',
+      summary({
+        ...FULL,
+        rows_total: 74,
+        rows_loaded: 74,
+        required_transport: {
+          source: 'column+rule',
+          car: 6,
+          car_by_rule: 6,
+          rule: ['Работа с кабелем', 'Авария'],
+        },
+        dispatcher_assignments_loaded: 0,
+        warnings: ['Контрольный файл не загружен: в колонке «Реальный диспетчер» будет «нет данных»'],
+      }),
+      false,
+    );
+    expect(report.lines.map((line) => line.text)).toEqual([
+      'Загружено 74 из 74 заявок',
+      'Офис: г. Москва, ул. Офисная, д. 1',
+      'Автомобиль нужен 6 заявкам (заполнено правилом: кабель, авария)',
+      'Контрольный файл не загружен: в колонке «Реальный диспетчер» будет «нет данных»',
+    ]);
+  });
+
   it('пропущенные строки: разные причины, без номеров, одна строка', () => {
     const text = (rowsSkipped: unknown) =>
       importReportFromSummary(

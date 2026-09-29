@@ -66,6 +66,10 @@ const FEATURE_DEFAULTS = {
   // Включать руками не нужно: фронт включит сам, когда в GET /regions появится поле builtin
   // (lib/regions.ts `anyRegionEnabled`)
   anyRegion: false,
+  // п. 55: правило D-06 без гигабита (D-40) — автомобиль нужен кабелю и аварии, гигабит остаётся
+  // признаком заявки; у бэка ещё нет. Отчёт импорта берёт правило из ответа бэка сам
+  // (required_transport.rule), флаг — для формы оператора и подсказок мастера участка
+  transportRuleNoGigabit: false,
 };
 
 export type FeatureFlag = keyof typeof FEATURE_DEFAULTS;

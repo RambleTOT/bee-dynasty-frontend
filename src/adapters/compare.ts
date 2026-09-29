@@ -91,7 +91,7 @@ const unassignedFromCoverage = (column: CompareColumn | undefined, total: number
 const num = (n: number | null | undefined) => (n == null || !Number.isFinite(n) ? null : n);
 
 export interface CompareInput {
-  model: Pick<DayModel, 'engineers' | 'requests' | 'routeByEngineer' | 'synthetic' | 'fromCsv'>;
+  model: Pick<DayModel, 'engineers' | 'requests' | 'routeByEngineer' | 'synthetic' | 'fromCsv' | 'source'>;
   plan: PlanResponse | null;
   compare: CompareResponse | null;
   baseline: BaselineResponse | null;
@@ -141,7 +141,12 @@ export function buildCompare({ model, plan, compare, baseline }: CompareInput): 
   if (dispBroken) {
     dispatcherMissing = 'нет данных: назначения не сопоставлены с бригадами';
   } else if (compare && !disp) {
-    dispatcherMissing = model.synthetic ? 'нет данных: синтетический набор' : 'нет данных: только для CSV-дня';
+    // CSV без контрольного файла (новые дни 28–29.09 пришли без «Бригады»): диспетчера сравнивать не с чем
+    dispatcherMissing = model.synthetic
+      ? 'нет данных: синтетический набор'
+      : model.source === 'csv'
+        ? 'нет данных: контрольный файл не загружен'
+        : 'нет данных: только для CSV-дня';
   } else if (!compare && model.synthetic) {
     dispatcherMissing = 'нет данных: синтетический набор';
   }

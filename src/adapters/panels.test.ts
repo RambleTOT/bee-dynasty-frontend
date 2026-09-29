@@ -201,8 +201,18 @@ describe('compare', () => {
     });
     expect(cmp.rows[0].ours.value).toBe('—');
     expect(cmp.rows[0].fifo.value).toBe('2');
-    expect(cmp.rows[0].dispatcher).toEqual({ value: 'нет данных', note: 'только для CSV-дня' });
+    expect(cmp.rows[0].dispatcher).toEqual({ value: 'нет данных', note: 'контрольный файл не загружен' });
     expect(cmp.note).toMatch(/^Нажмите «Построить план»/);
+  });
+
+  it('день из записей оператора: диспетчера нет — «только для CSV-дня»', () => {
+    const cmp = buildCompare({
+      model: { ...model, source: 'booking', fromCsv: false },
+      plan: null,
+      compare: { columns: { fifo: compare.columns!.fifo }, km_by_engineer: {}, notes: [] },
+      baseline: null,
+    });
+    expect(cmp.rows[0].dispatcher).toEqual({ value: 'нет данных', note: 'только для CSV-дня' });
   });
 
   it('диспетчер не сопоставлен (0 бригад, 0% охвата) — «нет данных»', () => {
@@ -577,7 +587,7 @@ describe('compare: формат бэка 28.09', () => {
     expect(byKey.inWindow.fifo.value).toBe('0/1');
     expect(byKey.late.fifo.value).toBe('1');
     expect(byKey.unassigned.fifo.value).toBe('1');
-    expect(byKey.engineers.dispatcher).toEqual({ value: 'нет данных', note: 'только для CSV-дня' });
+    expect(byKey.engineers.dispatcher).toEqual({ value: 'нет данных', note: 'контрольный файл не загружен' });
     expect(cmp.engineers.find((e) => e.engineerId === 'e2')).toMatchObject({ fifo: 30, tasksFifo: 1 });
   });
 });

@@ -3,6 +3,8 @@
  * диспетчер поправляет, ячейки разбираем в поля заявки. На бэк строки уходят в выданном формате
  * Билайна (canonicalCsv.ts): другой формат бэк не читает.
  */
+import { FEATURES } from '@/config';
+import { transportRuleText } from '@/lib/booking';
 import { SKILLS, TRANSPORTS, type Skill, type Transport } from '@/lib/statuses';
 import type { CsvTable } from './csvTable';
 
@@ -47,6 +49,11 @@ const ID_NAMES = [
   '№',
   'request_id',
 ];
+
+/** До п. 55 бэка гигабит требует автомобиль (правило D-06), после — только признак заявки (D-40). */
+const GIGABIT_HINT = FEATURES.transportRuleNoGigabit
+  ? 'признак в карточке заявки'
+  : '«Да» — по правилу нужен автомобиль';
 
 export const REQUEST_FIELDS: readonly FieldDef<RequestField>[] = [
   { key: 'id', label: 'Номер заявки', hint: 'нет — пронумеруем сами', names: ID_NAMES },
@@ -119,7 +126,7 @@ export const REQUEST_FIELDS: readonly FieldDef<RequestField>[] = [
   {
     key: 'gigabit',
     label: 'Гигабитное подключение',
-    hint: '«Да» — по правилу нужен автомобиль',
+    hint: GIGABIT_HINT,
     extra: true,
     names: ['гигабитное подключение', 'гигабит', 'gigabit'],
   },
@@ -133,7 +140,7 @@ export const REQUEST_FIELDS: readonly FieldDef<RequestField>[] = [
   {
     key: 'transport',
     label: 'Требуемый транспорт',
-    hint: 'нет — по правилу: кабель, гигабит, авария',
+    hint: `нет — по правилу: ${transportRuleText()}`,
     extra: true,
     names: ['требуемый транспорт', 'транспорт', 'required_transport'],
   },
@@ -520,7 +527,7 @@ export function readRequests(table: CsvTable, mapping: Mapping<RequestField>): R
     if (mapping.transport !== null && cell('transport')) {
       transport = parseTransportCell(cell('transport'));
       if (transport === null)
-        notes.push({ line, text: 'транспорт не распознан — по правилу (кабель, гигабит, авария)' });
+        notes.push({ line, text: `транспорт не распознан — по правилу (${transportRuleText()})` });
     }
 
     rows.push({

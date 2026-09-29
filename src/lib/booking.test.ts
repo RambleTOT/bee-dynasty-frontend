@@ -9,6 +9,7 @@ import {
   phoneToApi,
   phoneValid,
   requiredTransportByRule,
+  transportRuleText,
   typeFull,
   typeShort,
   weekdayShort,
@@ -83,8 +84,13 @@ describe('requiredTransportByRule', () => {
     expect(requiredTransportByRule('Работа с кабелем', false)).toBe('car');
   });
 
-  it('гигабит → car', () => {
+  it('гигабит → car (до п. 55 бэка, флаг transportRuleNoGigabit выключен)', () => {
     expect(requiredTransportByRule('Конвергенция абонента', true)).toBe('car');
+    expect(transportRuleText()).toBe('кабель, гигабит, авария');
+  });
+
+  it('авария → car', () => {
+    expect(requiredTransportByRule('Авария', false)).toBe('car');
   });
 
   it('прочее → null', () => {

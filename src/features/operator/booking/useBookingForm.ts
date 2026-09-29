@@ -72,7 +72,7 @@ export function initialBookingForm(date: string = tomorrowMsk()): BookingForm {
   };
 }
 
-/** Пока оператор не менял транспорт сам, значение ставит правило: кабель или гигабит → автомобиль. */
+/** Пока оператор не менял транспорт сам, значение ставит правило D-06 (`requiredTransportByRule`). */
 function withTransportRule(form: BookingForm): BookingForm {
   if (form.transportTouched) return form;
   return { ...form, transport: requiredTransportByRule(form.typeHd, form.gigabit) };

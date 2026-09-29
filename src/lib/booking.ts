@@ -3,7 +3,8 @@
  * Окно — строка бэка '14:00-16:00', дата — 'YYYY-MM-DD'. Незнакомый формат показываем как есть.
  */
 import { isValid, parseISO } from 'date-fns';
-import { BK, HD_BY_BK, HD_INFO } from './dictionaries';
+import { FEATURES } from '@/config';
+import { BK, HD_BY_BK, HD_EMERGENCY, HD_INFO } from './dictionaries';
 import { formatDateShort, formatDateWithWeekday, formatWeekdayShort } from './format';
 import type { Transport } from './statuses';
 import { parseWindow } from './time';
@@ -79,12 +80,20 @@ export function defaultHd(typeBk: string | null | undefined): string {
 /** HD, для которого нужен автомобиль (ML_SPEC §2). */
 export const CABLE_HD = 'Работа с кабелем';
 
-/** Транспорт по правилу: «Работа с кабелем» или гигабит → автомобиль, иначе не требуется. */
+/**
+ * Правило D-06 одной строкой — для подсказок. С п. 55 бэка (D-40) гигабит машину не требует:
+ * в новых днях это треть потока, а бригад с машиной на участке две-три.
+ */
+export const transportRuleText = (): string =>
+  FEATURES.transportRuleNoGigabit ? 'кабель, авария' : 'кабель, гигабит, авария';
+
+/** Транспорт по правилу D-06: кабель или авария → автомобиль; гигабит — только до п. 55 бэка. */
 export function requiredTransportByRule(
   typeHd: string | null | undefined,
   gigabit: boolean,
 ): Transport | null {
-  return typeHd === CABLE_HD || gigabit ? 'car' : null;
+  if (typeHd === CABLE_HD || typeHd === HD_EMERGENCY) return 'car';
+  return gigabit && !FEATURES.transportRuleNoGigabit ? 'car' : null;
 }
 
 // --- телефон клиента ---

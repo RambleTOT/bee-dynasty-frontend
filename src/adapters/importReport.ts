@@ -8,6 +8,7 @@
  */
 import { errorMessage } from '@/api/errors';
 import type { ScenarioSummary } from '@/api/types';
+import { transportRuleText } from '@/lib/booking';
 import {
   countOf,
   formatInt,
@@ -62,9 +63,6 @@ export const IMPORT_BADGE_TONE: Record<ImportBadge, ImportTone> = {
   error: 'danger',
 };
 
-/** Правило D-06: автомобиль нужен работе с кабелем, гигабитному подключению и аварии. */
-const TRANSPORT_RULE = 'кабель, гигабит, авария';
-
 const NO_CONTROL_FILE =
   'Контрольный файл не загружен: в колонке «Реальный диспетчер» будет «нет данных»';
 
@@ -86,6 +84,21 @@ const firstOf = <T>(values: unknown[], read: (value: unknown) => T | null): T | 
   }
   return null;
 };
+
+/** Слова правила D-06 из `required_transport.rule` бэка (п. 55): HD или признак заявки. */
+const RULE_WORD: Record<string, string> = {
+  'работа с кабелем': 'кабель',
+  'гигабитное подключение': 'гигабит',
+  авария: 'авария',
+};
+
+/** Правило, которым бэк заполнил транспорт: из ответа (п. 55), иначе — известное фронту. */
+function transportRule(value: unknown): string {
+  const words = Array.isArray(value)
+    ? value.map(asText).filter(Boolean).map((name) => RULE_WORD[name.toLowerCase()] ?? name.toLowerCase())
+    : [];
+  return words.length ? words.join(', ') : transportRuleText();
+}
 
 interface SkippedRow {
   row: number | null;
@@ -130,9 +143,12 @@ function skippedText(rows: SkippedRow[]): string {
   return details.length ? `${head}: ${details.join('; ')}` : head;
 }
 
-/** Бэк пишет «N заявок без бригады в контрольном файле» и без контрольного файла — тогда не дублируем. */
+/**
+ * Про контрольный файл: «N заявок без бригады в контрольном файле» (бэк пишет и без файла) или
+ * «Контрольный файл не загружен…» (п. 56). Без файла такие строки не показываем — есть своя.
+ */
 const isControlFileWarning = (text: string) =>
-  /без\s+бригад/iu.test(text) && /контрольн/iu.test(text);
+  /контрольн/iu.test(text) && /без\s+бригад|не\s+загружен/iu.test(text);
 
 const mentionsGeocoding = (text: string) => /координат|геокод/iu.test(text);
 
@@ -242,7 +258,7 @@ export function importReportFromSummary(
       text:
         car === 0
           ? 'Автомобиль не нужен ни одной заявке'
-          : `Автомобиль нужен ${formatInt(car)} ${plural(car, ['заявке', 'заявкам', 'заявкам'])}${byRule ? ` (заполнено правилом: ${TRANSPORT_RULE})` : ''}`,
+          : `Автомобиль нужен ${formatInt(car)} ${plural(car, ['заявке', 'заявкам', 'заявкам'])}${byRule ? ` (заполнено правилом: ${transportRule(transport.rule)})` : ''}`,
     });
   }
 
