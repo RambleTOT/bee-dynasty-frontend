@@ -1,8 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Info, Map as MapIcon, Send, Zap } from 'lucide-react';
 import { useState } from 'react';
+import { lookupOf, type AddressSuggestion } from '@/adapters/address';
 import { applyOperatorEmergency } from '@/api/booking';
 import { errorMessage, isApiError } from '@/api/errors';
+import { suggestAddresses } from '@/api/geocoder';
 import { BK, HD_BY_BK, TRANSPORT_ICON } from '@/lib/dictionaries';
 import { notify } from '@/lib/notify';
 import { TRANSPORT_LABEL, TRANSPORTS, isTransport, type Transport } from '@/lib/statuses';
@@ -30,6 +32,9 @@ export function EmergencyForm({ regions }: { regions: RegionPicker }) {
   const queryClient = useQueryClient();
   const [typeHd, setTypeHd] = useState<string>(EMERGENCY_HD[0]);
   const [address, setAddress] = useState('');
+  // адрес из подсказки или с карты — с координатами
+  const [picked, setPicked] = useState<AddressSuggestion | null>(null);
+  const [locating, setLocating] = useState(false);
   const [transport, setTransport] = useState<Transport>('car');
   const [comment, setComment] = useState('');
   // 409 / 422 бэка — плашка над кнопкой («Рабочий день в регионе … ещё не начат»)
@@ -42,6 +47,7 @@ export function EmergencyForm({ regions }: { regions: RegionPicker }) {
       // форма очищается, регион остаётся
       setTypeHd(EMERGENCY_HD[0]);
       setAddress('');
+      setPicked(null);
       setTransport('car');
       setComment('');
       invalidateBooking(queryClient);
@@ -58,10 +64,23 @@ export function EmergencyForm({ regions }: { regions: RegionPicker }) {
   const region = regions.region;
   const ready = Boolean(region) && address.trim() !== '';
 
-  function submit() {
-    if (!region || !ready || send.isPending) return;
+  async function submit() {
+    if (!region || !ready || send.isPending || locating) return;
     setProblem(null);
-    send.mutate(emergencyInput({ region, typeHd, address, transport, comment }));
+    const text = address.trim();
+    let point = picked && picked.value === text ? { lat: picked.lat, lon: picked.lon } : null;
+    if (!point) {
+      // адрес без подсказки — первый вариант сервиса; сервис не ответил — адрес найдёт бэк
+      setLocating(true);
+      const lookup = lookupOf(await suggestAddresses(text).catch(() => null));
+      setLocating(false);
+      if (lookup.status === 'none') {
+        setProblem(T.crash.addressNotFound);
+        return;
+      }
+      if (lookup.status === 'found') point = { lat: lookup.suggestion.lat, lon: lookup.suggestion.lon };
+    }
+    send.mutate(emergencyInput({ region, typeHd, address, transport, comment, point }));
   }
 
   // правка полей убирает устаревшую ошибку
@@ -96,6 +115,8 @@ export function EmergencyForm({ regions }: { regions: RegionPicker }) {
           label={T.new.address}
           value={address}
           onChange={edited(setAddress)}
+          onPick={setPicked}
+          point={picked}
         />
         <Select
           fieldClassName={styles.wide}
@@ -120,8 +141,8 @@ export function EmergencyForm({ regions }: { regions: RegionPicker }) {
           size="lg"
           icon={Send}
           disabled={!ready}
-          loading={send.isPending}
-          onClick={submit}
+          loading={send.isPending || locating}
+          onClick={() => void submit()}
         >
           {T.crash.cta}
         </Button>

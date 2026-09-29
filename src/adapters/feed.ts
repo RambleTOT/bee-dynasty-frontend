@@ -112,6 +112,7 @@ function textOf(
   model: Labels,
   versionOf: ReadonlyMap<string, number>,
   pending: boolean,
+  failedBy: ReadonlyMap<string, string> = new Map(),
 ): string {
   const p = (event.payload ?? {}) as Record<string, unknown>;
   const headline = typeof p.headline === 'string' && p.headline.trim() ? p.headline : (event.headline ?? null);
@@ -143,7 +144,8 @@ function textOf(
     case 'order_cancelled': {
       const reason = typeof p.reason === 'string' ? FAIL_REASON[p.reason] : null;
       if (p.source === 'engineer') {
-        const owner = model.requestById.get(String(order))?.engineerId;
+        // кто прервал — из нажатия «Прервать»: после пересчёта у заявки уже другая бригада
+        const owner = failedBy.get(String(order)) ?? model.requestById.get(String(order))?.engineerId;
         const text = `${engineer(model, owner)}: «${reason ?? 'Прервано'}» по №${num(order)}`;
         return pending ? `${text} — требует решения` : text;
       }
@@ -207,6 +209,15 @@ export function buildFeed({ chain, model }: FeedInput): FeedRow[] {
     if (typeof at === 'string' && at) appliedAt.set(e.result_plan_id, at.slice(0, 5));
   }
   const stale = new Set((chain.staleProposals ?? []).map((p) => p.planId));
+  // «Прервать» инженера: заявка → бригада, которая прервала
+  const failedBy = new Map<string, string>();
+  for (const e of [...chain.events].reverse()) {
+    const p = e.payload ?? {};
+    if (e.event_type !== 'engineer_action' || p.action !== 'fail') continue;
+    const order = p.request_id ?? p.order_id ?? e.order_id;
+    const who = p.engineer_id ?? e.engineer_id;
+    if (order && typeof who === 'string') failedBy.set(String(order), who);
+  }
   const consumed = chain.consumed ?? new Map<string, string>();
   return chain.events.map((event) => {
     const action = event.event_type === 'engineer_action' ? String(event.payload?.action ?? '') : '';
@@ -257,7 +268,7 @@ export function buildFeed({ chain, model }: FeedInput): FeedRow[] {
       time: eventTimeOf(event) ?? timeOfIso(event.created_at),
       icon: style.icon,
       tone: style.tone,
-      text: textOf(event, model, versionOf, needsDecision),
+      text: textOf(event, model, versionOf, needsDecision, failedBy),
       chip,
       note,
       action: rowAction,

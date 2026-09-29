@@ -131,16 +131,19 @@ export function ImportModal({
 
   const upload = useMutation({
     mutationFn: async ({ date, jobs }: { date: string; jobs: ImportJob[] }): Promise<ImportRun> => {
-      const settled = await Promise.allSettled(
-        jobs.map((job) =>
+      // регионы — по очереди: импорт тяжёлый (геокодинг, расчёт), параллельно бэк упирается в базу
+      const settled: PromiseSettledResult<Awaited<ReturnType<typeof importBeeline>>>[] = [];
+      for (const job of jobs) {
+        const [result] = await Promise.allSettled([
           importBeeline({
             requestsFile: job.requestsFile,
             controlFile: job.controlFile,
             regionId: job.regionId,
             date,
           }),
-        ),
-      );
+        ]);
+        settled.push(result);
+      }
       const reports = settled.map((result, index) => {
         const job = jobs[index];
         return result.status === 'fulfilled'

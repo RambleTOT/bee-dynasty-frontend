@@ -508,6 +508,32 @@ describe('feed: устаревшее и исправленное вручную 
   });
 });
 
+describe('feed: кто прервал заявку', () => {
+  it('бригада из нажатия «Прервать», а не нынешний владелец заявки после пересчёта', () => {
+    const region = makeRegion({ active_plan_id: 'P1', plan_state: 'applied', version: 1 });
+    const events = [
+      makeEvent({
+        event_id: 'A1',
+        event_type: 'engineer_action',
+        plan_id: 'P1',
+        created_at: '2026-09-28T09:30:00Z',
+        payload: { action: 'fail', request_id: '305838184', engineer_id: 'e2' },
+      }),
+      makeEvent({
+        event_id: 'X1',
+        event_type: 'order_cancelled',
+        plan_id: 'P1',
+        result_plan_id: 'P2',
+        created_at: '2026-09-28T09:31:00Z',
+        payload: { request_id: '305838184', reason: 'client_refused', source: 'engineer' },
+      }),
+    ];
+    const plans = [makePlanItem({ plan_id: 'P1', status: 'applied', version: 1 }), makePlanItem({ plan_id: 'P2', scenario_id: 'S1', status: 'rejected' })];
+    const row = buildFeed({ chain: resolveDayChain(region, events, plans), model }).find((r) => r.id === 'X1');
+    expect(row?.text).toBe('Бригада Мельников: «Клиент отказался» по №…8184');
+  });
+});
+
 describe('feed: инцидент инженера', () => {
   it('текст с именем бригады, без кнопки решения', () => {
     const chain = resolveDayChain(

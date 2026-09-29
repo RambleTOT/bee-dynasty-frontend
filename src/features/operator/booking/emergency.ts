@@ -23,6 +23,8 @@ export interface EmergencyFields {
   address: string;
   transport: Transport | null;
   comment: string;
+  /** Точка адреса (подсказка, карта): без координат бэк может не найти адрес (BACKEND_REQUESTS п. 46). */
+  point?: { lat: number; lon: number } | null;
 }
 
 export interface EmergencyInput {
@@ -52,6 +54,7 @@ export function emergencyInput(
       type_bk: BK.emergency,
       type_hd: fields.typeHd,
       source: 'operator',
+      ...(fields.point ? { latitude: fields.point.lat, longitude: fields.point.lon } : {}),
     },
   };
 }
