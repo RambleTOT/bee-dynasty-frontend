@@ -118,7 +118,7 @@ describe('меню ⋯ (D-31)', () => {
     ).toEqual(['Выйти']);
   });
 
-  it('заявка в пути — «Завершить смену» неактивна', async () => {
+  it('заявка в пути — «Завершить смену» объясняет, что сначала закрыть текущую, shift_end не шлёт', async () => {
     vi.mocked(getMyDay).mockResolvedValue(
       dayRaw([visitRaw('A', 1, 'en_route'), visitRaw('B', 2, 'planned')], {
         active_request_id: 'A',
@@ -127,7 +127,14 @@ describe('меню ⋯ (D-31)', () => {
     renderApp();
     await screen.findByText('А. Мельников');
     const menu = await openMenu();
-    expect(within(menu).getByRole('menuitem', { name: 'Завершить смену' })).toBeDisabled();
+    const item = within(menu).getByRole('menuitem', { name: 'Завершить смену' });
+    expect(item).toBeEnabled();
+    fireEvent.click(item);
+    const sheet = await screen.findByRole('dialog', { name: 'Завершить смену пока нельзя' });
+    expect(within(sheet).getByText(/Сначала закройте текущую заявку/)).toBeInTheDocument();
+    expect(within(sheet).getByText(/Осталась 1 заявка/)).toBeInTheDocument();
+    expect(within(sheet).getByRole('button', { name: 'К текущей заявке' })).toBeInTheDocument();
+    expect(postAction).not.toHaveBeenCalled();
   });
 
   it('«Выйти» — выход из учётной записи', async () => {

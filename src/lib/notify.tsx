@@ -1,8 +1,8 @@
-import { CircleCheck, CircleX, Info, X } from 'lucide-react';
+import { CircleCheck, CircleX, Info, TriangleAlert, X } from 'lucide-react';
 import { useSyncExternalStore, type ReactNode } from 'react';
 import styles from './notify.module.css';
 
-export type NotifyKind = 'info' | 'error' | 'success';
+export type NotifyKind = 'info' | 'error' | 'success' | 'warning';
 
 export interface NotifyOptions {
   /** Вторая строка тоста. */
@@ -82,7 +82,7 @@ function subscribe(listener: () => void) {
 
 const getSnapshot = () => notices;
 
-const ICON = { info: Info, success: CircleCheck, error: CircleX } as const;
+const ICON = { info: Info, success: CircleCheck, error: CircleX, warning: TriangleAlert } as const;
 
 /** Рендерит приложение и стек тостов поверх него. */
 export function NotifyProvider({ children }: { children: ReactNode }) {

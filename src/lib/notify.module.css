@@ -44,6 +44,10 @@
   color: var(--toast-danger);
 }
 
+.warning {
+  color: var(--toast-warning);
+}
+
 .text {
   flex: 1;
   min-width: 0;

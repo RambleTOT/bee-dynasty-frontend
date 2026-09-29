@@ -230,8 +230,13 @@ export default function EngineerApp() {
       )}
       {search.sheet === 'shift_end' &&
         state === 'shift' &&
-        !hasActiveVisit(day) &&
-        plannedLeft(day) > 0 && <ShiftEndConfirm count={plannedLeft(day)} onClose={closeSheet} />}
+        (hasActiveVisit(day) || plannedLeft(day) > 0) && (
+          <ShiftEndConfirm
+            count={plannedLeft(day)}
+            blockedBy={hasActiveVisit(day) ? current : null}
+            onClose={closeSheet}
+          />
+        )}
       {search.sheet === 'unavailable' &&
         (state === 'shift' || (state === 'preview' && FEATURES.unavailableBeforeShift)) && (
           <UnavailableSheet day={day} beforeShift={state === 'preview'} onClose={closeSheet} />

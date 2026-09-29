@@ -1,12 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Info, Map as MapIcon, MapPin, Send, Zap } from 'lucide-react';
+import { Info, Map as MapIcon, Send, Zap } from 'lucide-react';
 import { useState } from 'react';
 import { applyOperatorEmergency } from '@/api/booking';
 import { errorMessage, isApiError } from '@/api/errors';
 import { BK, HD_BY_BK, TRANSPORT_ICON } from '@/lib/dictionaries';
 import { notify } from '@/lib/notify';
 import { TRANSPORT_LABEL, TRANSPORTS, isTransport, type Transport } from '@/lib/statuses';
-import { Button, Callout, Input, Select, Textarea } from '@/ui';
+import { Button, Callout, Select, Textarea } from '@/ui';
+import { AddressInput } from '../../shared/AddressInput';
 import { invalidateBooking, mutationErrorText } from '../bookingCache';
 import { T } from '../operatorTexts';
 import { emergencyInput, type EmergencyInput } from './emergency';
@@ -90,13 +91,11 @@ export function EmergencyForm({ regions }: { regions: RegionPicker }) {
           value={typeHd}
           onChange={edited(setTypeHd)}
         />
-        <Input
+        <AddressInput
           fieldClassName={styles.wide}
           label={T.new.address}
-          icon={MapPin}
           value={address}
-          onChange={(event) => edited(setAddress)(event.target.value)}
-          autoComplete="off"
+          onChange={edited(setAddress)}
         />
         <Select
           fieldClassName={styles.wide}

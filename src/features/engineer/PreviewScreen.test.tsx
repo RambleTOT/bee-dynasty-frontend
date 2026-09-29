@@ -48,6 +48,11 @@ describe('E-01 «Превью до начала смены»', () => {
     expect(stops[0]).toHaveTextContent('ул.Окская, д. 1, кв. 13');
     expect(within(stops[0]).getByText('Срочная')).toBeInTheDocument();
     expect(stops[1]).toHaveTextContent('Прибытие ≈ 11:50 · 30 мин · окно 14–16');
+    // каждая заявка открывает свою карточку
+    expect(within(stops[1]).getByRole('link')).toHaveAttribute(
+      'href',
+      expect.stringContaining('305866318'),
+    );
     // до смены кнопок статуса нет
     expect(screen.queryByRole('button', { name: 'Отправиться в путь' })).toBeNull();
     // «Не выйду сегодня» — бэк принимает unavailable до смены (8.5, флаг unavailableBeforeShift)

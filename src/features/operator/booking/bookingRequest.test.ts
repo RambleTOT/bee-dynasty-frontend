@@ -54,10 +54,12 @@ describe('тост после записи', () => {
     );
   });
 
-  it('unassigned — «Инженера назначит диспетчер»', () => {
-    expect(bookedText({ status: 'unassigned', requestId: '1' }, body)).toBe(
-      'Заявка №1 записана на 30.09, 14–16. Инженера назначит диспетчер',
-    );
+  it('unassigned — бригаду не поставить, назначит диспетчер (текст бэка звучит как успех — свой)', () => {
+    const text = 'Заявка №1 записана на 30.09, 14–16, но бригаду в это окно не поставить — назначит диспетчер';
+    expect(bookedText({ status: 'unassigned', requestId: '1' }, body)).toBe(text);
+    expect(
+      bookedText({ status: 'unassigned', requestId: '1', message: 'Инженера назначит диспетчер' }, body),
+    ).toBe(text);
   });
 
   it('202 recalculating — «План дня пересчитывается»', () => {

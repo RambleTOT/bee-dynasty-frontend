@@ -95,7 +95,8 @@ export const T = {
     okPlanned: (id: string | undefined, date: string, window: string) =>
       `Заявка${no(id)} записана на ${date}, ${window}. План дня пересчитан`,
     okUnassigned: (id: string | undefined, date: string, window: string) =>
-      `Заявка${no(id)} записана на ${date}, ${window}. Инженера назначит диспетчер`,
+      `Заявка${no(id)} записана на ${date}, ${window}, но бригаду в это окно не поставить — назначит диспетчер`,
+    unassignedHint: 'Все бригады в это окно заняты. Предложите клиенту другое окно или предупредите диспетчера',
     okRecalc: (date: string, window: string) =>
       `Заявка записана на ${date}, ${window}. План дня пересчитывается`,
     /** Кнопка тоста о записи: к заявке в поиске. */

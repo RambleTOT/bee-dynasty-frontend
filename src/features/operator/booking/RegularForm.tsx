@@ -1,10 +1,11 @@
-import { CircleSlash, List, ListTree, MapPin, Phone } from 'lucide-react';
+import { CircleSlash, List, ListTree, Phone } from 'lucide-react';
 import { useState, type Dispatch } from 'react';
 import type { SlotsModel } from '@/adapters/booking';
 import { phoneValid } from '@/lib/booking';
 import { BK_REGULAR, HD_BY_BK, TRANSPORT_ICON } from '@/lib/dictionaries';
 import { isTransport, TRANSPORT_LABEL, TRANSPORTS } from '@/lib/statuses';
 import { cx, Input, Select, Switch } from '@/ui';
+import { AddressInput } from '../../shared/AddressInput';
 import { T } from '../operatorTexts';
 import type { OperatorRegion } from '../useOperatorRegion';
 import { TECHNOLOGY_REGION } from './bookingRequest';
@@ -64,14 +65,12 @@ export function RegularForm({
           failed={regions.failed}
           onRetry={() => void regions.retry()}
         />
-        <Input
+        <AddressInput
           fieldClassName={styles.wide}
           label={T.new.address}
-          icon={MapPin}
           value={form.address}
-          onChange={(event) => dispatch({ type: 'address', value: event.target.value })}
+          onChange={(value) => dispatch({ type: 'address', value })}
           suffix={slots?.district}
-          autoComplete="off"
         />
         <Select
           label={T.new.typeBk}

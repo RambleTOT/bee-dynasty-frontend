@@ -31,7 +31,8 @@ export function bookingRequestBody(
 
 /** Тост успеха: `message` бэка (⏳ 9.4) важнее; иначе — по статусу, дате и окну записи. */
 export function bookedText(outcome: BookingOutcome, body: BookingRequestIn): string {
-  if (outcome.message) return outcome.message;
+  // бригаду не поставили: текст бэка («Инженера назначит диспетчер») звучит как успех — пишем свой
+  if (outcome.message && outcome.status !== 'unassigned') return outcome.message;
   const date = dateShort(outcome.date ?? body.date);
   const window = windowShort(outcome.window ?? body.window);
   // HTTP 202: день ещё пересчитывается

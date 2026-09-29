@@ -76,6 +76,22 @@
   border-radius: var(--radius-card);
   background: var(--bg-surface);
   color: var(--text-primary);
+  text-decoration: none;
+}
+
+.stopCard:active {
+  background: var(--row-hover);
+}
+
+.stopCard:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.stopChevron {
+  flex: none;
+  margin-left: auto;
+  color: var(--text-tertiary);
 }
 
 .stopHead {

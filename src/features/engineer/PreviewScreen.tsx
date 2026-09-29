@@ -1,4 +1,5 @@
-import { Building2, House } from 'lucide-react';
+import { Building2, ChevronRight, House } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import {
   isClosedStatus,
   type EngineerDayModel,
@@ -6,6 +7,7 @@ import {
 } from '@/adapters/engineerDay';
 import { countOf, formatDayMonth, PL_REQUEST } from '@/lib/format';
 import { UrgentFlag } from '@/ui';
+import { visitPath } from './paths';
 import { AddressText, EquipmentLine } from './VisitBits';
 import styles from './PreviewScreen.module.css';
 
@@ -30,6 +32,7 @@ function stopMeta(visit: EngineerVisitModel): string {
 
 /**
  * E-01 «Превью до начала смены» — «Список»: карточка дня и лента заявок по времени прибытия.
+ * Каждая заявка открывает свою карточку (действий в ней до начала смены нет).
  * Кнопки «Начать смену» / «Не выйду сегодня» — в нижней панели экрана.
  */
 export function PreviewScreen({ day }: { day: EngineerDayModel }) {
@@ -60,17 +63,18 @@ export function PreviewScreen({ day }: { day: EngineerDayModel }) {
               <span className={styles.railTime}>{visit.arrival ?? visit.start ?? '—'}</span>
               <span className={styles.railLine} aria-hidden />
             </div>
-            <div className={styles.stopCard}>
+            <Link to={visitPath(visit.id)} className={styles.stopCard}>
               <div className={styles.stopHead}>
                 <span className={styles.stopTitle}>{visit.title}</span>
                 {visit.flags.includes('urgent') && <UrgentFlag size="sm" />}
+                <ChevronRight size={18} className={styles.stopChevron} aria-hidden />
               </div>
               <div className={styles.stopMeta}>{stopMeta(visit)}</div>
               <div className={styles.stopAddress}>
                 <AddressText address={visit.address} />
               </div>
               <EquipmentLine equipment={visit.equipment} />
-            </div>
+            </Link>
           </li>
         ))}
       </ol>

@@ -174,8 +174,9 @@ export const useActionPending = () => useIsMutating({ mutationKey: ACTION_KEY })
 export function useShiftEnd(day: EngineerDayModel | undefined, confirm: () => void) {
   const action = useEngineerAction();
   const request = () => {
-    if (!day || hasActiveVisit(day) || action.isPending) return;
-    if (plannedLeft(day) === 0) action.mutate({ action: 'shift_end' });
+    if (!day || action.isPending) return;
+    // заявка в пути или в работе — окно объяснит, что сначала закрыть её; остались заявки — предупредит
+    if (!hasActiveVisit(day) && plannedLeft(day) === 0) action.mutate({ action: 'shift_end' });
     else confirm();
   };
   return { request, pending: action.isPending };

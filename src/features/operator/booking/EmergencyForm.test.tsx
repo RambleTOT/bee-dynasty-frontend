@@ -65,7 +65,7 @@ describe('O-01 вкладка «Авария»', () => {
       {} as Awaited<ReturnType<typeof applyOperatorEmergency>>,
     );
     openEmergency();
-    fireEvent.change(screen.getByRole('textbox', { name: 'Адрес' }), {
+    fireEvent.change(screen.getByRole('combobox', { name: 'Адрес' }), {
       target: { value: ' ул. Тестовая, д. 7 (ТКД) ' },
     });
     fireEvent.change(screen.getByRole('textbox', { name: 'Комментарий' }), {
@@ -92,7 +92,7 @@ describe('O-01 вкладка «Авария»', () => {
         source: 'operator',
       },
     });
-    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Адрес' })).toHaveValue(''));
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Адрес' })).toHaveValue(''));
     expect(screen.getByRole('textbox', { name: 'Комментарий' })).toHaveValue('');
   });
 
@@ -101,7 +101,7 @@ describe('O-01 вкладка «Авария»', () => {
       new ApiError(409, 'CONFLICT', 'Рабочий день в регионе Восток ещё не начат'),
     );
     openEmergency();
-    fireEvent.change(screen.getByRole('textbox', { name: 'Адрес' }), {
+    fireEvent.change(screen.getByRole('combobox', { name: 'Адрес' }), {
       target: { value: 'ул. Тестовая, д. 7' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Передать диспетчеру' }));
@@ -109,7 +109,7 @@ describe('O-01 вкладка «Авария»', () => {
       await screen.findByText('Рабочий день в регионе Восток ещё не начат'),
     ).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent('Рабочий день в регионе Восток');
-    expect(screen.getByRole('textbox', { name: 'Адрес' })).toHaveValue('ул. Тестовая, д. 7');
+    expect(screen.getByRole('combobox', { name: 'Адрес' })).toHaveValue('ул. Тестовая, д. 7');
   });
 });
 

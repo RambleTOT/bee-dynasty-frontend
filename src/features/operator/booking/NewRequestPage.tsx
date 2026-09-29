@@ -102,8 +102,11 @@ export default function NewRequestPage() {
       const outcome = normalizeOutcome(result);
       const id = outcome.requestId;
       const ref = id ? { id, regionId: body.region_id, date: outcome.date ?? body.date } : null;
-      notify(bookedText(outcome, body), 'success', {
+      // окно было «свободно», а бригаду не поставили (BACKEND_REQUESTS п. 50) — предупреждение
+      const unassigned = outcome.status === 'unassigned';
+      notify(bookedText(outcome, body), unassigned ? 'warning' : 'success', {
         persistent: true,
+        description: unassigned ? T.book.unassignedHint : undefined,
         action: ref
           ? { label: T.book.open, onClick: () => navigate(searchUrl(ref, ref.id)) }
           : undefined,

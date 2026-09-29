@@ -57,7 +57,7 @@ function renderNew() {
 /** Шаг 1: Восток (первый регион), адрес, «Подключение» → HD по умолчанию. */
 async function fillStepOne() {
   renderNew();
-  fireEvent.change(screen.getByRole('textbox', { name: 'Адрес' }), {
+  fireEvent.change(screen.getByRole('combobox', { name: 'Адрес' }), {
     target: { value: 'ул. Тестовая, д. 1' },
   });
   fireEvent.change(screen.getByRole('combobox', { name: 'Тип заявки BK' }), {
@@ -91,7 +91,7 @@ describe('O-01 шаг 1', () => {
     expect(screen.getByRole('tab', { name: 'Восток' })).toHaveAttribute('aria-selected', 'true');
     const next = screen.getByRole('button', { name: 'Выбрать дату и окно' });
     expect(next).toBeDisabled();
-    fireEvent.change(screen.getByRole('textbox', { name: 'Адрес' }), {
+    fireEvent.change(screen.getByRole('combobox', { name: 'Адрес' }), {
       target: { value: 'ул. Тестовая, д. 1' },
     });
     fireEvent.change(screen.getByRole('combobox', { name: 'Тип заявки BK' }), {
@@ -179,7 +179,7 @@ describe('O-01.2 дата и окно', () => {
   it('«Изменить» — шаг 1 с сохранёнными полями', async () => {
     await goToSlots();
     fireEvent.click(screen.getByRole('button', { name: 'Изменить' }));
-    expect(screen.getByRole('textbox', { name: 'Адрес' })).toHaveValue('ул. Тестовая, д. 1');
+    expect(screen.getByRole('combobox', { name: 'Адрес' })).toHaveValue('ул. Тестовая, д. 1');
     expect(screen.getByRole('combobox', { name: 'Тип заявки BK' })).toHaveValue('Подключение');
   });
 
@@ -210,7 +210,7 @@ describe('O-01.2 дата и окно', () => {
       client_contact: undefined,
     });
     expect(screen.getByText('Шаг 1 из 2')).toBeInTheDocument();
-    expect(screen.getByRole('textbox', { name: 'Адрес' })).toHaveValue('');
+    expect(screen.getByRole('combobox', { name: 'Адрес' })).toHaveValue('');
     expect(screen.getByRole('tab', { name: 'Восток' })).toHaveAttribute('aria-selected', 'true');
     fireEvent.click(screen.getByRole('button', { name: 'Открыть' }));
     expect(screen.getByTestId('location')).toHaveTextContent(
